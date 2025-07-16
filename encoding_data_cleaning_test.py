@@ -31,10 +31,17 @@ class EncodingDataCleaningTester:
     def create_utf8_test_data(self):
         """Create test data with UTF-8 characters"""
         data = {
-            'timestamp': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'],
-            'temperature': [23.5, 24.1, 22.8, 25.3, 23.9],
-            'location': ['São Paulo', 'München', 'Zürich', 'Montréal', 'Kraków'],
-            'notes': ['Día soleado', 'Schönes Wetter', 'Très chaud', 'Beau temps', 'Piękny dzień']
+            'timestamp': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05',
+                         '2023-01-06', '2023-01-07', '2023-01-08', '2023-01-09', '2023-01-10',
+                         '2023-01-11', '2023-01-12', '2023-01-13', '2023-01-14', '2023-01-15'],
+            'temperature': [23.5, 24.1, 22.8, 25.3, 23.9, 24.7, 22.1, 26.2, 23.4, 25.8,
+                           24.3, 22.9, 25.1, 23.7, 24.5],
+            'location': ['São Paulo', 'München', 'Zürich', 'Montréal', 'Kraków',
+                        'São Paulo', 'München', 'Zürich', 'Montréal', 'Kraków',
+                        'São Paulo', 'München', 'Zürich', 'Montréal', 'Kraków'],
+            'notes': ['Día soleado', 'Schönes Wetter', 'Très chaud', 'Beau temps', 'Piękny dzień',
+                     'Día nublado', 'Regnerisch', 'Très froid', 'Temps nuageux', 'Deszczowy dzień',
+                     'Día caluroso', 'Sonnig', 'Très venteux', 'Temps pluvieux', 'Słoneczny dzień']
         }
         df = pd.DataFrame(data)
         return df.to_csv(index=False, encoding='utf-8')
