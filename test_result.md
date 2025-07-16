@@ -181,16 +181,19 @@ backend:
         comment: "❌ TESTED: Data preparation partially works but has critical issues. DLinear shows tensor size mismatch errors with small datasets (49 samples) - sequence generation logic doesn't properly handle cases where seq_len approaches dataset size. Need to add validation for minimum dataset size vs sequence length requirements. LSTM and LightGBM work with reduced parameters (seq_len=8, pred_len=3) but DLinear and N-BEATS fail with default parameters."
 
   - task: "Test pH dataset with advanced models"
-    implemented: false
-    working: "NA"
+    implemented: true
+    working: false
     file: "/app/test_ph_dataset.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "TESTING: Created pH test dataset with 49 samples. File upload and data quality report working (100% quality score). Advanced model training failing with data preparation issues. Need to fix sequence generation for small datasets."
+      - working: false
+        agent: "testing"
+        comment: "❌ TESTED: pH dataset testing reveals mixed results. ✅ WORKING: File upload (100% quality score), LSTM training (Grade A), LightGBM training, model performance retrieval. ❌ FAILING: N-BEATS (NaN losses, state_dict mismatch), advanced prediction (datetime arithmetic error), model comparison (duplicate keys error). Dataset size (49 samples) causes issues with default sequence lengths. Success rate: 50% - core functionality works but specific model implementations need fixes."
 
   - task: "File upload and data analysis endpoint"
     implemented: true
