@@ -16,6 +16,8 @@ function App() {
   const [isTraining, setIsTraining] = useState(false);
   const [isPredicting, setIsPredicting] = useState(false);
   const [verticalOffset, setVerticalOffset] = useState(0);
+  const [predictionOffset, setPredictionOffset] = useState(0);
+  const [continuousPredictions, setContinuousPredictions] = useState([]);
   const [websocket, setWebsocket] = useState(null);
 
   // File upload handler
