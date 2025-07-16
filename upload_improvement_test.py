@@ -121,6 +121,7 @@ class UploadImprovementTester:
         try:
             df = self.create_ph_dataset()
             # Add some Latin-1 characters
+            df = df.astype({'pH': 'object'})  # Convert to object type first
             df.loc[0, 'pH'] = '7.2µ'  # Micro symbol
             csv_content = df.to_csv(index=False).encode('latin-1')
             
