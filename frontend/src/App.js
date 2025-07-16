@@ -389,6 +389,7 @@ function App() {
   // Start continuous prediction with proper extrapolation
   const startContinuousPrediction = async () => {
     setIsPredicting(true);
+    isPredictingRef.current = true;
     setContinuousPredictions([]);
     
     // Load pH simulation data
@@ -411,7 +412,7 @@ function App() {
       // Set up interval for continuous predictions that extrapolate
       const interval = setInterval(async () => {
         try {
-          if (isPredicting) {
+          if (isPredictingRef.current) {
             // Use the new extend-prediction endpoint for smoother continuous prediction
             const extensionResponse = await fetch(`${API}/extend-prediction?steps=5`);
             if (extensionResponse.ok) {
@@ -453,6 +454,7 @@ function App() {
   // Stop continuous prediction
   const stopContinuousPrediction = async () => {
     setIsPredicting(false);
+    isPredictingRef.current = false;
     
     if (websocket) {
       clearInterval(websocket);
