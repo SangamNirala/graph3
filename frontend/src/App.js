@@ -429,46 +429,48 @@ function App() {
                 Predictions {isPredicting && <span className="text-green-600">(Live)</span>}
               </h3>
               {predictionData && (
-                <Plot
-                  data={[
-                    {
-                      x: predictionData.timestamps,
-                      y: predictionData.predictions.map(p => p + verticalOffset * 0.1),
-                      type: 'scatter',
-                      mode: 'lines',
-                      line: { color: '#10B981' },
-                      name: 'Predictions'
-                    },
-                    ...(predictionData.confidence_intervals ? [{
-                      x: predictionData.timestamps,
-                      y: predictionData.confidence_intervals.map(ci => ci.upper + verticalOffset * 0.1),
-                      type: 'scatter',
-                      mode: 'lines',
-                      line: { color: 'rgba(16, 185, 129, 0.3)' },
-                      name: 'Upper Confidence',
-                      showlegend: false
-                    }, {
-                      x: predictionData.timestamps,
-                      y: predictionData.confidence_intervals.map(ci => ci.lower + verticalOffset * 0.1),
-                      type: 'scatter',
-                      mode: 'lines',
-                      fill: 'tonexty',
-                      fillcolor: 'rgba(16, 185, 129, 0.1)',
-                      line: { color: 'rgba(16, 185, 129, 0.3)' },
-                      name: 'Lower Confidence',
-                      showlegend: false
-                    }] : [])
-                  ]}
-                  layout={{
-                    width: 500,
-                    height: 400,
-                    title: 'Predictions',
-                    xaxis: { title: 'Time' },
-                    yaxis: { title: 'Value' },
-                    margin: { l: 50, r: 50, t: 50, b: 50 }
-                  }}
-                  config={{ responsive: true }}
-                />
+                <React.Suspense fallback={<div className="text-center py-8">Loading predictions...</div>}>
+                  <Plot
+                    data={[
+                      {
+                        x: predictionData.timestamps,
+                        y: predictionData.predictions.map(p => p + verticalOffset * 0.1),
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: '#10B981' },
+                        name: 'Predictions'
+                      },
+                      ...(predictionData.confidence_intervals ? [{
+                        x: predictionData.timestamps,
+                        y: predictionData.confidence_intervals.map(ci => ci.upper + verticalOffset * 0.1),
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: 'rgba(16, 185, 129, 0.3)' },
+                        name: 'Upper Confidence',
+                        showlegend: false
+                      }, {
+                        x: predictionData.timestamps,
+                        y: predictionData.confidence_intervals.map(ci => ci.lower + verticalOffset * 0.1),
+                        type: 'scatter',
+                        mode: 'lines',
+                        fill: 'tonexty',
+                        fillcolor: 'rgba(16, 185, 129, 0.1)',
+                        line: { color: 'rgba(16, 185, 129, 0.3)' },
+                        name: 'Lower Confidence',
+                        showlegend: false
+                      }] : [])
+                    ]}
+                    layout={{
+                      width: 500,
+                      height: 400,
+                      title: 'Predictions',
+                      xaxis: { title: 'Time' },
+                      yaxis: { title: 'Value' },
+                      margin: { l: 50, r: 50, t: 50, b: 50 }
+                    }}
+                    config={{ responsive: true }}
+                  />
+                </React.Suspense>
               )}
             </div>
           </div>
