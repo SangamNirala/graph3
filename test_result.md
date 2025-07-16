@@ -369,15 +369,18 @@ frontend:
 
   - task: "New advanced prediction endpoints"
     implemented: true
-    working: true
+    working: false
     file: "/app/backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "IMPLEMENTED: Added /api/advanced-prediction for ensemble predictions with confidence intervals, /api/model-comparison for comparing multiple models, /api/optimize-hyperparameters for automated optimization, /api/data-quality-report for comprehensive data analysis, and /api/model-performance for detailed metrics."
+      - working: false
+        agent: "testing"
+        comment: "❌ TESTED: Mixed results. ✅ /api/supported-models, /api/model-performance, /api/optimize-hyperparameters, /api/model-comparison all working correctly. ❌ CRITICAL ISSUES: /api/advanced-prediction fails with 'Model must be trained first' error (model state management issue), /api/data-quality-report returns 500 error (JSON serialization issue). Core endpoints work but prediction and data quality endpoints have implementation problems."
 
   - task: "Advanced ML models UI integration"
     implemented: true
