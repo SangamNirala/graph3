@@ -331,6 +331,34 @@ def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
     
     return analysis
 
+def clean_and_validate_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean and validate uploaded data"""
+    # Remove completely empty rows and columns
+    df = df.dropna(how='all').dropna(axis=1, how='all')
+    
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    
+    # Reset index after cleaning
+    df = df.reset_index(drop=True)
+    
+    # Basic validation
+    if df.empty:
+        raise ValueError("Dataset is empty after cleaning")
+    
+    # Check for reasonable data types
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            # Try to convert string numbers to numeric
+            try:
+                numeric_series = pd.to_numeric(df[col], errors='coerce')
+                if not numeric_series.isna().all():
+                    df[col] = numeric_series
+            except:
+                pass
+    
+    return df
+
 def prepare_data_for_model(df: pd.DataFrame, time_col: str, target_col: str) -> pd.DataFrame:
     """Prepare data for time series modeling"""
     # Create a copy and sort by time
