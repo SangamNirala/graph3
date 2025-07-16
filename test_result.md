@@ -413,7 +413,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix pH prediction downward trend bias - comprehensive algorithm improvement"
+    - "Three-panel pH monitoring dashboard UI"
+    - "Fixed continuous prediction with proper extrapolation"
+    - "Interactive pH slider functionality"
   stuck_tasks:
     - "WebSocket for real-time updates"
   test_all: false
