@@ -140,12 +140,12 @@ function App() {
     }
   };
 
-  // Generate predictions with offset
-  const generatePredictions = async (offset = 0) => {
+  // Generate predictions with time window
+  const generatePredictions = async (window = 0) => {
     if (!modelId) return;
 
     try {
-      const response = await fetch(`${API}/generate-prediction?model_id=${modelId}&steps=30&offset=${offset}`);
+      const response = await fetch(`${API}/generate-prediction?model_id=${modelId}&steps=30&offset=${window}`);
       if (response.ok) {
         const data = await response.json();
         return data;
@@ -156,25 +156,26 @@ function App() {
     return null;
   };
 
-  // Update predictions based on vertical offset
-  const updatePredictionsWithOffset = async () => {
-    const newOffset = Math.floor(verticalOffset / 10); // Convert slider value to prediction offset
-    setPredictionOffset(newOffset);
-    
+  // Update predictions based on time window
+  const updatePredictionsWithWindow = async () => {
     if (isPredicting) {
-      const newPredictions = await generatePredictions(newOffset);
+      const newPredictions = await generateContinuousPredictions();
       if (newPredictions) {
         setPredictionData(newPredictions);
+        setLstmPredictions(prev => {
+          const updated = [...prev, ...newPredictions.predictions];
+          return updated.slice(-timeWindow); // Keep only data within time window
+        });
       }
     }
   };
 
-  // Update predictions when vertical offset changes
+  // Update predictions when time window changes
   useEffect(() => {
     if (isPredicting && predictionData) {
-      updatePredictionsWithOffset();
+      updatePredictionsWithWindow();
     }
-  }, [verticalOffset]);
+  }, [timeWindow]);
 
   // Simple chart component using Canvas with enhanced features
   const SimpleChart = ({ data, title, color = '#3B82F6', showAnimation = false }) => {
