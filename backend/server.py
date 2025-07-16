@@ -1599,27 +1599,36 @@ async def poll_predictions(last_update: Optional[str] = None):
         logging.error(f"Polling error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Continuous prediction task
+# Enhanced continuous prediction task with multiple broadcast methods
 async def continuous_prediction_task():
-    """Background task for continuous predictions"""
+    """Background task for continuous predictions with WebSocket and SSE support"""
     while True:
-        if current_model is not None:
-            try:
+        try:
+            if current_model is not None and (len(manager.active_connections) > 0 or len(manager.sse_connections) > 0):
                 # Generate continuous prediction that extrapolates forward
                 prediction = await generate_continuous_prediction("current", 30, 100)
                 
                 # Also get real-time pH simulation
                 ph_reading = simulate_real_time_ph()
                 
-                # Broadcast to all connected clients
-                await manager.broadcast(json.dumps({
+                # Create message
+                message = json.dumps({
                     'type': 'prediction_update',
                     'data': prediction,
-                    'ph_reading': ph_reading
-                }))
+                    'ph_reading': ph_reading,
+                    'timestamp': datetime.now().isoformat()
+                })
                 
-            except Exception as e:
-                print(f"Error in continuous prediction: {e}")
+                # Broadcast to WebSocket connections
+                if len(manager.active_connections) > 0:
+                    await manager.broadcast(message)
+                
+                # Broadcast to SSE connections
+                if len(manager.sse_connections) > 0:
+                    await manager.broadcast_sse(message)
+                    
+        except Exception as e:
+            logging.error(f"Error in continuous prediction: {e}")
         
         await asyncio.sleep(1)  # Update every 1 second for smoother experience
 
