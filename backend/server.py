@@ -592,17 +592,78 @@ async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any])
             except Exception as arima_error:
                 print(f"ARIMA training error: {arima_error}")
                 raise HTTPException(status_code=500, detail=f"ARIMA model training failed: {str(arima_error)}")
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported model type. Use 'prophet' or 'arima'")
         
-        # Store model globally
+        elif model_type in supported_advanced_models:
+            print(f"Training advanced model: {model_type}")
+            try:
+                # Add model_type to parameters
+                parameters['model_type'] = model_type
+                
+                # Train advanced model
+                advanced_result = train_advanced_model(prepared_data, time_col, target_col, parameters)
+                model = advanced_result['model']
+                
+                print(f"Advanced model trained successfully: {model_type}")
+                
+                # Store advanced model globally
+                current_model = {
+                    'model': model,
+                    'model_type': model_type,
+                    'time_col': time_col,
+                    'target_col': target_col,
+                    'parameters': parameters,
+                    'data': prepared_data,
+                    'is_advanced': True,
+                    'preprocessor': advanced_result['preprocessor'],
+                    'evaluation_results': advanced_result.get('evaluation_results', {})
+                }
+                
+                # Create training record with performance metrics
+                performance_metrics = {}
+                if 'evaluation_results' in advanced_result and 'basic_metrics' in advanced_result['evaluation_results']:
+                    performance_metrics = advanced_result['evaluation_results']['basic_metrics']
+                
+                training_record = ModelTraining(
+                    data_id=data_id,
+                    model_type=model_type,
+                    parameters=parameters,
+                    training_status="completed",
+                    model_performance={
+                        "status": "trained",
+                        "metrics": performance_metrics,
+                        "evaluation_grade": advanced_result.get('evaluation_results', {}).get('evaluation_summary', {}).get('performance_grade', 'N/A')
+                    }
+                )
+                
+                await db.model_trainings.insert_one(training_record.dict())
+                
+                print(f"Advanced model training completed successfully. Model ID: {training_record.id}")
+                
+                return {
+                    "status": "success",
+                    "model_id": training_record.id,
+                    "message": f"{model_type.upper()} model trained successfully",
+                    "performance_metrics": performance_metrics,
+                    "evaluation_grade": advanced_result.get('evaluation_results', {}).get('evaluation_summary', {}).get('performance_grade', 'N/A'),
+                    "supported_models": supported_advanced_models
+                }
+                
+            except Exception as advanced_error:
+                print(f"Advanced model training error: {advanced_error}")
+                raise HTTPException(status_code=500, detail=f"Advanced model training failed: {str(advanced_error)}")
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported model type: {model_type}. Supported types: prophet, arima, {', '.join(supported_advanced_models)}")
+        
+        # Store traditional model globally (for prophet and arima)
         current_model = {
             'model': model,
             'model_type': model_type,
             'time_col': time_col,
             'target_col': target_col,
             'parameters': parameters,
-            'data': prepared_data
+            'data': prepared_data,
+            'is_advanced': False
         }
         
         # Create training record
