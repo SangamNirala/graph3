@@ -169,6 +169,11 @@ function App() {
       return;
     }
 
+    if (parameters.time_column === parameters.target_column) {
+      alert('Time column and target column cannot be the same. Please select different columns.');
+      return;
+    }
+
     setIsTraining(true);
     try {
       const response = await fetch(`${API}/train-model?data_id=${uploadedData.data_id}&model_type=${parameters.model_type}`, {
