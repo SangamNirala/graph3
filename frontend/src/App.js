@@ -695,24 +695,65 @@ function App() {
 
             {/* pH Control Slider */}
             <div className="mb-6">
+              {/* Visual pH Scale */}
               <div className="flex justify-center mb-4">
                 <div className="relative">
                   <div className="w-4 h-64 bg-gradient-to-t from-red-500 via-yellow-500 to-green-500 rounded-full"></div>
+                  {/* Current pH Indicator */}
                   <div 
-                    className="absolute w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-lg transform -translate-x-1"
+                    className="absolute w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-lg transform -translate-x-1 transition-all duration-300"
                     style={{ 
                       top: `${((14 - phData.current_ph) / 14) * 100}%`,
                       marginTop: '-12px'
                     }}
                   ></div>
+                  {/* Target pH Indicator */}
+                  <div 
+                    className="absolute w-4 h-4 bg-orange-500 rounded-full border-2 border-white shadow-md transform -translate-x-0.5 transition-all duration-300"
+                    style={{ 
+                      top: `${((14 - targetPh) / 14) * 100}%`,
+                      marginTop: '-8px'
+                    }}
+                  ></div>
                 </div>
               </div>
+              
+              {/* Interactive pH Slider */}
+              <div className="flex justify-center mb-4">
+                <div className="relative">
+                  <input
+                    type="range"
+                    min="0"
+                    max="14"
+                    step="0.1"
+                    value={targetPh}
+                    onChange={(e) => {
+                      const newTarget = parseFloat(e.target.value);
+                      handlePhTargetChange(newTarget);
+                    }}
+                    className="w-64 h-4 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-vertical"
+                    style={{
+                      transform: 'rotate(-90deg)',
+                      transformOrigin: 'center'
+                    }}
+                  />
+                </div>
+              </div>
+              
               <div className="text-center">
                 <div className="text-xs text-gray-500 mb-2">pH Scale</div>
-                <div className="flex justify-between text-xs text-gray-400">
+                <div className="flex justify-between text-xs text-gray-400 mb-2">
                   <span>0</span>
                   <span>7</span>
                   <span>14</span>
+                </div>
+                <div className="text-xs text-gray-600">
+                  <span className="inline-block w-3 h-3 bg-blue-600 rounded-full mr-1"></span>
+                  Current: {phData.current_ph.toFixed(2)}
+                  <span className="mx-2">|</span>
+                  <span className="inline-block w-3 h-3 bg-orange-500 rounded-full mr-1"></span>
+                  Target: {targetPh.toFixed(1)}
+                  {isAdjustingPh && <span className="ml-2 text-blue-500">Adjusting...</span>}
                 </div>
               </div>
             </div>
