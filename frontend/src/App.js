@@ -377,7 +377,7 @@ function App() {
       const initialPredictions = await generateContinuousPredictions();
       if (initialPredictions) {
         setPredictionData(initialPredictions);
-        setLstmPredictions(initialPredictions.predictions);
+        setLstmPredictions(initialPredictions.predictions || []);
       }
       
       // Set up interval for continuous predictions that extrapolate
@@ -389,7 +389,7 @@ function App() {
             if (newPredictions) {
               setPredictionData(newPredictions);
               setLstmPredictions(prev => {
-                const updated = [...prev, ...newPredictions.predictions];
+                const updated = [...prev, ...(newPredictions.predictions || [])];
                 return updated.slice(-timeWindow); // Keep within time window
               });
             }
