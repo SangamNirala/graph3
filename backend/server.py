@@ -1118,6 +1118,257 @@ async def reset_continuous_prediction():
     continuous_predictions = []
     return {"status": "reset", "message": "Continuous prediction reset"}
 
+@api_router.get("/supported-models")
+async def get_supported_models():
+    """Get list of supported model types"""
+    return {
+        "status": "success",
+        "traditional_models": ["prophet", "arima"],
+        "advanced_models": supported_advanced_models,
+        "all_models": ["prophet", "arima"] + supported_advanced_models
+    }
+
+@api_router.get("/model-performance")
+async def get_model_performance():
+    """Get current model performance metrics"""
+    global current_model, model_evaluation_results
+    
+    if current_model is None:
+        raise HTTPException(status_code=400, detail="No model trained")
+    
+    performance_data = {
+        "model_type": current_model['model_type'],
+        "is_advanced": current_model.get('is_advanced', False),
+        "parameters": current_model.get('parameters', {}),
+        "performance_metrics": {}
+    }
+    
+    # Add evaluation results if available
+    if current_model.get('is_advanced', False) and model_evaluation_results:
+        performance_data["evaluation_results"] = model_evaluation_results
+    
+    return {
+        "status": "success",
+        "performance_data": performance_data
+    }
+
+@api_router.post("/optimize-hyperparameters")
+async def optimize_model_hyperparameters(model_type: str, n_trials: int = 30):
+    """Optimize hyperparameters for a specific model type"""
+    global current_data
+    
+    if current_data is None:
+        raise HTTPException(status_code=400, detail="No data uploaded")
+    
+    if model_type not in supported_advanced_models:
+        raise HTTPException(status_code=400, detail=f"Unsupported model type for optimization: {model_type}")
+    
+    try:
+        # Get the suggested parameters from data analysis
+        analysis = analyze_data(current_data)
+        time_col = analysis['suggested_parameters']['time_column']
+        target_col = analysis['suggested_parameters']['target_column']
+        
+        if not time_col or not target_col:
+            raise HTTPException(status_code=400, detail="Could not determine time and target columns")
+        
+        # Prepare data
+        prepared_data = prepare_data_for_model(current_data, time_col, target_col)
+        
+        # Optimize hyperparameters
+        optimization_results = optimize_hyperparameters(
+            model_type, prepared_data, time_col, target_col, n_trials
+        )
+        
+        return {
+            "status": "success",
+            "model_type": model_type,
+            "optimization_results": optimization_results,
+            "best_parameters": optimization_results['best_params'],
+            "best_score": optimization_results['best_value']
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Hyperparameter optimization failed: {str(e)}")
+
+@api_router.get("/data-quality-report")
+async def get_data_quality_report():
+    """Get comprehensive data quality report"""
+    global current_data
+    
+    if current_data is None:
+        raise HTTPException(status_code=400, detail="No data uploaded")
+    
+    try:
+        # Get the suggested parameters from data analysis
+        analysis = analyze_data(current_data)
+        time_col = analysis['suggested_parameters']['time_column']
+        target_col = analysis['suggested_parameters']['target_column']
+        
+        if not time_col or not target_col:
+            raise HTTPException(status_code=400, detail="Could not determine time and target columns")
+        
+        # Validate data quality
+        validator = TimeSeriesValidator()
+        validation_results = validator.validate_data_quality(current_data, time_col, target_col)
+        
+        return {
+            "status": "success",
+            "validation_results": validation_results,
+            "quality_score": validation_results['quality_score'],
+            "recommendations": validation_results['recommendations']
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Data quality report generation failed: {str(e)}")
+
+@api_router.post("/advanced-prediction")
+async def generate_advanced_prediction(steps: int = 30, confidence_level: float = 0.95):
+    """Generate predictions using advanced models with confidence intervals"""
+    global current_model, current_advanced_model
+    
+    if current_model is None:
+        raise HTTPException(status_code=400, detail="No model trained")
+    
+    if not current_model.get('is_advanced', False):
+        raise HTTPException(status_code=400, detail="This endpoint requires an advanced model")
+    
+    try:
+        # Get the last sequence from the data
+        data = current_model['data']
+        target_col = current_model['target_col']
+        
+        last_sequence = data[target_col].values[-50:]  # Use last 50 points
+        
+        # Generate predictions
+        if isinstance(current_advanced_model, ModelEnsemble):
+            # Ensemble prediction
+            prediction_results = current_advanced_model.predict(last_sequence, steps)
+            predictions = prediction_results['ensemble_prediction']
+            confidence = prediction_results['prediction_confidence']
+            individual_predictions = prediction_results['individual_predictions']
+        else:
+            # Single model prediction
+            predictions = current_advanced_model.predict_next_steps(last_sequence, steps)
+            confidence = np.full(len(predictions), 85.0)  # Default confidence
+            individual_predictions = {}
+        
+        # Generate timestamps
+        last_timestamp = data.index[-1] if hasattr(data, 'index') else datetime.now()
+        if isinstance(last_timestamp, str):
+            last_timestamp = pd.to_datetime(last_timestamp)
+        
+        timestamps = []
+        for i in range(1, steps + 1):
+            future_timestamp = last_timestamp + timedelta(days=i)
+            timestamps.append(future_timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+        
+        # Calculate confidence intervals
+        prediction_std = np.std(predictions) if len(predictions) > 1 else 0.1
+        z_score = 1.96 if confidence_level == 0.95 else 2.576
+        
+        confidence_intervals = []
+        for i, pred in enumerate(predictions):
+            lower_bound = pred - z_score * prediction_std
+            upper_bound = pred + z_score * prediction_std
+            confidence_intervals.append({
+                'lower': float(lower_bound),
+                'upper': float(upper_bound)
+            })
+        
+        return {
+            "status": "success",
+            "model_type": current_model['model_type'],
+            "predictions": predictions.tolist(),
+            "timestamps": timestamps,
+            "confidence": confidence.tolist(),
+            "confidence_intervals": confidence_intervals,
+            "individual_predictions": individual_predictions,
+            "prediction_horizon": steps
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Advanced prediction failed: {str(e)}")
+
+@api_router.get("/model-comparison")
+async def compare_models():
+    """Compare performance of different model types"""
+    global current_data
+    
+    if current_data is None:
+        raise HTTPException(status_code=400, detail="No data uploaded")
+    
+    try:
+        # Get the suggested parameters from data analysis
+        analysis = analyze_data(current_data)
+        time_col = analysis['suggested_parameters']['time_column']
+        target_col = analysis['suggested_parameters']['target_column']
+        
+        if not time_col or not target_col:
+            raise HTTPException(status_code=400, detail="Could not determine time and target columns")
+        
+        # Prepare data
+        prepared_data = prepare_data_for_model(current_data, time_col, target_col)
+        
+        # Create and train multiple models for comparison
+        models_to_compare = ['dlinear', 'nbeats', 'lstm']
+        comparison_results = {}
+        
+        for model_type in models_to_compare:
+            try:
+                # Create model
+                model = AdvancedTimeSeriesForecaster(50, 30, model_type)
+                
+                # Prepare data
+                data_dict = model.prepare_data(prepared_data, time_col, target_col)
+                
+                # Train model
+                if model_type in ['dlinear', 'nbeats', 'lstm']:
+                    model.train_pytorch_model(
+                        data_dict['X_train'], data_dict['y_train'],
+                        data_dict['X_test'], data_dict['y_test'],
+                        epochs=50  # Reduced for comparison
+                    )
+                
+                # Evaluate model
+                evaluation_results = evaluate_model_performance(
+                    model, prepared_data, time_col, target_col
+                )
+                
+                comparison_results[model_type] = {
+                    'metrics': evaluation_results.get('basic_metrics', {}),
+                    'advanced_metrics': evaluation_results.get('advanced_metrics', {}),
+                    'performance_grade': evaluation_results.get('evaluation_summary', {}).get('performance_grade', 'N/A')
+                }
+                
+            except Exception as e:
+                comparison_results[model_type] = {
+                    'error': str(e),
+                    'performance_grade': 'F'
+                }
+        
+        # Find best model
+        best_model = None
+        best_score = float('inf')
+        
+        for model_type, results in comparison_results.items():
+            if 'metrics' in results and 'rmse' in results['metrics']:
+                rmse = results['metrics']['rmse']
+                if rmse < best_score:
+                    best_score = rmse
+                    best_model = model_type
+        
+        return {
+            "status": "success",
+            "comparison_results": comparison_results,
+            "best_model": best_model,
+            "best_score": best_score,
+            "models_compared": models_to_compare
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Model comparison failed: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
