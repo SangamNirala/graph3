@@ -282,11 +282,20 @@ def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
     analysis['numeric_columns'] = df.select_dtypes(include=[np.number]).columns.tolist()
     
     # Create data preview
-    analysis['data_preview'] = {
-        'head': df.head(10).to_dict('records'),
-        'describe': df.describe().to_dict() if len(analysis['numeric_columns']) > 0 else {},
-        'missing_values': df.isnull().sum().to_dict()
-    }
+    try:
+        analysis['data_preview'] = {
+            'head': df.head(10).to_dict('records'),
+            'describe': df.describe().to_dict() if len(analysis['numeric_columns']) > 0 else {},
+            'missing_values': df.isnull().sum().to_dict()
+        }
+    except Exception as e:
+        print(f"Error creating data preview: {e}")
+        # Fallback to safer data preview
+        analysis['data_preview'] = {
+            'head': [],
+            'describe': {},
+            'missing_values': {}
+        }
     
     # Suggest parameters
     analysis['suggested_parameters'] = {
