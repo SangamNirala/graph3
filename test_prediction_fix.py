@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / 'frontend' / '.env')
 
-BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://928bd53a-bdb0-4acc-9c7a-171dce1b61d7.preview.emergentagent.com')
+BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://ba224374-4826-4471-974e-2aaccc696714.preview.emergentagent.com')
 API_BASE_URL = f"{BACKEND_URL}/api"
 
 def create_sample_data():
