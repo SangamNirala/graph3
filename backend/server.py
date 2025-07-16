@@ -735,7 +735,13 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
                 confidence = np.full(len(prediction_values), 85.0)  # Default confidence
             
             # Generate timestamps
-            last_timestamp = data.index[-1] if hasattr(data, 'index') else datetime.now()
+            time_col = current_model['time_col']
+            if time_col in data.columns:
+                last_timestamp = pd.to_datetime(data[time_col].iloc[-1])
+            else:
+                # Fallback to current time if no time column available
+                last_timestamp = datetime.now()
+            
             if isinstance(last_timestamp, str):
                 last_timestamp = pd.to_datetime(last_timestamp)
             
