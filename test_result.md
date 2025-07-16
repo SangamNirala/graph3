@@ -378,7 +378,7 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -389,6 +389,9 @@ backend:
       - working: false
         agent: "main"
         comment: "PARTIALLY FIXED: Fixed model state management and JSON serialization issues. However, data quality report is now working but advanced prediction endpoint still has issues due to data preparation problems with small datasets."
+      - working: false
+        agent: "testing"
+        comment: "❌ TESTED: Mixed results with pH dataset. ✅ WORKING: /api/supported-models, /api/model-performance (after successful LSTM training), /api/data-quality-report (100% quality score). ❌ FAILING: /api/advanced-prediction (datetime arithmetic error: 'int' + 'timedelta'), /api/model-comparison (duplicate keys error), /api/optimize-hyperparameters (duplicate keys error). Success rate: 50%. Core endpoints work but prediction generation and comparison features have bugs."
 
 metadata:
   created_by: "main_agent"
