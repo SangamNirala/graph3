@@ -242,18 +242,24 @@ class PhPredictionTester:
                 
                 if response.status_code == 200:
                     data = response.json()
-                    predictions = data.get('predictions', [])
-                    all_predictions.extend(predictions)
-                    
-                    print(f"   Call {i+1}: Generated {len(predictions)} predictions, mean: {statistics.mean(predictions):.2f}")
-                    
-                    # Check pattern analysis if available
-                    if 'pattern_analysis' in data:
-                        pattern = data['pattern_analysis']
-                        print(f"   Pattern Analysis - Trend: {pattern.get('trend_slope', 'N/A'):.4f}, "
-                              f"Velocity: {pattern.get('velocity', 'N/A'):.4f}")
+                    if data is not None:
+                        predictions = data.get('predictions', [])
+                        all_predictions.extend(predictions)
+                        
+                        if predictions:
+                            print(f"   Call {i+1}: Generated {len(predictions)} predictions, mean: {statistics.mean(predictions):.2f}")
+                            
+                            # Check pattern analysis if available
+                            if 'pattern_analysis' in data:
+                                pattern = data['pattern_analysis']
+                                print(f"   Pattern Analysis - Trend: {pattern.get('trend_slope', 'N/A'):.4f}, "
+                                      f"Velocity: {pattern.get('velocity', 'N/A'):.4f}")
+                        else:
+                            print(f"   Call {i+1}: No predictions returned")
+                    else:
+                        print(f"   Call {i+1}: Null response data")
                 else:
-                    print(f"❌ Continuous prediction call {i+1} failed: {response.status_code}")
+                    print(f"❌ Continuous prediction call {i+1} failed: {response.status_code} - {response.text}")
                     
                 time.sleep(0.5)  # Small delay between calls
             
