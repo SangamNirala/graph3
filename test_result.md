@@ -399,7 +399,7 @@ frontend:
 
   - task: "Enhanced model training with performance feedback"
     implemented: true
-    working: true
+    working: "NA"
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
@@ -408,6 +408,9 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "IMPLEMENTED: Updated model training to show performance metrics and evaluation grades for advanced models. Added loading states for optimization, model comparison, and performance tracking. Enhanced user feedback with detailed metrics display."
+      - working: "NA"
+        agent: "testing"
+        comment: "BACKEND TESTING ONLY: Frontend performance feedback not tested as per testing protocol. Backend APIs provide comprehensive performance data: /api/train-model returns performance metrics and evaluation grades, /api/model-performance provides detailed metrics, training responses include RMSE, MAE, R², MAPE values and A-F performance grades."
 
   - task: "Data quality and model performance visualization"
     implemented: true
