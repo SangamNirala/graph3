@@ -70,6 +70,16 @@ class DLinearModel(nn.Module):
         else:
             self.Linear_Seasonal = nn.Linear(seq_len, pred_len)
             self.Linear_Trend = nn.Linear(seq_len, pred_len)
+        
+        # Initialize weights properly
+        self.apply(self._init_weights)
+        
+    def _init_weights(self, module):
+        """Initialize weights to prevent NaN losses"""
+        if isinstance(module, nn.Linear):
+            torch.nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                torch.nn.init.constant_(module.bias, 0)
             
     def forward(self, x):
         # Decomposition
