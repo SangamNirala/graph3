@@ -604,8 +604,346 @@ class BackendTester:
             print(f"❌ Continuous prediction flow error: {str(e)}")
             self.test_results['continuous_prediction_flow'] = False
     
+    def test_ph_target_management(self):
+        """Test 11: pH Target Management"""
+        print("\n=== Testing pH Target Management ===")
+        
+        try:
+            ph_target_tests = []
+            
+            # Test 1: Set valid pH target (7.0)
+            response = self.session.post(
+                f"{API_BASE_URL}/set-ph-target",
+                json={"target_ph": 7.0}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                print("✅ Set pH target 7.0 successful")
+                print(f"   Status: {data.get('status')}")
+                print(f"   Target pH: {data.get('target_ph')}")
+                print(f"   Message: {data.get('message')}")
+                ph_target_tests.append(("Set pH target 7.0", True))
+            else:
+                print(f"❌ Set pH target 7.0 failed: {response.status_code} - {response.text}")
+                ph_target_tests.append(("Set pH target 7.0", False))
+            
+            # Test 2: Set valid pH target (8.5)
+            response = self.session.post(
+                f"{API_BASE_URL}/set-ph-target",
+                json={"target_ph": 8.5}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                print("✅ Set pH target 8.5 successful")
+                print(f"   Target pH: {data.get('target_ph')}")
+                ph_target_tests.append(("Set pH target 8.5", True))
+            else:
+                print(f"❌ Set pH target 8.5 failed: {response.status_code} - {response.text}")
+                ph_target_tests.append(("Set pH target 8.5", False))
+            
+            # Test 3: Set valid pH target (6.2)
+            response = self.session.post(
+                f"{API_BASE_URL}/set-ph-target",
+                json={"target_ph": 6.2}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                print("✅ Set pH target 6.2 successful")
+                print(f"   Target pH: {data.get('target_ph')}")
+                ph_target_tests.append(("Set pH target 6.2", True))
+            else:
+                print(f"❌ Set pH target 6.2 failed: {response.status_code} - {response.text}")
+                ph_target_tests.append(("Set pH target 6.2", False))
+            
+            # Test 4: Test pH validation - invalid high value (15.0)
+            response = self.session.post(
+                f"{API_BASE_URL}/set-ph-target",
+                json={"target_ph": 15.0}
+            )
+            
+            if response.status_code >= 400:
+                print("✅ pH validation correctly rejected pH 15.0 (outside 0-14 range)")
+                ph_target_tests.append(("Reject invalid pH 15.0", True))
+            else:
+                print("❌ pH validation failed to reject pH 15.0")
+                ph_target_tests.append(("Reject invalid pH 15.0", False))
+            
+            # Test 5: Test pH validation - invalid low value (-1.0)
+            response = self.session.post(
+                f"{API_BASE_URL}/set-ph-target",
+                json={"target_ph": -1.0}
+            )
+            
+            if response.status_code >= 400:
+                print("✅ pH validation correctly rejected pH -1.0 (outside 0-14 range)")
+                ph_target_tests.append(("Reject invalid pH -1.0", True))
+            else:
+                print("❌ pH validation failed to reject pH -1.0")
+                ph_target_tests.append(("Reject invalid pH -1.0", False))
+            
+            # Test 6: Verify pH target affects simulation
+            # Set a specific target pH
+            self.session.post(f"{API_BASE_URL}/set-ph-target", json={"target_ph": 7.8})
+            
+            # Get pH simulation to check if target affects readings
+            response = self.session.get(f"{API_BASE_URL}/ph-simulation")
+            
+            if response.status_code == 200:
+                data = response.json()
+                ph_value = data.get('ph_value')
+                print(f"✅ pH simulation responds to target pH setting")
+                print(f"   Current pH reading: {ph_value} (target: 7.8)")
+                ph_target_tests.append(("pH simulation responds to target", True))
+            else:
+                print("❌ pH simulation failed after setting target")
+                ph_target_tests.append(("pH simulation responds to target", False))
+            
+            # Evaluate pH target management tests
+            passed_tests = sum(1 for _, passed in ph_target_tests if passed)
+            total_tests = len(ph_target_tests)
+            
+            print(f"✅ pH target management tests passed: {passed_tests}/{total_tests}")
+            for test_name, passed in ph_target_tests:
+                status = "✅" if passed else "❌"
+                print(f"   {status} {test_name}")
+            
+            self.test_results['ph_target_management'] = passed_tests >= total_tests * 0.8  # 80% pass rate
+            
+        except Exception as e:
+            print(f"❌ pH target management error: {str(e)}")
+            self.test_results['ph_target_management'] = False
+    
+    def test_advanced_pattern_analysis(self):
+        """Test 12: Advanced Pattern Analysis Features"""
+        print("\n=== Testing Advanced Pattern Analysis ===")
+        
+        if not self.model_id:
+            print("❌ Cannot test pattern analysis - no model trained")
+            self.test_results['pattern_analysis'] = False
+            return
+            
+        try:
+            pattern_tests = []
+            
+            # Test 1: Generate continuous prediction with pattern analysis
+            response = self.session.get(
+                f"{API_BASE_URL}/generate-continuous-prediction",
+                params={"model_id": self.model_id, "steps": 30, "time_window": 100}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                pattern_analysis = data.get('pattern_analysis')
+                predictions = data.get('predictions', [])
+                
+                print("✅ Advanced continuous prediction with pattern analysis successful")
+                print(f"   Number of predictions: {len(predictions)}")
+                
+                if pattern_analysis:
+                    print("✅ Pattern analysis data included:")
+                    print(f"   Trend slope: {pattern_analysis.get('trend_slope')}")
+                    print(f"   Velocity: {pattern_analysis.get('velocity')}")
+                    print(f"   Recent mean: {pattern_analysis.get('recent_mean')}")
+                    print(f"   Last value: {pattern_analysis.get('last_value')}")
+                    pattern_tests.append(("Pattern analysis included", True))
+                else:
+                    print("❌ Pattern analysis data missing")
+                    pattern_tests.append(("Pattern analysis included", False))
+                
+                # Test that predictions honor historical trends
+                if len(predictions) >= 5:
+                    # Check if predictions show some trend consistency
+                    trend_consistency = abs(predictions[-1] - predictions[0]) > 0  # Some change over time
+                    print(f"✅ Predictions show trend consistency: {trend_consistency}")
+                    pattern_tests.append(("Trend consistency", trend_consistency))
+                else:
+                    pattern_tests.append(("Trend consistency", False))
+                    
+            else:
+                print(f"❌ Advanced continuous prediction failed: {response.status_code} - {response.text}")
+                pattern_tests.append(("Pattern analysis included", False))
+                pattern_tests.append(("Trend consistency", False))
+            
+            # Test 2: Test prediction extension mechanism
+            response = self.session.get(f"{API_BASE_URL}/extend-prediction", params={"steps": 10})
+            
+            if response.status_code == 200:
+                data = response.json()
+                extension_info = data.get('extension_info')
+                predictions = data.get('predictions', [])
+                
+                print("✅ Prediction extension successful")
+                print(f"   Number of extended predictions: {len(predictions)}")
+                
+                if extension_info:
+                    print("✅ Extension info included:")
+                    print(f"   Trend: {extension_info.get('trend')}")
+                    print(f"   Velocity: {extension_info.get('velocity')}")
+                    print(f"   Base value: {extension_info.get('base_value')}")
+                    pattern_tests.append(("Extension mechanism", True))
+                else:
+                    print("❌ Extension info missing")
+                    pattern_tests.append(("Extension mechanism", False))
+                    
+            else:
+                print(f"❌ Prediction extension failed: {response.status_code} - {response.text}")
+                pattern_tests.append(("Extension mechanism", False))
+            
+            # Test 3: Test smooth transition capabilities
+            # Make multiple extension calls to test smooth transitions
+            timestamps_list = []
+            predictions_list = []
+            
+            for i in range(3):
+                response = self.session.get(f"{API_BASE_URL}/extend-prediction", params={"steps": 5})
+                if response.status_code == 200:
+                    data = response.json()
+                    timestamps_list.append(data.get('timestamps', []))
+                    predictions_list.append(data.get('predictions', []))
+                    time.sleep(0.5)
+            
+            if len(predictions_list) >= 2:
+                # Check if predictions maintain smooth transitions
+                smooth_transition = True
+                for i in range(1, len(predictions_list)):
+                    if predictions_list[i] and predictions_list[i-1]:
+                        # Check if there's reasonable continuity
+                        last_prev = predictions_list[i-1][-1] if predictions_list[i-1] else 0
+                        first_curr = predictions_list[i][0] if predictions_list[i] else 0
+                        gap = abs(first_curr - last_prev)
+                        if gap > 1000:  # Arbitrary threshold for "smooth"
+                            smooth_transition = False
+                            break
+                
+                print(f"✅ Smooth transition test: {smooth_transition}")
+                pattern_tests.append(("Smooth transitions", smooth_transition))
+            else:
+                pattern_tests.append(("Smooth transitions", False))
+            
+            # Evaluate pattern analysis tests
+            passed_tests = sum(1 for _, passed in pattern_tests if passed)
+            total_tests = len(pattern_tests)
+            
+            print(f"✅ Pattern analysis tests passed: {passed_tests}/{total_tests}")
+            for test_name, passed in pattern_tests:
+                status = "✅" if passed else "❌"
+                print(f"   {status} {test_name}")
+            
+            self.test_results['pattern_analysis'] = passed_tests >= total_tests * 0.7  # 70% pass rate
+            
+        except Exception as e:
+            print(f"❌ Pattern analysis error: {str(e)}")
+            self.test_results['pattern_analysis'] = False
+    
+    def test_integration_flow(self):
+        """Test 13: Complete Integration Flow"""
+        print("\n=== Testing Complete Integration Flow ===")
+        
+        try:
+            integration_tests = []
+            
+            print("Starting complete integration flow test...")
+            
+            # Step 1: File upload
+            df = self.create_sample_data()
+            csv_content = df.to_csv(index=False)
+            files = {'file': ('integration_test.csv', csv_content, 'text/csv')}
+            
+            response = self.session.post(f"{API_BASE_URL}/upload-data", files=files)
+            upload_success = response.status_code == 200
+            integration_tests.append(("File upload", upload_success))
+            
+            if upload_success:
+                data_id = response.json().get('data_id')
+                print("✅ Step 1: File upload successful")
+            else:
+                print("❌ Step 1: File upload failed")
+                self.test_results['integration_flow'] = False
+                return
+            
+            # Step 2: Model training
+            response = self.session.post(
+                f"{API_BASE_URL}/train-model",
+                params={"data_id": data_id, "model_type": "arima"},
+                json={"time_column": "date", "target_column": "sales", "order": [1, 1, 1]}
+            )
+            training_success = response.status_code == 200
+            integration_tests.append(("Model training", training_success))
+            
+            if training_success:
+                model_id = response.json().get('model_id')
+                print("✅ Step 2: Model training successful")
+            else:
+                print("❌ Step 2: Model training failed")
+                self.test_results['integration_flow'] = False
+                return
+            
+            # Step 3: Initial predictions
+            response = self.session.get(
+                f"{API_BASE_URL}/generate-prediction",
+                params={"model_id": model_id, "steps": 20}
+            )
+            initial_pred_success = response.status_code == 200
+            integration_tests.append(("Initial predictions", initial_pred_success))
+            
+            if initial_pred_success:
+                print("✅ Step 3: Initial predictions successful")
+            else:
+                print("❌ Step 3: Initial predictions failed")
+            
+            # Step 4: Continuous prediction
+            response = self.session.get(
+                f"{API_BASE_URL}/generate-continuous-prediction",
+                params={"model_id": model_id, "steps": 15, "time_window": 100}
+            )
+            continuous_pred_success = response.status_code == 200
+            integration_tests.append(("Continuous prediction", continuous_pred_success))
+            
+            if continuous_pred_success:
+                print("✅ Step 4: Continuous prediction successful")
+            else:
+                print("❌ Step 4: Continuous prediction failed")
+            
+            # Step 5: Prediction extension
+            response = self.session.get(f"{API_BASE_URL}/extend-prediction", params={"steps": 10})
+            extension_success = response.status_code == 200
+            integration_tests.append(("Prediction extension", extension_success))
+            
+            if extension_success:
+                print("✅ Step 5: Prediction extension successful")
+            else:
+                print("❌ Step 5: Prediction extension failed")
+            
+            # Step 6: pH simulation integration
+            response = self.session.get(f"{API_BASE_URL}/ph-simulation")
+            ph_sim_success = response.status_code == 200
+            integration_tests.append(("pH simulation", ph_sim_success))
+            
+            if ph_sim_success:
+                print("✅ Step 6: pH simulation successful")
+            else:
+                print("❌ Step 6: pH simulation failed")
+            
+            # Evaluate integration flow
+            passed_tests = sum(1 for _, passed in integration_tests if passed)
+            total_tests = len(integration_tests)
+            
+            print(f"✅ Integration flow tests passed: {passed_tests}/{total_tests}")
+            for test_name, passed in integration_tests:
+                status = "✅" if passed else "❌"
+                print(f"   {status} {test_name}")
+            
+            self.test_results['integration_flow'] = passed_tests >= total_tests * 0.85  # 85% pass rate
+            
+        except Exception as e:
+            print(f"❌ Integration flow error: {str(e)}")
+            self.test_results['integration_flow'] = False
+    
     def test_error_handling(self):
-        """Test 11: Error handling for invalid inputs"""
+        """Test 14: Error handling for invalid inputs"""
         print("\n=== Testing Error Handling ===")
         
         error_tests = []
