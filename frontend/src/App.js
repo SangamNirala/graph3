@@ -198,11 +198,12 @@ function App() {
         // Load historical data
         await loadHistoricalData();
       } else {
-        alert('Error training model');
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        alert(`Error training model: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Training error:', error);
-      alert('Error training model');
+      alert(`Error training model: ${error.message || 'Network error'}`);
     } finally {
       setIsTraining(false);
     }
