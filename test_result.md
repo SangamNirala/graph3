@@ -410,7 +410,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "WebSocket for real-time updates" 
+    - "Fix pH prediction downward trend bias - comprehensive algorithm improvement"
   stuck_tasks:
     - "WebSocket for real-time updates"
   test_all: false
