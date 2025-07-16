@@ -99,11 +99,17 @@ class EncodingDataCleaningTester:
     def create_empty_strings_test_data(self):
         """Create test data with empty strings and whitespace"""
         data = {
-            'date': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'],
-            'value': [10.5, 20.3, 15.7, 18.9, 22.1],
-            'empty_column': ['', '  ', '', '   ', ''],
-            'whitespace_column': [' data1 ', '  data2  ', '', '  ', ' data3'],
-            'null_strings': ['null', 'NULL', 'nan', 'NaN', 'None']
+            'date': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05',
+                    '2023-01-06', '2023-01-07', '2023-01-08', '2023-01-09', '2023-01-10',
+                    '2023-01-11', '2023-01-12', '2023-01-13', '2023-01-14', '2023-01-15'],
+            'value': [10.5, 20.3, 15.7, 18.9, 22.1, 19.4, 21.8, 17.2, 23.6, 16.9,
+                     20.7, 18.3, 22.4, 19.1, 21.5],
+            'empty_column': ['', '  ', '', '   ', '', '    ', '', '  ', '', '   ',
+                            '', '  ', '', '    ', ''],
+            'whitespace_column': [' data1 ', '  data2  ', '', '  ', ' data3', '  data4  ', '', ' data5 ',
+                                 '  ', ' data6', '', '  data7  ', ' data8 ', '', '  data9  '],
+            'null_strings': ['null', 'NULL', 'nan', 'NaN', 'None', 'null', 'NULL', 'nan', 'NaN', 'None',
+                            'null', 'NULL', 'nan', 'NaN', 'None']
         }
         df = pd.DataFrame(data)
         return df.to_csv(index=False)
