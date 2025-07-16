@@ -352,6 +352,17 @@ def train_advanced_model(data: pd.DataFrame, time_col: str, target_col: str, par
         
         print(f"Training advanced model: {model_type}")
         
+        # Validate dataset size and adjust parameters for small datasets
+        data_size = len(data)
+        min_required_samples = seq_len + pred_len + 10  # +10 for train/test split
+        
+        if data_size < min_required_samples:
+            print(f"Dataset too small ({data_size} samples), adjusting parameters...")
+            # Adjust parameters for small datasets
+            seq_len = max(5, min(seq_len, data_size // 4))
+            pred_len = max(3, min(pred_len, data_size // 6))
+            print(f"Adjusted seq_len={seq_len}, pred_len={pred_len}")
+        
         # Enhanced preprocessing
         preprocessing_config = {
             'scaling_method': params.get('scaling_method', 'standard'),
