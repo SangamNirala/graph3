@@ -99,6 +99,139 @@ continuous_predictions = []
 ph_simulation_data = []
 target_ph = 7.6  # Global target pH value
 
+def analyze_historical_patterns(data, time_col, target_col):
+    """Analyze historical data patterns for advanced extrapolation"""
+    try:
+        # Convert time column to datetime if not already
+        if time_col in data.columns:
+            data[time_col] = pd.to_datetime(data[time_col])
+            data = data.set_index(time_col)
+        
+        target_values = data[target_col].values
+        
+        # Calculate key statistics
+        mean_value = np.mean(target_values)
+        std_value = np.std(target_values)
+        
+        # Calculate trend (linear regression slope)
+        x = np.arange(len(target_values))
+        trend_slope = np.polyfit(x, target_values, 1)[0]
+        
+        # Calculate moving averages for different windows
+        ma_5 = pd.Series(target_values).rolling(window=min(5, len(target_values))).mean()
+        ma_10 = pd.Series(target_values).rolling(window=min(10, len(target_values))).mean()
+        
+        # Calculate velocity (rate of change)
+        velocity = np.diff(target_values)
+        avg_velocity = np.mean(velocity) if len(velocity) > 0 else 0
+        
+        # Calculate acceleration (rate of change of velocity)
+        acceleration = np.diff(velocity) if len(velocity) > 1 else [0]
+        avg_acceleration = np.mean(acceleration) if len(acceleration) > 0 else 0
+        
+        # Detect seasonality/periodicity
+        recent_values = target_values[-min(50, len(target_values)):]  # Last 50 points
+        
+        patterns = {
+            'mean': mean_value,
+            'std': std_value,
+            'trend_slope': trend_slope,
+            'velocity': avg_velocity,
+            'acceleration': avg_acceleration,
+            'recent_mean': np.mean(recent_values),
+            'recent_std': np.std(recent_values),
+            'last_value': target_values[-1],
+            'last_5_values': target_values[-5:].tolist(),
+            'ma_5_last': ma_5.iloc[-1] if not ma_5.empty else mean_value,
+            'ma_10_last': ma_10.iloc[-1] if not ma_10.empty else mean_value,
+        }
+        
+        return patterns
+        
+    except Exception as e:
+        print(f"Error analyzing patterns: {e}")
+        return None
+
+def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
+    """Generate advanced extrapolation based on historical patterns"""
+    try:
+        if not patterns:
+            return []
+            
+        predictions = []
+        current_value = patterns['last_value']
+        current_velocity = patterns['velocity']
+        current_acceleration = patterns['acceleration']
+        
+        # Weight factors for different components
+        trend_weight = 0.3
+        velocity_weight = 0.4
+        acceleration_weight = 0.2
+        noise_weight = 0.1
+        
+        for i in range(steps):
+            # Trend component
+            trend_component = patterns['trend_slope'] * time_step * trend_weight
+            
+            # Velocity component (momentum)
+            velocity_component = current_velocity * velocity_weight
+            
+            # Acceleration component (curvature)
+            acceleration_component = current_acceleration * acceleration_weight
+            
+            # Add controlled noise for realism
+            noise_component = np.random.normal(0, patterns['recent_std'] * 0.1) * noise_weight
+            
+            # Combine all components
+            prediction = current_value + trend_component + velocity_component + acceleration_component + noise_component
+            
+            # Apply gentle mean reversion to prevent extreme drift
+            mean_reversion = (patterns['recent_mean'] - prediction) * 0.05
+            prediction += mean_reversion
+            
+            predictions.append(prediction)
+            
+            # Update for next iteration
+            current_value = prediction
+            current_velocity = current_velocity * 0.95 + (prediction - patterns['last_value']) * 0.05  # Decay velocity
+            current_acceleration = current_acceleration * 0.9  # Decay acceleration
+            
+        return predictions
+        
+    except Exception as e:
+        print(f"Error generating extrapolation: {e}")
+        return []
+
+def create_smooth_transition(historical_data, predicted_data, transition_points=5):
+    """Create smooth transition between historical and predicted data"""
+    try:
+        if len(historical_data) < transition_points:
+            return predicted_data
+        
+        # Get the last few points from historical data
+        transition_hist = historical_data[-transition_points:]
+        
+        # Calculate smoothing weights
+        weights = np.linspace(0.8, 0.2, transition_points)
+        
+        # Apply smoothing to first few predicted points
+        smoothed_predictions = predicted_data.copy()
+        
+        for i in range(min(transition_points, len(predicted_data))):
+            if i < len(transition_hist):
+                # Blend historical trend with prediction
+                hist_trend = transition_hist[i] if i < len(transition_hist) else transition_hist[-1]
+                smoothed_predictions[i] = (
+                    smoothed_predictions[i] * (1 - weights[i]) +
+                    hist_trend * weights[i]
+                )
+        
+        return smoothed_predictions
+        
+    except Exception as e:
+        print(f"Error creating smooth transition: {e}")
+        return predicted_data
+
 # Utility functions
 def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
     """Analyze uploaded data and suggest parameters"""
