@@ -47,3 +47,4 @@ matplotlib>=3.7.0
 numba>=0.58.0
 threadpoolctl>=3.6.0
 chardet==5.2.0
+sympy>=1.14.0
