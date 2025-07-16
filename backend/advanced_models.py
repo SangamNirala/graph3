@@ -401,8 +401,9 @@ class AdvancedTimeSeriesForecaster:
             if val_loss < best_loss:
                 best_loss = val_loss
                 patience_counter = 0
-                # Save best model
-                torch.save(self.model.state_dict(), '/tmp/best_model.pth')
+                # Save best model with unique filename
+                model_path = f'/tmp/best_model_{self.model_type}.pth'
+                torch.save(self.model.state_dict(), model_path)
             else:
                 patience_counter += 1
                 
@@ -415,15 +416,20 @@ class AdvancedTimeSeriesForecaster:
         
         # Load best model with error handling
         try:
-            state_dict = torch.load('/tmp/best_model.pth')
-            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict, strict=False)
-            
-            if missing_keys:
-                print(f"Warning: Missing keys in state_dict: {missing_keys}")
-            if unexpected_keys:
-                print(f"Warning: Unexpected keys in state_dict: {unexpected_keys}")
+            model_path = f'/tmp/best_model_{self.model_type}.pth'
+            if os.path.exists(model_path):
+                state_dict = torch.load(model_path)
+                missing_keys, unexpected_keys = self.model.load_state_dict(state_dict, strict=False)
                 
-            self.fitted = True
+                if missing_keys:
+                    print(f"Warning: Missing keys in state_dict: {missing_keys}")
+                if unexpected_keys:
+                    print(f"Warning: Unexpected keys in state_dict: {unexpected_keys}")
+                    
+                self.fitted = True
+            else:
+                print(f"Model file {model_path} not found, using current model state")
+                self.fitted = True
         except Exception as e:
             print(f"Error loading best model: {e}")
             print("Using current model state instead of best model")
