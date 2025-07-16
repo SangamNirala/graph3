@@ -309,15 +309,18 @@ frontend:
 
   - task: "State-of-the-art ML models implementation (DLinear, N-BEATS, LSTM, Ensemble)"
     implemented: true
-    working: true
+    working: false
     file: "/app/backend/advanced_models.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "IMPLEMENTED: Created comprehensive advanced ML models including DLinear (linear decomposition), N-BEATS (neural basis expansion), lightweight LSTM, and ensemble methods. All models are CPU-optimized for balanced performance. Added proper sequence generation, batch processing, and model comparison capabilities."
+      - working: false
+        agent: "testing"
+        comment: "❌ TESTED: Partial success (53.8% pass rate). ✅ DLinear and LSTM models work correctly with training and performance metrics. ✅ Model comparison and hyperparameter optimization functional. ❌ CRITICAL ISSUES: N-BEATS model has state_dict loading errors (architecture mismatch), LightGBM fails with array shape issues (y should be 1d array, got shape (96, 30)), ensemble model fails due to N-BEATS issues. Model state management problems prevent advanced prediction endpoint from working. Core infrastructure is solid but specific model implementations need fixes."
 
   - task: "Enhanced data preprocessing and quality validation"
     implemented: true
