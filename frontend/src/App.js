@@ -584,19 +584,24 @@ function App() {
             
             {/* Vertical Slider */}
             <div className="flex lg:flex-col justify-center items-center px-4">
-              <label className="text-sm font-medium text-gray-700 mb-2 lg:transform lg:-rotate-90">
-                Vertical Pan
-              </label>
-              <input
-                type="range"
-                min="-100"
-                max="100"
-                value={verticalOffset}
-                onChange={(e) => setVerticalOffset(Number(e.target.value))}
-                className="w-32 lg:w-32 lg:transform lg:-rotate-90"
-              />
-              <div className="text-xs text-gray-500 mt-2 lg:transform lg:-rotate-90">
-                {verticalOffset}
+              <div className="text-center">
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Prediction Control
+                </label>
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={verticalOffset}
+                  onChange={(e) => setVerticalOffset(Number(e.target.value))}
+                  className="w-32 lg:w-32 lg:transform lg:-rotate-90"
+                />
+                <div className="text-xs text-gray-500 mt-2">
+                  Offset: {verticalOffset}
+                </div>
+                <div className="text-xs text-green-600 mt-1">
+                  {isPredicting ? '🔄 Live' : '⏸️ Static'}
+                </div>
               </div>
             </div>
             
