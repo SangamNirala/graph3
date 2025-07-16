@@ -608,13 +608,14 @@ function App() {
             {/* Predictions Graph */}
             <div className="flex-1">
               <h3 className="text-lg font-semibold mb-4 text-center">
-                🔮 Predictions {isPredicting && <span className="text-green-600">(Live)</span>}
+                🔮 Predictions {isPredicting && <span className="text-green-600 animate-pulse">(Live)</span>}
               </h3>
               {predictionData ? (
                 <SimpleChart 
                   data={{ values: predictionData.predictions }} 
-                  title="Predictions"
+                  title="Continuous Predictions"
                   color="#10B981"
+                  showAnimation={true}
                 />
               ) : (
                 <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
