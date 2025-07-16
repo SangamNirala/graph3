@@ -29,12 +29,8 @@ plotly>=5.18.0
 websockets>=12.0
 aiofiles>=23.2.1
 importlib-resources>=6.5.2
-# Enhanced ML libraries for advanced time series forecasting
+# Enhanced ML libraries for advanced time series forecasting - CPU optimized
 torch>=2.0.0
-torchaudio>=2.0.0
-torchvision>=0.15.0
-pytorch-forecasting>=1.0.0
-pytorch-lightning>=2.0.0
 # Additional ML and data processing libraries
 lightgbm>=4.0.0
 xgboost>=2.0.0
@@ -43,10 +39,8 @@ joblib>=1.3.0
 tqdm>=4.66.0
 # Advanced preprocessing and feature engineering
 tslearn>=0.6.0
-sktime>=0.24.0
 # Evaluation and visualization
 seaborn>=0.12.0
 matplotlib>=3.7.0
 # Performance optimization
 numba>=0.58.0
-cython>=3.0.0
