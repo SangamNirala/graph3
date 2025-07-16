@@ -1475,9 +1475,9 @@ async def compare_models():
         
         return {
             "status": "success",
-            "comparison_results": comparison_results,
+            "comparison_results": safe_json_serialization(comparison_results),
             "best_model": best_model,
-            "best_score": best_score,
+            "best_score": float(best_score) if best_score != float('inf') else None,
             "models_compared": models_to_compare
         }
         
