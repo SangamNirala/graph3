@@ -466,7 +466,7 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
 
 @api_router.get("/generate-continuous-prediction")
 async def generate_continuous_prediction(model_id: str, steps: int = 30, time_window: int = 100):
-    """Generate continuous predictions that extrapolate forward"""
+    """Generate continuous predictions with improved pattern extrapolation"""
     try:
         global current_model, continuous_predictions
         
@@ -476,21 +476,42 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
         model = current_model['model']
         model_type = current_model['model_type']
         data = current_model['data']
+        time_col = current_model['time_col']
+        target_col = current_model['target_col']
+        patterns = current_model.get('patterns', {})
         
-        # Calculate how many predictions to generate based on time window
+        # Calculate offset based on existing predictions for continuous extrapolation
         prediction_offset = len(continuous_predictions) * 5  # Each call advances by 5 steps
         
+        # Generate improved predictions with pattern awareness
         if model_type == 'prophet':
-            # Create future dataframe with increasing offset
+            # Create future dataframe with increasing offset for continuous extrapolation
             future = model.make_future_dataframe(periods=steps + prediction_offset)
             forecast = model.predict(future)
             
             # Extract predictions from the end
             predictions = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(steps)
             
+            # Apply pattern-aware improvements
+            prediction_values = predictions['yhat'].values
+            
+            # Apply pattern continuity for better extrapolation
+            if patterns:
+                # Apply recent trend continuation
+                if abs(patterns.get('recent_trend', 0)) > 0.01:
+                    trend_adjustment = np.array([patterns['recent_trend'] * (i + prediction_offset) * 0.3 for i in range(steps)])
+                    prediction_values = prediction_values + trend_adjustment
+                
+                # Apply bounds based on historical patterns
+                mean_val = patterns.get('mean', np.mean(prediction_values))
+                std_val = patterns.get('std', np.std(prediction_values))
+                prediction_values = np.clip(prediction_values, 
+                                          mean_val - 3 * std_val, 
+                                          mean_val + 3 * std_val)
+            
             result = {
                 'timestamps': predictions['ds'].dt.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-                'predictions': predictions['yhat'].tolist(),
+                'predictions': prediction_values.tolist(),
                 'confidence_intervals': [
                     {'lower': row['yhat_lower'], 'upper': row['yhat_upper']} 
                     for _, row in predictions.iterrows()
@@ -498,28 +519,48 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
             }
             
         elif model_type == 'arima':
-            # Generate ARIMA predictions with increasing offset
+            # Generate ARIMA predictions with improved extrapolation
             forecast = model.forecast(steps=steps + prediction_offset)
             
-            # Create timestamps
-            time_col = current_model['time_col']
-            original_data = current_model['data']
+            # Take the forecasted values from the end for better extrapolation
+            prediction_values = forecast.values[-steps:]
             
-            # Get the last timestamp from the original data
-            if time_col in original_data.columns:
-                last_timestamp = pd.to_datetime(original_data[time_col].iloc[-1])
-                # Try to infer frequency from the time series
-                time_series = pd.to_datetime(original_data[time_col])
+            # Apply pattern-aware improvements
+            if patterns:
+                # Apply recent trend continuation
+                if abs(patterns.get('recent_trend', 0)) > 0.01:
+                    trend_adjustment = np.array([patterns['recent_trend'] * (i + prediction_offset) * 0.3 for i in range(steps)])
+                    prediction_values = prediction_values + trend_adjustment
+                
+                # Apply bounds based on historical patterns
+                mean_val = patterns.get('mean', np.mean(prediction_values))
+                std_val = patterns.get('std', np.std(prediction_values))
+                prediction_values = np.clip(prediction_values, 
+                                          mean_val - 3 * std_val, 
+                                          mean_val + 3 * std_val)
+                
+                # Apply smoothing for realistic extrapolation
+                if len(prediction_values) > 1:
+                    smoothed = np.copy(prediction_values)
+                    max_change = patterns.get('volatility', 0.1) * mean_val * 2
+                    for i in range(1, len(smoothed)):
+                        if abs(smoothed[i] - smoothed[i-1]) > max_change:
+                            smoothed[i] = smoothed[i-1] + np.sign(smoothed[i] - smoothed[i-1]) * max_change
+                    prediction_values = smoothed
+            
+            # Create timestamps with better extrapolation
+            if time_col in data.columns:
+                last_timestamp = pd.to_datetime(data[time_col].iloc[-1])
+                time_series = pd.to_datetime(data[time_col])
                 freq = pd.infer_freq(time_series)
             else:
-                last_timestamp = pd.to_datetime(original_data.index[-1])
-                freq = pd.infer_freq(pd.to_datetime(original_data.index))
+                last_timestamp = pd.to_datetime(data.index[-1])
+                freq = pd.infer_freq(pd.to_datetime(data.index))
             
-            # Default to daily frequency if inference fails
             if freq is None:
                 freq = 'D'
             
-            # Create future timestamps starting from last prediction
+            # Create future timestamps starting from last prediction for continuity
             try:
                 future_timestamps = pd.date_range(
                     start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
@@ -527,23 +568,19 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
                     freq=freq
                 )
             except:
-                # Fallback to daily frequency
                 future_timestamps = pd.date_range(
                     start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
                     periods=steps, 
                     freq='D'
                 )
             
-            # Take the forecasted values from the end
-            prediction_values = forecast.tolist()[-steps:]
-            
             result = {
                 'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-                'predictions': prediction_values,
+                'predictions': prediction_values.tolist(),
                 'confidence_intervals': None
             }
         
-        # Store prediction for continuous use - THIS WAS MISSING!
+        # Store prediction for continuous use
         continuous_predictions.append(result)
         
         return result
