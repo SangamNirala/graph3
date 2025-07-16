@@ -92,6 +92,8 @@ current_model = None
 current_data = None
 current_scaler = None
 prediction_task = None
+continuous_predictions = []
+ph_simulation_data = []
 
 # Utility functions
 def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
