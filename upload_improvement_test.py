@@ -98,6 +98,7 @@ class UploadImprovementTester:
         try:
             df = self.create_ph_dataset()
             # Add some UTF-8 characters
+            df = df.astype({'pH': 'object'})  # Convert to object type first
             df.loc[0, 'pH'] = '7.2°C'  # Degree symbol
             csv_content = df.to_csv(index=False).encode('utf-8')
             
