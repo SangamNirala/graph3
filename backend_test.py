@@ -350,8 +350,262 @@ class BackendTester:
             print(f"❌ WebSocket connection error: {str(e)}")
             self.test_results['websocket'] = False
     
+    def test_ph_simulation_endpoints(self):
+        """Test 7: pH Simulation Endpoints"""
+        print("\n=== Testing pH Simulation Endpoints ===")
+        
+        try:
+            # Test real-time pH simulation
+            response = self.session.get(f"{API_BASE_URL}/ph-simulation")
+            
+            if response.status_code == 200:
+                data = response.json()
+                ph_value = data.get('ph_value')
+                confidence = data.get('confidence')
+                timestamp = data.get('timestamp')
+                
+                print("✅ Real-time pH simulation successful")
+                print(f"   pH Value: {ph_value}")
+                print(f"   Confidence: {confidence}")
+                print(f"   Timestamp: {timestamp}")
+                
+                # Validate pH value is in realistic range (6.0-8.0)
+                if ph_value and 6.0 <= ph_value <= 8.0:
+                    print("✅ pH value is in realistic range (6.0-8.0)")
+                    ph_realtime_test = True
+                else:
+                    print(f"❌ pH value {ph_value} is outside realistic range (6.0-8.0)")
+                    ph_realtime_test = False
+                    
+            else:
+                print(f"❌ Real-time pH simulation failed: {response.status_code} - {response.text}")
+                ph_realtime_test = False
+            
+            # Test pH simulation history
+            response = self.session.get(f"{API_BASE_URL}/ph-simulation-history", params={"hours": 24})
+            
+            if response.status_code == 200:
+                data = response.json()
+                history_data = data.get('data', [])
+                current_ph = data.get('current_ph')
+                target_ph = data.get('target_ph')
+                status = data.get('status')
+                
+                print("✅ pH simulation history successful")
+                print(f"   History data points: {len(history_data)}")
+                print(f"   Current pH: {current_ph}")
+                print(f"   Target pH: {target_ph}")
+                print(f"   Status: {status}")
+                
+                # Validate history data structure and pH values
+                ph_history_test = True
+                if history_data:
+                    sample_point = history_data[0]
+                    if 'timestamp' in sample_point and 'ph_value' in sample_point and 'confidence' in sample_point:
+                        print("✅ History data structure is correct")
+                        
+                        # Check if all pH values are in realistic range
+                        ph_values = [point['ph_value'] for point in history_data[:10]]  # Check first 10
+                        valid_ph_count = sum(1 for ph in ph_values if 6.0 <= ph <= 8.0)
+                        
+                        if valid_ph_count == len(ph_values):
+                            print("✅ All sampled pH values are in realistic range (6.0-8.0)")
+                        else:
+                            print(f"❌ {len(ph_values) - valid_ph_count} pH values are outside realistic range")
+                            ph_history_test = False
+                    else:
+                        print("❌ History data structure is incorrect")
+                        ph_history_test = False
+                else:
+                    print("❌ No history data returned")
+                    ph_history_test = False
+                    
+            else:
+                print(f"❌ pH simulation history failed: {response.status_code} - {response.text}")
+                ph_history_test = False
+            
+            self.test_results['ph_simulation'] = ph_realtime_test and ph_history_test
+            
+        except Exception as e:
+            print(f"❌ pH simulation endpoints error: {str(e)}")
+            self.test_results['ph_simulation'] = False
+    
+    def test_enhanced_continuous_prediction(self):
+        """Test 8: Enhanced Continuous Prediction with Extrapolation"""
+        print("\n=== Testing Enhanced Continuous Prediction ===")
+        
+        if not self.model_id:
+            print("❌ Cannot test enhanced continuous prediction - no model trained")
+            self.test_results['enhanced_continuous_prediction'] = False
+            return
+            
+        try:
+            # Test generate-continuous-prediction endpoint
+            response = self.session.get(
+                f"{API_BASE_URL}/generate-continuous-prediction",
+                params={"model_id": self.model_id, "steps": 20, "time_window": 100}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                predictions = data.get('predictions', [])
+                timestamps = data.get('timestamps', [])
+                confidence_intervals = data.get('confidence_intervals')
+                
+                print("✅ Enhanced continuous prediction successful")
+                print(f"   Number of predictions: {len(predictions)}")
+                print(f"   Number of timestamps: {len(timestamps)}")
+                print(f"   Has confidence intervals: {confidence_intervals is not None}")
+                
+                # Validate prediction structure
+                if len(predictions) == 20 and len(timestamps) == 20:
+                    print("✅ Continuous prediction data structure is correct")
+                    print(f"   Sample predictions: {predictions[:3]}")
+                    print(f"   Sample timestamps: {timestamps[:3]}")
+                    
+                    # Test multiple calls to verify extrapolation
+                    print("   Testing extrapolation by making multiple calls...")
+                    
+                    # Make second call
+                    response2 = self.session.get(
+                        f"{API_BASE_URL}/generate-continuous-prediction",
+                        params={"model_id": self.model_id, "steps": 20, "time_window": 100}
+                    )
+                    
+                    if response2.status_code == 200:
+                        data2 = response2.json()
+                        timestamps2 = data2.get('timestamps', [])
+                        
+                        # Check if timestamps are different (indicating extrapolation)
+                        if timestamps != timestamps2:
+                            print("✅ Continuous prediction properly extrapolates forward")
+                            extrapolation_test = True
+                        else:
+                            print("❌ Continuous prediction not extrapolating (same timestamps)")
+                            extrapolation_test = False
+                    else:
+                        print("❌ Second continuous prediction call failed")
+                        extrapolation_test = False
+                    
+                    self.test_results['enhanced_continuous_prediction'] = extrapolation_test
+                else:
+                    print("❌ Continuous prediction data structure is incorrect")
+                    self.test_results['enhanced_continuous_prediction'] = False
+                    
+            else:
+                print(f"❌ Enhanced continuous prediction failed: {response.status_code} - {response.text}")
+                self.test_results['enhanced_continuous_prediction'] = False
+                
+        except Exception as e:
+            print(f"❌ Enhanced continuous prediction error: {str(e)}")
+            self.test_results['enhanced_continuous_prediction'] = False
+    
+    def test_reset_functionality(self):
+        """Test 9: Reset Continuous Prediction Functionality"""
+        print("\n=== Testing Reset Continuous Prediction ===")
+        
+        try:
+            # Test reset continuous prediction
+            response = self.session.post(f"{API_BASE_URL}/reset-continuous-prediction")
+            
+            if response.status_code == 200:
+                data = response.json()
+                status = data.get('status')
+                message = data.get('message')
+                
+                print("✅ Reset continuous prediction successful")
+                print(f"   Status: {status}")
+                print(f"   Message: {message}")
+                
+                # Validate response structure
+                if status == "reset" and "reset" in message.lower():
+                    print("✅ Reset response structure is correct")
+                    self.test_results['reset_functionality'] = True
+                else:
+                    print("❌ Reset response structure is incorrect")
+                    self.test_results['reset_functionality'] = False
+                    
+            else:
+                print(f"❌ Reset continuous prediction failed: {response.status_code} - {response.text}")
+                self.test_results['reset_functionality'] = False
+                
+        except Exception as e:
+            print(f"❌ Reset functionality error: {str(e)}")
+            self.test_results['reset_functionality'] = False
+    
+    def test_complete_continuous_prediction_flow(self):
+        """Test 10: Complete Continuous Prediction Flow"""
+        print("\n=== Testing Complete Continuous Prediction Flow ===")
+        
+        if not self.model_id:
+            print("❌ Cannot test continuous prediction flow - no model trained")
+            self.test_results['continuous_prediction_flow'] = False
+            return
+            
+        try:
+            flow_tests = []
+            
+            # Step 1: Reset continuous prediction state
+            response = self.session.post(f"{API_BASE_URL}/reset-continuous-prediction")
+            flow_tests.append(("Reset continuous prediction", response.status_code == 200))
+            
+            # Step 2: Start continuous prediction
+            response = self.session.post(f"{API_BASE_URL}/start-continuous-prediction")
+            flow_tests.append(("Start continuous prediction", response.status_code == 200))
+            
+            if response.status_code == 200:
+                print("✅ Continuous prediction started")
+                
+                # Step 3: Wait and test multiple continuous predictions
+                time.sleep(2)
+                
+                # Make multiple calls to test extrapolation
+                timestamps_list = []
+                for i in range(3):
+                    response = self.session.get(
+                        f"{API_BASE_URL}/generate-continuous-prediction",
+                        params={"model_id": self.model_id, "steps": 10, "time_window": 50}
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        timestamps = data.get('timestamps', [])
+                        timestamps_list.append(timestamps)
+                        time.sleep(1)  # Wait between calls
+                    
+                # Check if predictions are extrapolating forward
+                if len(timestamps_list) >= 2:
+                    extrapolating = timestamps_list[0] != timestamps_list[1]
+                    flow_tests.append(("Continuous extrapolation", extrapolating))
+                    if extrapolating:
+                        print("✅ Continuous prediction properly extrapolates forward")
+                    else:
+                        print("❌ Continuous prediction not extrapolating")
+                
+                # Step 4: Stop continuous prediction
+                response = self.session.post(f"{API_BASE_URL}/stop-continuous-prediction")
+                flow_tests.append(("Stop continuous prediction", response.status_code == 200))
+                
+                if response.status_code == 200:
+                    print("✅ Continuous prediction stopped")
+            
+            # Evaluate flow test results
+            passed_tests = sum(1 for _, passed in flow_tests if passed)
+            total_tests = len(flow_tests)
+            
+            print(f"✅ Continuous prediction flow tests passed: {passed_tests}/{total_tests}")
+            for test_name, passed in flow_tests:
+                status = "✅" if passed else "❌"
+                print(f"   {status} {test_name}")
+            
+            self.test_results['continuous_prediction_flow'] = passed_tests >= total_tests * 0.8  # 80% pass rate
+            
+        except Exception as e:
+            print(f"❌ Continuous prediction flow error: {str(e)}")
+            self.test_results['continuous_prediction_flow'] = False
+    
     def test_error_handling(self):
-        """Test 7: Error handling for invalid inputs"""
+        """Test 11: Error handling for invalid inputs"""
         print("\n=== Testing Error Handling ===")
         
         error_tests = []
