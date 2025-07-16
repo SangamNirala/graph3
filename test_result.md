@@ -401,12 +401,13 @@ metadata:
 
 test_plan:
   current_focus:
+    - "Fix N-BEATS model state dict loading issues"
+    - "Fix advanced prediction endpoint model state management"
     - "Fix data preparation for advanced models"
-    - "Test pH dataset with advanced models"
-    - "State-of-the-art ML models implementation (DLinear, N-BEATS, LSTM, Ensemble)"
   stuck_tasks:
+    - "Fix N-BEATS model state dict loading issues"
+    - "Fix advanced prediction endpoint model state management"
     - "Fix data preparation for advanced models"
-    - "State-of-the-art ML models implementation (DLinear, N-BEATS, LSTM, Ensemble)"
   test_all: false
   test_priority: "high_first"
 
