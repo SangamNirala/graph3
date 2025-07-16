@@ -612,7 +612,7 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
 
 @api_router.get("/generate-continuous-prediction")
 async def generate_continuous_prediction(model_id: str, steps: int = 30, time_window: int = 100):
-    """Generate continuous predictions that extrapolate forward"""
+    """Generate continuous predictions with advanced pattern-based extrapolation"""
     try:
         global current_model, continuous_predictions
         
@@ -622,19 +622,85 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
         model = current_model['model']
         model_type = current_model['model_type']
         data = current_model['data']
+        time_col = current_model['time_col']
+        target_col = current_model['target_col']
         
-        # Calculate how many predictions to generate based on time window
+        # Analyze historical patterns
+        patterns = analyze_historical_patterns(data, time_col, target_col)
+        
+        if not patterns:
+            # Fallback to basic prediction
+            return await generate_basic_prediction(model, model_type, data, steps)
+        
+        # Generate advanced extrapolation
+        advanced_predictions = generate_advanced_extrapolation(patterns, steps)
+        
+        # Create smooth transition from historical data
+        historical_values = data[target_col].values
+        smoothed_predictions = create_smooth_transition(historical_values, advanced_predictions)
+        
+        # Calculate prediction offset for continuous extension
         prediction_offset = len(continuous_predictions) * 5  # Each call advances by 5 steps
         
+        # Create timestamps for predictions
+        if time_col in data.columns:
+            last_timestamp = pd.to_datetime(data[time_col].iloc[-1])
+            time_series = pd.to_datetime(data[time_col])
+            freq = pd.infer_freq(time_series)
+        else:
+            last_timestamp = pd.to_datetime(data.index[-1])
+            freq = pd.infer_freq(pd.to_datetime(data.index))
+        
+        # Default to daily frequency if inference fails
+        if freq is None:
+            freq = 'D'
+        
+        # Create future timestamps
+        try:
+            future_timestamps = pd.date_range(
+                start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
+                periods=steps, 
+                freq=freq
+            )
+        except:
+            # Fallback to daily frequency
+            future_timestamps = pd.date_range(
+                start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
+                periods=steps, 
+                freq='D'
+            )
+        
+        # Create result with advanced predictions
+        result = {
+            'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
+            'predictions': smoothed_predictions[:steps],
+            'confidence_intervals': None,
+            'pattern_analysis': {
+                'trend_slope': patterns['trend_slope'],
+                'velocity': patterns['velocity'],
+                'recent_mean': patterns['recent_mean'],
+                'last_value': patterns['last_value']
+            }
+        }
+        
+        # Store prediction for continuous use
+        continuous_predictions.append(result)
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error in advanced continuous prediction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def generate_basic_prediction(model, model_type, data, steps):
+    """Fallback basic prediction method"""
+    try:
         if model_type == 'prophet':
-            # Create future dataframe with increasing offset
-            future = model.make_future_dataframe(periods=steps + prediction_offset)
+            future = model.make_future_dataframe(periods=steps)
             forecast = model.predict(future)
-            
-            # Extract predictions from the end
             predictions = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(steps)
             
-            result = {
+            return {
                 'timestamps': predictions['ds'].dt.strftime('%Y-%m-%d %H:%M:%S').tolist(),
                 'predictions': predictions['yhat'].tolist(),
                 'confidence_intervals': [
@@ -644,57 +710,24 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
             }
             
         elif model_type == 'arima':
-            # Generate ARIMA predictions with increasing offset
-            forecast = model.forecast(steps=steps + prediction_offset)
+            forecast = model.forecast(steps=steps)
             
-            # Create timestamps
-            time_col = current_model['time_col']
-            original_data = current_model['data']
+            # Create basic timestamps
+            last_timestamp = pd.to_datetime(data.index[-1] if hasattr(data, 'index') else '2023-01-01')
+            future_timestamps = pd.date_range(
+                start=last_timestamp + pd.Timedelta(days=1), 
+                periods=steps, 
+                freq='D'
+            )
             
-            # Get the last timestamp from the original data
-            if time_col in original_data.columns:
-                last_timestamp = pd.to_datetime(original_data[time_col].iloc[-1])
-                # Try to infer frequency from the time series
-                time_series = pd.to_datetime(original_data[time_col])
-                freq = pd.infer_freq(time_series)
-            else:
-                last_timestamp = pd.to_datetime(original_data.index[-1])
-                freq = pd.infer_freq(pd.to_datetime(original_data.index))
-            
-            # Default to daily frequency if inference fails
-            if freq is None:
-                freq = 'D'
-            
-            # Create future timestamps starting from last prediction
-            try:
-                future_timestamps = pd.date_range(
-                    start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
-                    periods=steps, 
-                    freq=freq
-                )
-            except:
-                # Fallback to daily frequency
-                future_timestamps = pd.date_range(
-                    start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
-                    periods=steps, 
-                    freq='D'
-                )
-            
-            # Take the forecasted values from the end
-            prediction_values = forecast.tolist()[-steps:]
-            
-            result = {
+            return {
                 'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-                'predictions': prediction_values,
+                'predictions': forecast.tolist(),
                 'confidence_intervals': None
             }
-        
-        # Store prediction for continuous use - THIS WAS MISSING!
-        continuous_predictions.append(result)
-        
-        return result
-        
+            
     except Exception as e:
+        print(f"Error in basic prediction: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/ph-simulation")
