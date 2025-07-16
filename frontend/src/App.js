@@ -15,10 +15,13 @@ function App() {
   const [predictionData, setPredictionData] = useState(null);
   const [isTraining, setIsTraining] = useState(false);
   const [isPredicting, setIsPredicting] = useState(false);
-  const [verticalOffset, setVerticalOffset] = useState(0);
-  const [predictionOffset, setPredictionOffset] = useState(0);
+  const [timeWindow, setTimeWindow] = useState(50);
   const [continuousPredictions, setContinuousPredictions] = useState([]);
   const [websocket, setWebsocket] = useState(null);
+  const [phData, setPhData] = useState({ current_ph: 7.0, target_ph: 7.6, status: 'Connected' });
+  const [realtimePhReadings, setRealtimePhReadings] = useState([]);
+  const [lstmPredictions, setLstmPredictions] = useState([]);
+  const [predictionConfidence, setPredictionConfidence] = useState(67);
 
   // File upload handler
   const onDrop = useCallback(async (acceptedFiles) => {
