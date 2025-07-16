@@ -122,15 +122,18 @@ backend:
 
   - task: "Fix LightGBM data reshaping issues"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/advanced_models.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "FIXED: Changed multi-step prediction approach to use 1D target for LightGBM. Modified data reshaping to use first step of multi-step prediction as target instead of trying to fit multi-dimensional target."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: LightGBM model training now works correctly with pH dataset. Successfully trains with 1D target reshaping fix. Model completes training and returns model ID. The data reshaping fix for multi-step prediction is working properly."
 
   - task: "Fix JSON serialization issues in data quality report"
     implemented: true
