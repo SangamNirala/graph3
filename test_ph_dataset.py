@@ -115,8 +115,7 @@ def test_advanced_ml_pipeline():
     
     # 5. Test model comparison
     print("\n5. Testing model comparison...")
-    response = requests.post(f"{BASE_URL}/model-comparison", json={
-        'models': ['dlinear', 'lstm'],
+    response = requests.get(f"{BASE_URL}/model-comparison", params={
         'time_column': 'timestamp',
         'target_column': 'pH'
     })
