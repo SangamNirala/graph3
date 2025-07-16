@@ -1156,6 +1156,10 @@ async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any])
         if target_col not in current_data.columns:
             raise HTTPException(status_code=400, detail=f"Target column '{target_col}' not found in data. Available columns: {current_data.columns.tolist()}")
         
+        # Validate that time and target columns are different
+        if time_col == target_col:
+            raise HTTPException(status_code=400, detail="Time column and target column cannot be the same. Please select different columns.")
+        
         # Prepare data
         print("Preparing data for model training...")
         prepared_data = prepare_data_for_model(current_data, time_col, target_col)
