@@ -407,15 +407,13 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix advanced prediction endpoint model state management"
     - "Fix N-BEATS model state dict loading issues"
-    - "Fix data preparation for advanced models"
-    - "Fix datetime arithmetic errors in prediction endpoints"
-    - "Fix duplicate keys pandas DataFrame errors"
+    - "Fix duplicate keys pandas DataFrame errors in model comparison"
+    - "Fix duplicate keys pandas DataFrame errors in hyperparameter optimization"
   stuck_tasks:
     - "Fix N-BEATS model state dict loading issues"
-    - "Fix advanced prediction endpoint model state management"
-    - "Fix data preparation for advanced models"
+    - "Fix duplicate keys pandas DataFrame errors in model comparison"
+    - "Fix duplicate keys pandas DataFrame errors in hyperparameter optimization"
   test_all: false
   test_priority: "high_first"
 
