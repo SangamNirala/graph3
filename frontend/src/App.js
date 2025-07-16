@@ -184,6 +184,12 @@ function App() {
         setModelId(result.model_id);
         setCurrentStep('prediction');
         
+        // Show performance metrics for advanced models
+        if (result.performance_metrics) {
+          const metrics = result.performance_metrics;
+          alert(`Model trained successfully!\nPerformance Grade: ${result.evaluation_grade}\nRMSE: ${metrics.rmse?.toFixed(4) || 'N/A'}\nMAE: ${metrics.mae?.toFixed(4) || 'N/A'}\nR²: ${metrics.r2?.toFixed(4) || 'N/A'}`);
+        }
+        
         // Load historical data
         await loadHistoricalData();
       } else {
