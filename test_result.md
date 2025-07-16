@@ -166,16 +166,19 @@ backend:
         comment: "❌ TESTED: Advanced prediction endpoint fails with datetime arithmetic error: 'unsupported operand type(s) for +: int and datetime.timedelta'. The issue is in timestamp generation logic where integer values are being added to timedelta objects. Model state management works but prediction generation has datetime handling bugs."
 
   - task: "Fix data preparation for advanced models"
-    implemented: false
-    working: "NA"
+    implemented: true
+    working: false
     file: "/app/backend/advanced_models.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "ISSUE IDENTIFIED: Advanced model training failing with data preparation errors: 'num_samples=0', 'tuple index out of range', 'cannot reshape array of size 0'. Need to investigate data preparation logic for small datasets and fix sequence generation."
+      - working: false
+        agent: "testing"
+        comment: "❌ TESTED: Data preparation partially works but has critical issues. DLinear shows tensor size mismatch errors with small datasets (49 samples) - sequence generation logic doesn't properly handle cases where seq_len approaches dataset size. Need to add validation for minimum dataset size vs sequence length requirements. LSTM and LightGBM work with reduced parameters (seq_len=8, pred_len=3) but DLinear and N-BEATS fail with default parameters."
 
   - task: "Test pH dataset with advanced models"
     implemented: false
