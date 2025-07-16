@@ -25,6 +25,8 @@ import aiofiles
 import random
 import math
 from datetime import datetime, timedelta
+import chardet
+import warnings
 
 # Import new advanced models
 from advanced_models import (
