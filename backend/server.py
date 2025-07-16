@@ -215,8 +215,8 @@ def generate_ph_simulation_data(duration_hours: int = 24) -> List[Dict]:
     return data
 
 def simulate_real_time_ph():
-    """Generate a single real-time pH reading"""
-    global ph_simulation_data
+    """Generate a single real-time pH reading that moves toward target pH"""
+    global ph_simulation_data, target_ph
     
     if not ph_simulation_data:
         ph_simulation_data = generate_ph_simulation_data(24)
@@ -225,22 +225,32 @@ def simulate_real_time_ph():
     current_index = len(ph_simulation_data) - 1
     if current_index < len(ph_simulation_data):
         base_reading = ph_simulation_data[current_index]
+        current_ph = base_reading['ph_value']
         
-        # Add small real-time variation
-        ph_variation = random.gauss(0, 0.01)
-        current_ph = base_reading['ph_value'] + ph_variation
-        current_ph = max(6.0, min(8.0, current_ph))
+        # Add drift toward target pH
+        ph_drift = (target_ph - current_ph) * 0.01  # Slow drift toward target
+        ph_variation = random.gauss(0, 0.01)  # Random variation
+        
+        # Combine drift and variation
+        new_ph = current_ph + ph_drift + ph_variation
+        new_ph = max(6.0, min(8.0, new_ph))  # Keep within realistic bounds
+        
+        # Update the simulation data for next iteration
+        ph_simulation_data[current_index]['ph_value'] = new_ph
         
         return {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'ph_value': round(current_ph, 2),
+            'ph_value': round(new_ph, 2),
             'confidence': random.uniform(88, 97)
         }
     
-    # Fallback to random realistic pH
+    # Fallback that still respects target pH
+    fallback_ph = target_ph + random.gauss(0, 0.1)
+    fallback_ph = max(6.0, min(8.0, fallback_ph))
+    
     return {
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'ph_value': round(random.uniform(6.8, 7.2), 2),
+        'ph_value': round(fallback_ph, 2),
         'confidence': random.uniform(85, 95)
     }
 
