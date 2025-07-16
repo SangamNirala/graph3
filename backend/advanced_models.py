@@ -413,9 +413,21 @@ class AdvancedTimeSeriesForecaster:
             if epoch % 10 == 0:
                 print(f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f}")
         
-        # Load best model
-        self.model.load_state_dict(torch.load('/tmp/best_model.pth'))
-        self.fitted = True
+        # Load best model with error handling
+        try:
+            state_dict = torch.load('/tmp/best_model.pth')
+            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict, strict=False)
+            
+            if missing_keys:
+                print(f"Warning: Missing keys in state_dict: {missing_keys}")
+            if unexpected_keys:
+                print(f"Warning: Unexpected keys in state_dict: {unexpected_keys}")
+                
+            self.fitted = True
+        except Exception as e:
+            print(f"Error loading best model: {e}")
+            print("Using current model state instead of best model")
+            self.fitted = True
         
         return {
             'final_train_loss': train_loss,
