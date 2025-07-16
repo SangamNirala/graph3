@@ -1632,6 +1632,19 @@ async def continuous_prediction_task():
         
         await asyncio.sleep(1)  # Update every 1 second for smoother experience
 
+@api_router.post("/start-continuous-prediction")
+async def start_continuous_prediction():
+    """Start continuous prediction updates"""
+    global prediction_task, continuous_predictions
+    
+    # Reset continuous predictions
+    continuous_predictions = []
+    
+    if prediction_task is None or prediction_task.done():
+        prediction_task = asyncio.create_task(continuous_prediction_task())
+    
+    return {"status": "started", "message": "Continuous prediction started"}
+
 @api_router.get("/connection-status")
 async def get_connection_status():
     """Get current connection status for debugging"""
