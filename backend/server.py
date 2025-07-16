@@ -572,16 +572,49 @@ async def upload_data(file: UploadFile = File(...)):
         # Read file content
         content = await file.read()
         
-        # Determine file type and read accordingly
-        if file.filename.endswith('.csv'):
-            df = pd.read_csv(io.StringIO(content.decode('utf-8')))
-        elif file.filename.endswith(('.xlsx', '.xls')):
-            df = pd.read_excel(io.BytesIO(content))
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported file format")
+        # Validate file size (max 10MB)
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
+        
+        # Determine file type and read accordingly with better error handling
+        df = None
+        try:
+            if file.filename.endswith('.csv'):
+                # Try different encodings for CSV files
+                try:
+                    df = pd.read_csv(io.StringIO(content.decode('utf-8')))
+                except UnicodeDecodeError:
+                    try:
+                        df = pd.read_csv(io.StringIO(content.decode('latin-1')))
+                    except UnicodeDecodeError:
+                        df = pd.read_csv(io.StringIO(content.decode('cp1252')))
+            elif file.filename.endswith(('.xlsx', '.xls')):
+                df = pd.read_excel(io.BytesIO(content))
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported file format. Please upload CSV, XLS, or XLSX files.")
+        except Exception as read_error:
+            raise HTTPException(status_code=400, detail=f"Error reading file: {str(read_error)}. Please check your file format and ensure it's a valid CSV or Excel file.")
+        
+        # Validate dataframe
+        if df is None or df.empty:
+            raise HTTPException(status_code=400, detail="The uploaded file is empty or contains no valid data.")
+        
+        # Check minimum data requirements
+        if len(df) < 10:
+            raise HTTPException(status_code=400, detail="Dataset too small. Please upload at least 10 rows of data for meaningful analysis.")
+        
+        # Data cleaning and validation
+        try:
+            df = clean_and_validate_data(df)
+        except Exception as clean_error:
+            raise HTTPException(status_code=400, detail=f"Data validation failed: {str(clean_error)}")
         
         # Analyze data
         analysis = analyze_data(df)
+        
+        # Validate analysis results
+        if not analysis['numeric_columns']:
+            raise HTTPException(status_code=400, detail="No numeric columns found in the data. Please ensure your data contains numeric values for modeling.")
         
         # Create analysis record
         data_analysis = DataAnalysis(
@@ -604,11 +637,15 @@ async def upload_data(file: UploadFile = File(...)):
         return {
             "status": "success",
             "data_id": data_analysis.id,
-            "analysis": analysis
+            "analysis": analysis,
+            "message": "Data uploaded and analyzed successfully"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred during file upload: {str(e)}")
 
 @api_router.post("/train-model")
 async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any]):
