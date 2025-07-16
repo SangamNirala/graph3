@@ -113,6 +113,31 @@ function App() {
     }
   };
 
+  // Handle pH target adjustment
+  const handlePhTargetChange = async (newTarget) => {
+    setTargetPh(newTarget);
+    setIsAdjustingPh(true);
+    
+    try {
+      // Update target pH on backend
+      const response = await fetch(`${API}/set-ph-target`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ target_ph: newTarget }),
+      });
+
+      if (response.ok) {
+        setPhData(prev => ({ ...prev, target_ph: newTarget }));
+      }
+    } catch (error) {
+      console.error('Error setting pH target:', error);
+    } finally {
+      setIsAdjustingPh(false);
+    }
+  };
+
   // Generate continuous predictions with proper extrapolation
   const generateContinuousPredictions = async () => {
     if (!modelId) return;
