@@ -374,35 +374,37 @@ async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any])
         prepared_data = prepare_data_for_model(current_data, time_col, target_col)
         print(f"Prepared data shape: {prepared_data.shape}")
         
-        # Train model based on type
+        # Train model based on type with improved algorithms
         if model_type == 'prophet':
-            print("Training Prophet model...")
+            print("Training improved Prophet model...")
             try:
-                model = train_prophet_model(prepared_data, time_col, target_col, parameters)
-                print("Prophet model trained successfully")
+                model = train_improved_prophet_model(prepared_data, time_col, target_col, parameters)
+                print("Improved Prophet model trained successfully")
             except Exception as prophet_error:
                 print(f"Prophet training error: {prophet_error}")
                 raise HTTPException(status_code=500, detail=f"Prophet model training failed: {str(prophet_error)}")
                 
         elif model_type == 'arima':
-            print("Training ARIMA model...")
+            print("Training improved ARIMA model...")
             try:
-                model = train_arima_model(prepared_data, time_col, target_col, parameters)
-                print("ARIMA model trained successfully")
+                model = train_improved_arima_model(prepared_data, time_col, target_col, parameters)
+                print("Improved ARIMA model trained successfully")
             except Exception as arima_error:
                 print(f"ARIMA training error: {arima_error}")
                 raise HTTPException(status_code=500, detail=f"ARIMA model training failed: {str(arima_error)}")
         else:
             raise HTTPException(status_code=400, detail="Unsupported model type. Use 'prophet' or 'arima'")
         
-        # Store model globally
+        # Store model globally with pattern analysis
+        patterns = analyze_historical_patterns(prepared_data, time_col, target_col)
         current_model = {
             'model': model,
             'model_type': model_type,
             'time_col': time_col,
             'target_col': target_col,
             'parameters': parameters,
-            'data': prepared_data
+            'data': prepared_data,
+            'patterns': patterns  # Store pattern analysis for better predictions
         }
         
         # Create training record
