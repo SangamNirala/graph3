@@ -626,7 +626,7 @@ function App() {
           </div>
           
           {/* Data Summary */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-blue-50 p-4 rounded-lg">
               <h4 className="font-semibold text-blue-800 mb-2">📊 Historical Data</h4>
               <p className="text-sm text-blue-700">
@@ -638,6 +638,15 @@ function App() {
               <h4 className="font-semibold text-green-800 mb-2">🔮 Predictions</h4>
               <p className="text-sm text-green-700">
                 {predictionData ? `${predictionData.predictions.length} predictions generated` : 'No predictions yet'}
+              </p>
+            </div>
+            
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <h4 className="font-semibold text-purple-800 mb-2">⚙️ Control</h4>
+              <p className="text-sm text-purple-700">
+                Slider offset: {verticalOffset}
+                <br />
+                Prediction offset: {predictionOffset}
               </p>
             </div>
           </div>
