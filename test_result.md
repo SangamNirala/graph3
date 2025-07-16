@@ -306,7 +306,7 @@ backend:
     file: "/app/backend/advanced_models.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -317,6 +317,9 @@ backend:
       - working: false
         agent: "main"
         comment: "PARTIALLY FIXED: Applied fixes for N-BEATS state_dict loading (strict=False, error handling), LightGBM reshaping (1D target), and JSON serialization. However, new issues identified with data preparation for small datasets causing 'num_samples=0' errors. Need to investigate sequence generation logic."
+      - working: false
+        agent: "testing"
+        comment: "❌ COMPREHENSIVE TESTING: Mixed results with pH dataset (49 samples). ✅ WORKING: LSTM (Grade A), LightGBM (fixed 1D reshaping), supported models endpoint, model performance retrieval. ❌ CRITICAL ISSUES: 1) DLinear tensor size mismatch with small datasets, 2) N-BEATS NaN training losses and wrong state_dict loading, 3) Advanced prediction datetime arithmetic errors, 4) Model comparison duplicate keys errors. Success rate: 50%. Core models work but prediction endpoints and some model architectures need fixes."
 
   - task: "Enhanced data preprocessing and quality validation"
     implemented: true
