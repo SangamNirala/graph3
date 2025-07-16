@@ -334,10 +334,15 @@ class PhPredictionTester:
             return
             
         try:
-            # Test advanced prediction endpoint
-            response = self.session.get(
+            # Test advanced prediction endpoint (POST method)
+            payload = {
+                "model_id": self.model_id,
+                "steps": 20
+            }
+            
+            response = self.session.post(
                 f"{API_BASE_URL}/advanced-prediction",
-                params={"model_id": self.model_id, "steps": 20}
+                json=payload
             )
             
             if response.status_code == 200:
