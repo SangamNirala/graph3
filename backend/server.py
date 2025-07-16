@@ -800,6 +800,89 @@ async def get_historical_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.get("/extend-prediction")
+async def extend_prediction(steps: int = 5):
+    """Extend current predictions with new points that follow the trend"""
+    try:
+        global current_model, continuous_predictions
+        
+        if current_model is None:
+            raise HTTPException(status_code=400, detail="No model trained")
+        
+        if not continuous_predictions:
+            # No existing predictions, generate initial ones
+            return await generate_continuous_prediction("current", steps, 100)
+        
+        # Get the last prediction to continue from
+        last_prediction = continuous_predictions[-1]
+        last_values = last_prediction['predictions']
+        
+        # Analyze trend of recent predictions
+        if len(last_values) >= 3:
+            # Calculate trend from last few points
+            x = np.arange(len(last_values))
+            trend = np.polyfit(x[-3:], last_values[-3:], 1)[0]  # Linear trend from last 3 points
+            velocity = np.mean(np.diff(last_values[-3:]))  # Average velocity
+        else:
+            trend = 0
+            velocity = 0
+        
+        # Generate new predictions that follow the trend
+        new_predictions = []
+        last_value = last_values[-1]
+        
+        for i in range(steps):
+            # Apply trend with some decay and noise
+            trend_component = trend * (1 - i * 0.1)  # Decay trend over time
+            velocity_component = velocity * (1 - i * 0.05)  # Decay velocity
+            noise = np.random.normal(0, 0.1)  # Small noise
+            
+            next_value = last_value + trend_component + velocity_component + noise
+            new_predictions.append(next_value)
+            last_value = next_value
+        
+        # Create timestamps for new predictions
+        data = current_model['data']
+        time_col = current_model['time_col']
+        
+        if time_col in data.columns:
+            last_timestamp = pd.to_datetime(last_prediction['timestamps'][-1])
+            time_series = pd.to_datetime(data[time_col])
+            freq = pd.infer_freq(time_series)
+        else:
+            last_timestamp = pd.to_datetime(last_prediction['timestamps'][-1])
+            freq = 'D'
+        
+        if freq is None:
+            freq = 'D'
+        
+        # Create future timestamps
+        future_timestamps = pd.date_range(
+            start=last_timestamp + pd.Timedelta(days=1), 
+            periods=steps, 
+            freq=freq
+        )
+        
+        result = {
+            'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
+            'predictions': new_predictions,
+            'confidence_intervals': None,
+            'extension_info': {
+                'trend': trend,
+                'velocity': velocity,
+                'base_value': last_values[-1]
+            }
+        }
+        
+        # Store the extension
+        continuous_predictions.append(result)
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error extending predictions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # WebSocket for real-time predictions
 @app.websocket("/ws/predictions")
 async def websocket_endpoint(websocket: WebSocket):
