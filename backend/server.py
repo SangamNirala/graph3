@@ -317,22 +317,36 @@ async def generate_prediction(model_id: str, steps: int = 30):
             
             # Create timestamps - handle the case where data index might not be datetime
             time_col = current_model['time_col']
-            if hasattr(data.index, 'freq') and data.index.freq:
-                freq = data.index.freq
-                last_timestamp = data.index[-1]
-            else:
-                # Fallback: use the original time column to infer frequency
-                time_series = data[time_col] if time_col in data.columns else pd.to_datetime(data.index)
-                freq = pd.infer_freq(time_series)
-                if freq is None:
-                    freq = 'D'  # Default to daily frequency
-                last_timestamp = time_series.iloc[-1] if time_col in data.columns else data.index[-1]
+            original_data = current_model['data']
             
-            future_timestamps = pd.date_range(
-                start=last_timestamp + pd.Timedelta(freq), 
-                periods=steps, 
-                freq=freq
-            )
+            # Get the last timestamp from the original data
+            if time_col in original_data.columns:
+                last_timestamp = pd.to_datetime(original_data[time_col].iloc[-1])
+                # Try to infer frequency from the time series
+                time_series = pd.to_datetime(original_data[time_col])
+                freq = pd.infer_freq(time_series)
+            else:
+                last_timestamp = pd.to_datetime(original_data.index[-1])
+                freq = pd.infer_freq(pd.to_datetime(original_data.index))
+            
+            # Default to daily frequency if inference fails
+            if freq is None:
+                freq = 'D'
+            
+            # Create future timestamps
+            try:
+                future_timestamps = pd.date_range(
+                    start=last_timestamp + pd.Timedelta(days=1), 
+                    periods=steps, 
+                    freq=freq
+                )
+            except:
+                # Fallback to daily frequency
+                future_timestamps = pd.date_range(
+                    start=last_timestamp + pd.Timedelta(days=1), 
+                    periods=steps, 
+                    freq='D'
+                )
             
             result = {
                 'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
