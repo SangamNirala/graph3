@@ -407,7 +407,7 @@ class AdvancedTimeSeriesForecaster:
                 best_loss = val_loss
                 patience_counter = 0
                 # Save best model with unique filename
-                model_path = f'/tmp/best_model_{self.model_type}.pth'
+                model_path = f'/tmp/best_model_{self.model_type}_{id(self)}.pth'
                 torch.save(self.model.state_dict(), model_path)
             else:
                 patience_counter += 1
