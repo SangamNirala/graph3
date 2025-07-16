@@ -97,6 +97,36 @@ function App() {
     }
   };
 
+  // Load pH simulation data
+  const loadPhSimulation = async () => {
+    try {
+      const response = await fetch(`${API}/ph-simulation-history?hours=24`);
+      if (response.ok) {
+        const data = await response.json();
+        setPhData(data);
+        setRealtimePhReadings(data.data.slice(-100)); // Keep last 100 readings
+      }
+    } catch (error) {
+      console.error('Error loading pH simulation:', error);
+    }
+  };
+
+  // Generate continuous predictions with proper extrapolation
+  const generateContinuousPredictions = async () => {
+    if (!modelId) return;
+
+    try {
+      const response = await fetch(`${API}/generate-continuous-prediction?model_id=${modelId}&steps=30&time_window=${timeWindow}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (error) {
+      console.error('Error generating continuous predictions:', error);
+    }
+    return null;
+  };
+
   // Load historical data
   const loadHistoricalData = async () => {
     try {
