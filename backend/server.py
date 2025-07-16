@@ -281,6 +281,23 @@ def safe_json_serialization(obj):
         return obj
 
 # Utility functions
+def convert_numpy_types(obj):
+    """Convert numpy types to Python native types for JSON serialization"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, pd.Timestamp):
+        return obj.isoformat()
+    else:
+        return obj
+
 def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
     """Analyze uploaded data and suggest parameters"""
     analysis = {
