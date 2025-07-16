@@ -783,7 +783,7 @@ metadata:
   created_by: "main_agent"
   version: "1.1"
   test_sequence: 1
-  run_ui: false
+  run_ui: true
 
 test_plan:
   current_focus:
