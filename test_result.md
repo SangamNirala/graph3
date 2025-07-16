@@ -435,9 +435,14 @@ metadata:
 
 test_plan:
   current_focus:
-    []
+    - "State-of-the-art ML models implementation (DLinear, N-BEATS, LSTM, Ensemble)"
+    - "Enhanced data preprocessing and quality validation"
+    - "New advanced prediction endpoints"
   stuck_tasks:
     - "WebSocket for real-time updates"
+    - "State-of-the-art ML models implementation (DLinear, N-BEATS, LSTM, Ensemble)"
+    - "Enhanced data preprocessing and quality validation"
+    - "New advanced prediction endpoints"
   test_all: false
   test_priority: "high_first"
 
