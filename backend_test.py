@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / 'frontend' / '.env')
 
 # Get backend URL from environment
-BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://ba224374-4826-4471-974e-2aaccc696714.preview.emergentagent.com')
+BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://8ecdc457-5a6d-405e-b237-5d7187d1504c.preview.emergentagent.com')
 API_BASE_URL = f"{BACKEND_URL}/api"
 WS_URL = BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://') + "/ws/predictions"
 
