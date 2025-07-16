@@ -176,15 +176,18 @@ backend:
 
   - task: "pH simulation data generation"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "NEW: Implemented realistic pH simulation data generation with values in 6.0-8.0 range, periodic variations, and confidence scoring. Added endpoints for real-time pH readings and historical pH data."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: pH simulation endpoints working perfectly. /api/ph-simulation generates realistic pH values in 6.0-8.0 range with proper confidence scores (85-98%). /api/ph-simulation-history returns 1440 data points (24 hours of minute-by-minute data) with correct structure including timestamp, ph_value, and confidence fields. All pH values consistently within realistic range. Target pH set to 7.6, status shows 'Connected'. Simulation includes realistic variations and periodic patterns."
 
   - task: "Continuous prediction extrapolation fix"
     implemented: true
