@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Build a real-time graph prediction web application using Flask/FastAPI. Users upload CSV/Excel data, app analyzes it, suggests ML parameters, trains predictive models, and displays two synchronized graphs with real-time predictions and interactive vertical panning slider."
+user_problem_statement: "Build a real-time graph prediction web application using Flask/FastAPI. Users upload CSV/Excel data, app analyzes it, suggests ML parameters, trains predictive models, and displays two synchronized graphs with real-time predictions and interactive vertical panning slider. UPDATED: Fix continuous prediction issue where graph stops after showing particular prediction, implement proper extrapolation controlled by slider, match UI to pH monitoring dashboard with three panels."
 
 backend:
   - task: "File upload and data analysis endpoint"
@@ -141,7 +141,7 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
@@ -149,6 +149,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ TESTED: Prediction generation working after fixing ARIMA timestamp frequency issue. Prophet predictions include confidence intervals, ARIMA predictions work with proper timestamp generation. Fixed frequency inference problem in ARIMA model by implementing robust fallback to daily frequency. Both models generate correct number of predictions with proper timestamp formatting."
+      - working: "NA"
+        agent: "main"
+        comment: "UPDATED: Enhanced prediction generation with proper continuous extrapolation logic. Added generate-continuous-prediction endpoint that properly extrapolates forward, added pH simulation data generation, and fixed continuous prediction algorithm to actually keep extending predictions rather than stopping."
 
   - task: "WebSocket for real-time updates"
     implemented: true
@@ -156,7 +159,7 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "medium"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
@@ -164,6 +167,33 @@ backend:
       - working: false
         agent: "testing"
         comment: "❌ TESTED: WebSocket connection failing with HTTP 502 error. This appears to be a reverse proxy/Kubernetes ingress configuration issue rather than application code issue. The WebSocket endpoint is implemented correctly in FastAPI but external WebSocket connections are being rejected by the infrastructure. Continuous prediction start/stop endpoints work correctly."
+      - working: "NA"
+        agent: "main"
+        comment: "UPDATED: Enhanced WebSocket background task to properly handle continuous prediction extrapolation and pH simulation data streaming. Now sends both prediction updates and pH readings to connected clients."
+
+  - task: "pH simulation data generation"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW: Implemented realistic pH simulation data generation with values in 6.0-8.0 range, periodic variations, and confidence scoring. Added endpoints for real-time pH readings and historical pH data."
+
+  - task: "Continuous prediction extrapolation fix"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW: Fixed continuous prediction logic to properly extrapolate data points forward. Added reset functionality, improved prediction offset handling, and enhanced continuous prediction task to generate smooth extrapolation."
 
 frontend:
   - task: "File upload interface with drag-and-drop"
@@ -190,7 +220,7 @@ frontend:
         agent: "main"
         comment: "Implemented parameter selection interface with time column, target column, model type, and prediction horizon configuration"
 
-  - task: "Dual graph interface with Plotly"
+  - task: "Three-panel pH monitoring dashboard UI"
     implemented: true
     working: "NA"
     file: "/app/frontend/src/App.js"
@@ -200,9 +230,9 @@ frontend:
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Implemented side-by-side graphs showing historical data and predictions with Plotly.js"
+        comment: "NEW: Completely redesigned UI to match uploaded pH monitoring dashboard with three panels: Real-time pH Sensor Readings (left), pH Control Panel (middle), and LSTM Predictions (right). Added proper pH visualization with color-coded pH scale and control elements."
 
-  - task: "Interactive vertical panning slider"
+  - task: "Fixed continuous prediction with proper extrapolation"
     implemented: true
     working: "NA"
     file: "/app/frontend/src/App.js"
@@ -212,29 +242,45 @@ frontend:
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Implemented vertical slider between graphs that affects both historical and prediction displays"
+        comment: "NEW: Fixed continuous prediction issue where graph was stopping after showing particular prediction. Now properly extrapolates data points continuously, updates every 1 second for smooth experience, and maintains time window control via slider."
 
-  - task: "Real-time prediction updates via WebSocket"
+  - task: "Time window slider control"
     implemented: true
     working: "NA"
     file: "/app/frontend/src/App.js"
     stuck_count: 0
-    priority: "medium"
+    priority: "high"
     needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Implemented WebSocket connection for real-time prediction updates and continuous prediction controls"
+        comment: "NEW: Replaced vertical offset slider with time window control slider that properly controls the range/window of data being displayed. Slider now controls how many data points are shown (20-200 points) and affects both historical and prediction displays."
+
+  - task: "Real-time pH simulation integration"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW: Integrated real-time pH simulation data with proper visualization, added pH control panel with current pH display, target pH, and color-coded pH scale indicator."
 
 metadata:
   created_by: "main_agent"
-  version: "1.0"
+  version: "1.1"
   test_sequence: 1
   run_ui: false
 
 test_plan:
   current_focus:
-    - "WebSocket for real-time updates"
+    - "Continuous prediction extrapolation fix"
+    - "pH simulation data generation"
+    - "Three-panel pH monitoring dashboard UI"
+    - "Fixed continuous prediction with proper extrapolation"
+    - "Time window slider control"
   stuck_tasks:
     - "WebSocket for real-time updates"
   test_all: false
@@ -245,3 +291,5 @@ agent_communication:
     message: "Implemented complete real-time graph prediction application with file upload, data analysis, ML model training (Prophet/ARIMA), dual graph interface, and real-time predictions. All core features implemented including WebSocket for continuous updates and interactive vertical panning slider. Ready for comprehensive backend testing first."
   - agent: "testing"
     message: "✅ BACKEND TESTING COMPLETED: 6/8 tests passed (75% success rate). Core functionality working: file upload, data analysis, Prophet/ARIMA training, prediction generation, historical data, continuous prediction control. Fixed ARIMA prediction timestamp issue. WebSocket failing due to infrastructure (HTTP 502 - reverse proxy config issue). Minor error handling gaps but core features functional. Backend APIs ready for frontend integration."
+  - agent: "main"
+    message: "MAJOR UPDATE: Fixed continuous prediction issue and redesigned UI to match pH monitoring dashboard. Added proper pH simulation (6.0-8.0 range), implemented continuous prediction extrapolation that keeps extending data points, replaced vertical offset slider with time window control, and created three-panel layout matching uploaded design. Backend now includes pH simulation endpoints and improved continuous prediction logic. Frontend completely redesigned with pH monitoring dashboard UI. Ready for comprehensive testing of new features."
