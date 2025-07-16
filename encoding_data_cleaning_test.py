@@ -117,11 +117,17 @@ class EncodingDataCleaningTester:
     def create_problematic_combination_data(self):
         """Create test data with combination of problematic data"""
         data = {
-            'timestamp': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'],
-            'mixed_numeric': [10.5, 'invalid', np.nan, '', '  20.3  '],
-            'utf8_with_nulls': ['São Paulo', '', np.nan, 'München', 'null'],
-            'empty_mixed': ['', '  ', np.nan, 'NULL', 'valid_data'],
-            'whitespace_numbers': [' 123.45 ', '', '  67.89  ', 'nan', '  ']
+            'timestamp': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05',
+                         '2023-01-06', '2023-01-07', '2023-01-08', '2023-01-09', '2023-01-10',
+                         '2023-01-11', '2023-01-12', '2023-01-13', '2023-01-14', '2023-01-15'],
+            'mixed_numeric': [10.5, 'invalid', np.nan, '', '  20.3  ', 15.7, 'bad', np.nan, '  ',
+                             '25.8', 'error', np.nan, '', '  18.9  ', '22.1'],
+            'utf8_with_nulls': ['São Paulo', '', np.nan, 'München', 'null', 'Zürich', '', np.nan,
+                               'Montréal', 'NULL', 'Kraków', '', np.nan, 'São Paulo', 'null'],
+            'empty_mixed': ['', '  ', np.nan, 'NULL', 'valid_data', '', '   ', np.nan, 'null',
+                           'good_data', '', '  ', np.nan, 'NULL', 'final_data'],
+            'whitespace_numbers': [' 123.45 ', '', '  67.89  ', 'nan', '  ', ' 234.56 ', '', '  89.12  ',
+                                  'null', '   ', ' 156.78 ', '', '  345.67  ', 'NaN', '  ']
         }
         df = pd.DataFrame(data)
         return df.to_csv(index=False, encoding='utf-8')
