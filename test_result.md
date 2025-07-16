@@ -191,15 +191,18 @@ backend:
 
   - task: "Continuous prediction extrapolation fix"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "NEW: Fixed continuous prediction logic to properly extrapolate data points forward. Added reset functionality, improved prediction offset handling, and enhanced continuous prediction task to generate smooth extrapolation."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Continuous prediction extrapolation fix working correctly. Fixed critical bug where continuous_predictions list was not being updated in generate-continuous-prediction endpoint. Now properly extrapolates forward with each call advancing timestamps (5-day intervals for ARIMA). Reset functionality works correctly. Start/stop continuous prediction endpoints functional. Complete flow integration passes all steps: Reset→Start→Extrapolation→pH Integration→Stop."
 
 frontend:
   - task: "File upload interface with drag-and-drop"
