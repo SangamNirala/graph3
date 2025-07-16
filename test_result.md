@@ -330,7 +330,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fixed continuous prediction with proper extrapolation"
+    - "Interactive pH slider functionality"
+    - "Advanced continuous prediction with historical pattern extrapolation"
+    - "Real-time graph extension with smooth data transitions"
   stuck_tasks:
     - "WebSocket for real-time updates"
   test_all: false
