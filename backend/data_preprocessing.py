@@ -349,9 +349,9 @@ class TimeSeriesValidator:
         validation = {}
         
         # Basic statistics
-        validation['total_rows'] = len(data)
-        validation['missing_values'] = data.isnull().sum().to_dict()
-        validation['duplicate_rows'] = data.duplicated().sum()
+        validation['total_rows'] = int(len(data))
+        validation['missing_values'] = {str(k): int(v) for k, v in data.isnull().sum().to_dict().items()}
+        validation['duplicate_rows'] = int(data.duplicated().sum())
         
         # Time series specific checks
         time_series = data[time_col]
@@ -360,8 +360,8 @@ class TimeSeriesValidator:
         # Time column validation
         validation['time_column'] = {
             'dtype': str(time_series.dtype),
-            'unique_values': time_series.nunique(),
-            'is_sorted': time_series.is_monotonic_increasing,
+            'unique_values': int(time_series.nunique()),
+            'is_sorted': bool(time_series.is_monotonic_increasing),
             'time_range': {
                 'start': str(time_series.min()),
                 'end': str(time_series.max())
@@ -384,7 +384,7 @@ class TimeSeriesValidator:
         validation['stationarity'] = {
             'mean_diff': float(diff_series.mean()),
             'std_diff': float(diff_series.std()),
-            'likely_stationary': abs(diff_series.mean()) < 0.1 * target_series.std()
+            'likely_stationary': bool(abs(diff_series.mean()) < 0.1 * target_series.std())
         }
         
         # Seasonality detection (simple)
@@ -394,15 +394,15 @@ class TimeSeriesValidator:
             autocorr_24 = target_series.autocorr(lag=24) if len(data) >= 24 else 0
             
             validation['seasonality'] = {
-                'autocorr_lag_1': float(autocorr_1) if not np.isnan(autocorr_1) else 0,
-                'autocorr_lag_7': float(autocorr_7) if not np.isnan(autocorr_7) else 0,
-                'autocorr_lag_24': float(autocorr_24) if not np.isnan(autocorr_24) else 0,
-                'has_seasonality': abs(autocorr_7) > 0.3 or abs(autocorr_24) > 0.3
+                'autocorr_lag_1': float(autocorr_1) if not np.isnan(autocorr_1) else 0.0,
+                'autocorr_lag_7': float(autocorr_7) if not np.isnan(autocorr_7) else 0.0,
+                'autocorr_lag_24': float(autocorr_24) if not np.isnan(autocorr_24) else 0.0,
+                'has_seasonality': bool(abs(autocorr_7) > 0.3 or abs(autocorr_24) > 0.3)
             }
         
         # Data quality score
         quality_score = self.calculate_quality_score(validation)
-        validation['quality_score'] = quality_score
+        validation['quality_score'] = float(quality_score)
         validation['recommendations'] = self.generate_recommendations(validation)
         
         self.validation_results = validation
