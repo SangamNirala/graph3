@@ -644,6 +644,7 @@ async def reset_continuous_prediction():
 # Include the router in the main app
 app.include_router(api_router)
 
+# Configure CORS middleware (must be after including routers)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
