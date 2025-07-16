@@ -687,8 +687,15 @@ function App() {
             <div className="space-y-3">
               <button
                 onClick={async () => {
+                  // Load historical data first
+                  await loadHistoricalData();
+                  
+                  // Then generate predictions
                   const predictions = await generatePredictions(0);
-                  if (predictions) setPredictionData(predictions);
+                  if (predictions) {
+                    setPredictionData(predictions);
+                    setLstmPredictions(predictions.predictions);
+                  }
                 }}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
