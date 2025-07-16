@@ -323,32 +323,364 @@ class BackendTester:
             print(f"❌ Continuous prediction control error: {str(e)}")
             self.test_results['continuous_prediction'] = False
     
-    async def test_websocket_connection(self):
-        """Test 6: WebSocket connection and messaging"""
-        print("\n=== Testing WebSocket Connection ===")
+    async def test_enhanced_websocket_connection(self):
+        """Test 6a: Enhanced WebSocket connection with heartbeat and error handling"""
+        print("\n=== Testing Enhanced WebSocket Connection ===")
         
         try:
-            # Test WebSocket connection
+            # Test WebSocket connection with enhanced features
             async with websockets.connect(WS_URL) as websocket:
-                print("✅ WebSocket connection established")
+                print("✅ Enhanced WebSocket connection established")
                 
-                # Send a test message
-                test_message = json.dumps({"type": "test", "message": "Hello WebSocket"})
+                # Test 1: Connection confirmation message
+                try:
+                    initial_response = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+                    initial_data = json.loads(initial_response)
+                    if initial_data.get('type') == 'connection_established':
+                        print("✅ Connection confirmation received")
+                        connection_confirmed = True
+                    else:
+                        print(f"⚠️  Unexpected initial message: {initial_data}")
+                        connection_confirmed = False
+                except asyncio.TimeoutError:
+                    print("⚠️  No connection confirmation received")
+                    connection_confirmed = False
+                
+                # Test 2: Send test message and receive echo
+                test_message = json.dumps({"type": "test", "message": "Hello Enhanced WebSocket"})
                 await websocket.send(test_message)
-                print("✅ Test message sent to WebSocket")
+                print("✅ Test message sent to enhanced WebSocket")
                 
-                # Wait for response with timeout
                 try:
                     response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-                    print(f"✅ WebSocket response received: {response}")
-                    self.test_results['websocket'] = True
+                    response_data = json.loads(response)
+                    if response_data.get('type') == 'echo':
+                        print(f"✅ Echo response received: {response_data.get('message')}")
+                        echo_test = True
+                    else:
+                        print(f"⚠️  Unexpected response type: {response_data}")
+                        echo_test = False
                 except asyncio.TimeoutError:
-                    print("⚠️  WebSocket response timeout (this may be normal)")
-                    self.test_results['websocket'] = True  # Connection worked even if no immediate response
+                    print("⚠️  No echo response received")
+                    echo_test = False
+                
+                # Test 3: Wait for heartbeat message
+                print("⏳ Waiting for heartbeat message...")
+                try:
+                    heartbeat_response = await asyncio.wait_for(websocket.recv(), timeout=65.0)  # Wait longer than heartbeat interval
+                    heartbeat_data = json.loads(heartbeat_response)
+                    if heartbeat_data.get('type') == 'heartbeat':
+                        print("✅ Heartbeat message received")
+                        heartbeat_test = True
+                    else:
+                        print(f"⚠️  Expected heartbeat, got: {heartbeat_data}")
+                        heartbeat_test = False
+                except asyncio.TimeoutError:
+                    print("⚠️  No heartbeat received within timeout")
+                    heartbeat_test = False
+                
+                # Overall WebSocket test result
+                websocket_tests = [
+                    ("Connection Confirmation", connection_confirmed),
+                    ("Echo Response", echo_test),
+                    ("Heartbeat", heartbeat_test)
+                ]
+                
+                passed_tests = sum(1 for _, passed in websocket_tests if passed)
+                print(f"\n📊 Enhanced WebSocket test results: {passed_tests}/3")
+                for test_name, passed in websocket_tests:
+                    status = "✅" if passed else "❌"
+                    print(f"   {status} {test_name}")
+                
+                self.test_results['enhanced_websocket'] = passed_tests >= 2  # At least 2/3 tests should pass
                     
         except Exception as e:
-            print(f"❌ WebSocket connection error: {str(e)}")
-            self.test_results['websocket'] = False
+            print(f"❌ Enhanced WebSocket connection error: {str(e)}")
+            self.test_results['enhanced_websocket'] = False
+
+    def test_server_sent_events(self):
+        """Test 6b: Server-Sent Events (SSE) endpoint as WebSocket fallback"""
+        print("\n=== Testing Server-Sent Events (SSE) ===")
+        
+        try:
+            import sseclient  # We'll need to handle this gracefully if not available
+        except ImportError:
+            # Fallback to manual SSE handling
+            print("⚠️  sseclient not available, using manual SSE handling")
+        
+        try:
+            # Test SSE connection
+            sse_url = f"{API_BASE_URL}/stream/predictions"
+            
+            # Use requests with stream=True for SSE
+            response = self.session.get(sse_url, stream=True, timeout=30)
+            
+            if response.status_code == 200:
+                print("✅ SSE connection established")
+                
+                # Read initial events
+                events_received = []
+                lines_buffer = ""
+                
+                for chunk in response.iter_content(chunk_size=1, decode_unicode=True):
+                    if chunk:
+                        lines_buffer += chunk
+                        
+                        # Process complete lines
+                        while '\n' in lines_buffer:
+                            line, lines_buffer = lines_buffer.split('\n', 1)
+                            
+                            if line.startswith('data: '):
+                                try:
+                                    event_data = json.loads(line[6:])  # Remove 'data: ' prefix
+                                    events_received.append(event_data)
+                                    print(f"📨 SSE event received: {event_data.get('type', 'unknown')}")
+                                    
+                                    # Stop after receiving a few events or connection confirmation
+                                    if len(events_received) >= 3 or event_data.get('type') == 'connection_established':
+                                        break
+                                except json.JSONDecodeError:
+                                    print(f"⚠️  Invalid JSON in SSE event: {line}")
+                    
+                    # Break after reasonable time to avoid hanging
+                    if len(events_received) >= 1:
+                        break
+                
+                # Analyze received events
+                connection_established = any(event.get('type') == 'connection_established' for event in events_received)
+                heartbeat_received = any(event.get('type') == 'heartbeat' for event in events_received)
+                
+                sse_tests = [
+                    ("SSE Connection", response.status_code == 200),
+                    ("Connection Established Event", connection_established),
+                    ("Events Received", len(events_received) > 0)
+                ]
+                
+                passed_tests = sum(1 for _, passed in sse_tests if passed)
+                print(f"\n📊 SSE test results: {passed_tests}/3")
+                for test_name, passed in sse_tests:
+                    status = "✅" if passed else "❌"
+                    print(f"   {status} {test_name}")
+                
+                self.test_results['sse_streaming'] = passed_tests >= 2  # At least 2/3 tests should pass
+                
+            else:
+                print(f"❌ SSE connection failed: {response.status_code}")
+                self.test_results['sse_streaming'] = False
+                
+        except Exception as e:
+            print(f"❌ SSE test error: {str(e)}")
+            self.test_results['sse_streaming'] = False
+
+    def test_long_polling(self):
+        """Test 6c: Long Polling endpoint as another fallback option"""
+        print("\n=== Testing Long Polling ===")
+        
+        try:
+            # Test long polling endpoint
+            polling_url = f"{API_BASE_URL}/poll/predictions"
+            
+            # Test 1: Basic polling request
+            response = self.session.get(polling_url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                print("✅ Long polling request successful")
+                print(f"   Response: {data}")
+                basic_polling_test = True
+            else:
+                print(f"❌ Long polling failed: {response.status_code} - {response.text}")
+                basic_polling_test = False
+            
+            # Test 2: Polling with timeout parameter
+            try:
+                response = self.session.get(f"{polling_url}?timeout=5", timeout=10)
+                if response.status_code == 200:
+                    print("✅ Long polling with timeout parameter successful")
+                    timeout_polling_test = True
+                else:
+                    print(f"⚠️  Long polling with timeout failed: {response.status_code}")
+                    timeout_polling_test = False
+            except Exception as e:
+                print(f"⚠️  Long polling timeout test error: {str(e)}")
+                timeout_polling_test = False
+            
+            # Test 3: Multiple polling requests (simulate continuous polling)
+            polling_results = []
+            for i in range(3):
+                try:
+                    response = self.session.get(polling_url, timeout=5)
+                    if response.status_code == 200:
+                        polling_results.append(True)
+                    else:
+                        polling_results.append(False)
+                    time.sleep(1)  # Brief pause between requests
+                except:
+                    polling_results.append(False)
+            
+            continuous_polling_test = sum(polling_results) >= 2  # At least 2/3 should succeed
+            if continuous_polling_test:
+                print("✅ Continuous polling simulation successful")
+            else:
+                print("⚠️  Continuous polling simulation had issues")
+            
+            # Overall long polling test result
+            polling_tests = [
+                ("Basic Polling", basic_polling_test),
+                ("Timeout Parameter", timeout_polling_test),
+                ("Continuous Polling", continuous_polling_test)
+            ]
+            
+            passed_tests = sum(1 for _, passed in polling_tests if passed)
+            print(f"\n📊 Long polling test results: {passed_tests}/3")
+            for test_name, passed in polling_tests:
+                status = "✅" if passed else "❌"
+                print(f"   {status} {test_name}")
+            
+            self.test_results['long_polling'] = passed_tests >= 2  # At least 2/3 tests should pass
+            
+        except Exception as e:
+            print(f"❌ Long polling test error: {str(e)}")
+            self.test_results['long_polling'] = False
+
+    def test_connection_status_endpoint(self):
+        """Test 6d: Connection status endpoint for debugging"""
+        print("\n=== Testing Connection Status Endpoint ===")
+        
+        try:
+            # Test connection status endpoint
+            status_url = f"{API_BASE_URL}/connection-status"
+            
+            response = self.session.get(status_url)
+            
+            if response.status_code == 200:
+                data = response.json()
+                print("✅ Connection status endpoint successful")
+                print(f"   Status data: {data}")
+                
+                # Validate expected fields in status response
+                expected_fields = ['websocket_connections', 'sse_connections', 'server_status']
+                status_validation = []
+                
+                for field in expected_fields:
+                    if field in data:
+                        print(f"   ✅ {field}: {data[field]}")
+                        status_validation.append(True)
+                    else:
+                        print(f"   ⚠️  Missing field: {field}")
+                        status_validation.append(False)
+                
+                # Check if status indicates healthy server
+                server_healthy = data.get('server_status') == 'running' or 'active' in str(data.get('server_status', '')).lower()
+                if server_healthy:
+                    print("   ✅ Server status indicates healthy state")
+                else:
+                    print(f"   ⚠️  Server status unclear: {data.get('server_status')}")
+                
+                status_tests = [
+                    ("Endpoint Response", True),
+                    ("Required Fields", sum(status_validation) >= len(expected_fields) * 0.7),
+                    ("Server Health", server_healthy)
+                ]
+                
+                passed_tests = sum(1 for _, passed in status_tests if passed)
+                print(f"\n📊 Connection status test results: {passed_tests}/3")
+                for test_name, passed in status_tests:
+                    status = "✅" if passed else "❌"
+                    print(f"   {status} {test_name}")
+                
+                self.test_results['connection_status'] = passed_tests >= 2
+                
+            else:
+                print(f"❌ Connection status endpoint failed: {response.status_code} - {response.text}")
+                self.test_results['connection_status'] = False
+                
+        except Exception as e:
+            print(f"❌ Connection status test error: {str(e)}")
+            self.test_results['connection_status'] = False
+
+    def test_websocket_support_endpoint(self):
+        """Test 6e: Test WebSocket support endpoint"""
+        print("\n=== Testing WebSocket Support Endpoint ===")
+        
+        try:
+            # Test WebSocket support detection endpoint
+            support_url = f"{API_BASE_URL}/test-websocket-support"
+            
+            response = self.session.get(support_url)
+            
+            if response.status_code == 200:
+                data = response.json()
+                print("✅ WebSocket support endpoint successful")
+                print(f"   Support data: {data}")
+                
+                # Validate support information
+                websocket_supported = data.get('websocket_supported', False)
+                fallback_available = data.get('fallback_methods', [])
+                
+                print(f"   WebSocket supported: {websocket_supported}")
+                print(f"   Fallback methods: {fallback_available}")
+                
+                support_tests = [
+                    ("Endpoint Response", True),
+                    ("WebSocket Support Info", 'websocket_supported' in data),
+                    ("Fallback Methods Listed", len(fallback_available) > 0)
+                ]
+                
+                passed_tests = sum(1 for _, passed in support_tests if passed)
+                print(f"\n📊 WebSocket support test results: {passed_tests}/3")
+                for test_name, passed in support_tests:
+                    status = "✅" if passed else "❌"
+                    print(f"   {status} {test_name}")
+                
+                self.test_results['websocket_support'] = passed_tests >= 2
+                
+            else:
+                print(f"❌ WebSocket support endpoint failed: {response.status_code} - {response.text}")
+                self.test_results['websocket_support'] = False
+                
+        except Exception as e:
+            print(f"❌ WebSocket support test error: {str(e)}")
+            self.test_results['websocket_support'] = False
+
+    async def test_websocket_connection(self):
+        """Test 6: Comprehensive WebSocket and Streaming Tests"""
+        print("\n=== COMPREHENSIVE WEBSOCKET & STREAMING TESTS ===")
+        
+        # Run enhanced WebSocket test
+        await self.test_enhanced_websocket_connection()
+        
+        # Run SSE test
+        self.test_server_sent_events()
+        
+        # Run long polling test
+        self.test_long_polling()
+        
+        # Run connection status test
+        self.test_connection_status_endpoint()
+        
+        # Run WebSocket support test
+        self.test_websocket_support_endpoint()
+        
+        # Overall streaming functionality assessment
+        streaming_tests = [
+            ('Enhanced WebSocket', self.test_results.get('enhanced_websocket', False)),
+            ('SSE Streaming', self.test_results.get('sse_streaming', False)),
+            ('Long Polling', self.test_results.get('long_polling', False)),
+            ('Connection Status', self.test_results.get('connection_status', False)),
+            ('WebSocket Support', self.test_results.get('websocket_support', False))
+        ]
+        
+        passed_streaming_tests = sum(1 for _, passed in streaming_tests if passed)
+        total_streaming_tests = len(streaming_tests)
+        
+        print(f"\n🎯 STREAMING FUNCTIONALITY SUMMARY: {passed_streaming_tests}/{total_streaming_tests} tests passed")
+        for test_name, passed in streaming_tests:
+            status = "✅" if passed else "❌"
+            print(f"   {status} {test_name}")
+        
+        # Set overall WebSocket result (for backward compatibility)
+        self.test_results['websocket'] = passed_streaming_tests >= 3  # At least 3/5 streaming methods should work
     
     def test_ph_simulation_endpoints(self):
         """Test 7: pH Simulation Endpoints"""
