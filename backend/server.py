@@ -299,7 +299,7 @@ def convert_numpy_types(obj):
         return obj
 
 def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
-    """Analyze uploaded data and suggest parameters"""
+    """Analyze uploaded data and suggest parameters with robust error handling"""
     analysis = {
         'columns': df.columns.tolist(),
         'time_columns': [],
@@ -308,29 +308,115 @@ def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
         'data_preview': {}
     }
     
-    # Identify time columns
+    # Identify time columns with better error handling
     for col in df.columns:
-        if df[col].dtype == 'object':
-            try:
-                pd.to_datetime(df[col].head(100))
+        try:
+            if df[col].dtype == 'object':
+                # Test datetime parsing with a sample of data
+                sample_data = df[col].dropna().head(min(100, len(df)))
+                if len(sample_data) > 0:
+                    try:
+                        pd.to_datetime(sample_data, errors='coerce')
+                        # Check if most values can be parsed as datetime
+                        parsed_dates = pd.to_datetime(sample_data, errors='coerce')
+                        if parsed_dates.notna().sum() / len(sample_data) > 0.8:
+                            analysis['time_columns'].append(col)
+                    except Exception as dt_error:
+                        logging.warning(f"Error parsing datetime for column {col}: {dt_error}")
+                        pass
+            elif 'date' in col.lower() or 'time' in col.lower() or 'timestamp' in col.lower():
                 analysis['time_columns'].append(col)
-            except:
-                pass
-        elif 'date' in col.lower() or 'time' in col.lower():
-            analysis['time_columns'].append(col)
+        except Exception as col_error:
+            logging.warning(f"Error analyzing column {col}: {col_error}")
+            continue
     
-    # Identify numeric columns
-    analysis['numeric_columns'] = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    # Create data preview
+    # Identify numeric columns with better handling
     try:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        # Also check object columns that might be numeric
+        for col in df.columns:
+            if col not in numeric_cols and df[col].dtype == 'object':
+                try:
+                    # Try to convert to numeric and see if most values are valid
+                    numeric_test = pd.to_numeric(df[col], errors='coerce')
+                    if numeric_test.notna().sum() / len(df) > 0.7:
+                        numeric_cols.append(col)
+                except Exception as num_error:
+                    logging.warning(f"Error testing numeric conversion for column {col}: {num_error}")
+                    pass
+        
+        analysis['numeric_columns'] = numeric_cols
+    except Exception as numeric_error:
+        logging.error(f"Error identifying numeric columns: {numeric_error}")
+        analysis['numeric_columns'] = []
+    
+    # Create data preview with enhanced error handling
+    try:
+        # Safe head preview
+        head_data = []
+        try:
+            for _, row in df.head(10).iterrows():
+                row_dict = {}
+                for col in df.columns:
+                    try:
+                        value = row[col]
+                        # Handle NaN and special values
+                        if pd.isna(value):
+                            row_dict[col] = None
+                        elif isinstance(value, (np.floating, float)) and (np.isnan(value) or np.isinf(value)):
+                            row_dict[col] = None
+                        else:
+                            row_dict[col] = convert_numpy_types(value)
+                    except Exception as val_error:
+                        logging.warning(f"Error converting value in column {col}: {val_error}")
+                        row_dict[col] = str(value) if value is not None else None
+                head_data.append(row_dict)
+        except Exception as head_error:
+            logging.warning(f"Error creating head preview: {head_error}")
+            head_data = []
+        
+        # Safe describe
+        describe_data = {}
+        try:
+            if len(analysis['numeric_columns']) > 0:
+                numeric_df = df[analysis['numeric_columns']]
+                describe_raw = numeric_df.describe()
+                for col in describe_raw.columns:
+                    describe_data[col] = {}
+                    for stat in describe_raw.index:
+                        try:
+                            value = describe_raw.loc[stat, col]
+                            describe_data[col][stat] = convert_numpy_types(value)
+                        except Exception as stat_error:
+                            logging.warning(f"Error converting stat {stat} for column {col}: {stat_error}")
+                            describe_data[col][stat] = None
+        except Exception as describe_error:
+            logging.warning(f"Error creating describe: {describe_error}")
+            describe_data = {}
+        
+        # Safe missing values count
+        missing_values = {}
+        try:
+            missing_raw = df.isnull().sum()
+            for col in df.columns:
+                try:
+                    missing_values[col] = int(missing_raw[col])
+                except Exception as missing_error:
+                    logging.warning(f"Error getting missing values for column {col}: {missing_error}")
+                    missing_values[col] = 0
+        except Exception as missing_error:
+            logging.warning(f"Error calculating missing values: {missing_error}")
+            missing_values = {}
+        
         analysis['data_preview'] = {
-            'head': df.head(10).to_dict('records'),
-            'describe': df.describe().to_dict() if len(analysis['numeric_columns']) > 0 else {},
-            'missing_values': df.isnull().sum().to_dict()
+            'head': head_data,
+            'describe': describe_data,
+            'missing_values': missing_values
         }
-    except Exception as e:
-        print(f"Error creating data preview: {e}")
+        
+    except Exception as preview_error:
+        logging.error(f"Error creating data preview: {preview_error}")
         # Fallback to safer data preview
         analysis['data_preview'] = {
             'head': [],
