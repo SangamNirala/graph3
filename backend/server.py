@@ -509,6 +509,9 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
                 'confidence_intervals': None
             }
         
+        # Store prediction for continuous use - THIS WAS MISSING!
+        continuous_predictions.append(result)
+        
         return result
         
     except Exception as e:
