@@ -1474,17 +1474,130 @@ async def extend_prediction(steps: int = 5):
         print(f"Error extending predictions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# WebSocket for real-time predictions
+# Enhanced WebSocket for real-time predictions with better error handling
 @app.websocket("/ws/predictions")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
     try:
+        await manager.connect(websocket)
+        logging.info("WebSocket connection established")
+        
+        # Send initial connection confirmation
+        await manager.send_personal_message(json.dumps({
+            'type': 'connection_established',
+            'message': 'WebSocket connection successful'
+        }), websocket)
+        
         while True:
-            data = await websocket.receive_text()
-            # Process real-time prediction request
-            await manager.send_personal_message(f"Received: {data}", websocket)
-    except WebSocketDisconnect:
+            try:
+                # Set a reasonable timeout for receiving data
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
+                
+                # Process real-time prediction request
+                response = {
+                    'type': 'echo',
+                    'message': f'Received: {data}',
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+                await manager.send_personal_message(json.dumps(response), websocket)
+                
+            except asyncio.TimeoutError:
+                # Send heartbeat to keep connection alive
+                await manager.send_personal_message(json.dumps({
+                    'type': 'heartbeat',
+                    'timestamp': datetime.now().isoformat()
+                }), websocket)
+                
+            except WebSocketDisconnect:
+                logging.info("WebSocket disconnected by client")
+                break
+                
+    except Exception as e:
+        logging.error(f"WebSocket error: {e}")
+    finally:
         manager.disconnect(websocket)
+
+# Server-Sent Events (SSE) endpoint as WebSocket fallback
+@api_router.get("/stream/predictions")
+async def stream_predictions():
+    """Server-Sent Events endpoint for real-time predictions"""
+    async def event_generator():
+        connection_queue = asyncio.Queue()
+        manager.add_sse_connection(connection_queue)
+        
+        try:
+            # Send initial connection message
+            yield f"data: {json.dumps({'type': 'connection_established', 'message': 'SSE connection successful', 'timestamp': datetime.now().isoformat()})}\n\n"
+            
+            while True:
+                try:
+                    # Wait for new data or timeout for heartbeat
+                    message = await asyncio.wait_for(connection_queue.get(), timeout=30.0)
+                    yield f"data: {message}\n\n"
+                except asyncio.TimeoutError:
+                    # Send heartbeat
+                    heartbeat = json.dumps({
+                        'type': 'heartbeat',
+                        'timestamp': datetime.now().isoformat()
+                    })
+                    yield f"data: {heartbeat}\n\n"
+                    
+        except Exception as e:
+            logging.error(f"SSE error: {e}")
+        finally:
+            manager.remove_sse_connection(connection_queue)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control"
+        }
+    )
+
+# Long polling endpoint as another fallback
+@api_router.get("/poll/predictions")
+async def poll_predictions(last_update: Optional[str] = None):
+    """Long polling endpoint for real-time predictions"""
+    try:
+        timeout = 30  # 30 second timeout
+        start_time = datetime.now()
+        
+        while (datetime.now() - start_time).seconds < timeout:
+            # Check if there's new data
+            if current_model is not None and prediction_task is not None:
+                try:
+                    # Get current prediction data
+                    prediction = await generate_continuous_prediction("current", 30, 100)
+                    ph_reading = simulate_real_time_ph()
+                    
+                    response_data = {
+                        'type': 'prediction_update',
+                        'data': prediction,
+                        'ph_reading': ph_reading,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    
+                    return response_data
+                    
+                except Exception as e:
+                    logging.error(f"Error in polling: {e}")
+                    
+            await asyncio.sleep(1)
+        
+        # Timeout response
+        return {
+            'type': 'timeout',
+            'message': 'No new data available',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logging.error(f"Polling error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Continuous prediction task
 async def continuous_prediction_task():
