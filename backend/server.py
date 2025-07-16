@@ -315,9 +315,19 @@ async def generate_prediction(model_id: str, steps: int = 30):
             # Generate ARIMA predictions
             forecast = model.forecast(steps=steps)
             
-            # Create timestamps
-            last_timestamp = data.index[-1]
-            freq = pd.infer_freq(data.index)
+            # Create timestamps - handle the case where data index might not be datetime
+            time_col = current_model['time_col']
+            if hasattr(data.index, 'freq') and data.index.freq:
+                freq = data.index.freq
+                last_timestamp = data.index[-1]
+            else:
+                # Fallback: use the original time column to infer frequency
+                time_series = data[time_col] if time_col in data.columns else pd.to_datetime(data.index)
+                freq = pd.infer_freq(time_series)
+                if freq is None:
+                    freq = 'D'  # Default to daily frequency
+                last_timestamp = time_series.iloc[-1] if time_col in data.columns else data.index[-1]
+            
             future_timestamps = pd.date_range(
                 start=last_timestamp + pd.Timedelta(freq), 
                 periods=steps, 
