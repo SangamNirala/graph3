@@ -620,10 +620,17 @@ function App() {
             </div>
             
             <div className="mb-4">
-              {realtimePhReadings.length > 0 ? (
+              {historicalData && historicalData.values && historicalData.values.length > 0 ? (
+                <PhChart 
+                  data={historicalData.values.slice(-timeWindow)} 
+                  title="Historical Data"
+                  color="#3B82F6"
+                  showAnimation={false}
+                />
+              ) : realtimePhReadings.length > 0 ? (
                 <PhChart 
                   data={realtimePhReadings.map(r => r.ph_value)} 
-                  title=""
+                  title="Real-time pH Readings"
                   color="#3B82F6"
                   showAnimation={isPredicting}
                   currentValue={phData.current_ph}
