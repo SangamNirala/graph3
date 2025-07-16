@@ -401,9 +401,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix N-BEATS model state dict loading issues"
     - "Fix advanced prediction endpoint model state management"
+    - "Fix N-BEATS model state dict loading issues"
     - "Fix data preparation for advanced models"
+    - "Fix datetime arithmetic errors in prediction endpoints"
+    - "Fix duplicate keys pandas DataFrame errors"
   stuck_tasks:
     - "Fix N-BEATS model state dict loading issues"
     - "Fix advanced prediction endpoint model state management"
