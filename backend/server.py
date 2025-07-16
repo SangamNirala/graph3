@@ -695,7 +695,7 @@ async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any])
 async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
     """Generate predictions using trained model with optional offset for continuous prediction"""
     try:
-        global current_model, continuous_predictions
+        global current_model, continuous_predictions, current_advanced_model
         
         if current_model is None:
             raise HTTPException(status_code=400, detail="No model trained")
@@ -703,8 +703,61 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
         model = current_model['model']
         model_type = current_model['model_type']
         data = current_model['data']
+        is_advanced = current_model.get('is_advanced', False)
         
-        if model_type == 'prophet':
+        if is_advanced and model_type in supported_advanced_models:
+            # Handle advanced models
+            target_col = current_model['target_col']
+            
+            # Get the last sequence from the data
+            last_sequence = data[target_col].values[-50:]  # Use last 50 points
+            
+            # Generate predictions using advanced model
+            if isinstance(current_advanced_model, ModelEnsemble):
+                # Ensemble prediction
+                prediction_results = current_advanced_model.predict(last_sequence, steps)
+                prediction_values = prediction_results['ensemble_prediction']
+                confidence = prediction_results['prediction_confidence']
+            else:
+                # Single advanced model prediction
+                prediction_values = current_advanced_model.predict_next_steps(last_sequence, steps)
+                confidence = np.full(len(prediction_values), 85.0)  # Default confidence
+            
+            # Generate timestamps
+            last_timestamp = data.index[-1] if hasattr(data, 'index') else datetime.now()
+            if isinstance(last_timestamp, str):
+                last_timestamp = pd.to_datetime(last_timestamp)
+            
+            # Create future timestamps with offset
+            future_timestamps = []
+            for i in range(1 + offset, steps + offset + 1):
+                future_timestamp = last_timestamp + timedelta(days=i)
+                future_timestamps.append(future_timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+            
+            # Apply offset to predictions
+            if offset > 0 and len(prediction_values) > offset:
+                prediction_values = prediction_values[offset:]
+                confidence = confidence[offset:]
+            
+            # Create confidence intervals based on prediction confidence
+            confidence_intervals = []
+            for i, (pred, conf) in enumerate(zip(prediction_values, confidence)):
+                error_margin = (100 - conf) / 100 * abs(pred) * 0.1
+                confidence_intervals.append({
+                    'lower': float(pred - error_margin),
+                    'upper': float(pred + error_margin)
+                })
+            
+            result = {
+                'timestamps': future_timestamps[:len(prediction_values)],
+                'predictions': prediction_values.tolist(),
+                'confidence': confidence.tolist(),
+                'confidence_intervals': confidence_intervals,
+                'model_type': model_type,
+                'is_advanced': True
+            }
+            
+        elif model_type == 'prophet':
             # Create future dataframe with offset
             future = model.make_future_dataframe(periods=steps + offset)
             forecast = model.predict(future)
@@ -718,7 +771,9 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
                 'confidence_intervals': [
                     {'lower': row['yhat_lower'], 'upper': row['yhat_upper']} 
                     for _, row in predictions.iterrows()
-                ]
+                ],
+                'model_type': model_type,
+                'is_advanced': False
             }
             
         elif model_type == 'arima':
@@ -764,7 +819,9 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
             result = {
                 'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
                 'predictions': prediction_values,
-                'confidence_intervals': None
+                'confidence_intervals': None,
+                'model_type': model_type,
+                'is_advanced': False
             }
         
         # Store prediction for continuous use
