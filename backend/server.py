@@ -156,16 +156,33 @@ def prepare_data_for_model(df: pd.DataFrame, time_col: str, target_col: str) -> 
     return data
 
 def train_prophet_model(data: pd.DataFrame, time_col: str, target_col: str, params: Dict[str, Any]):
-    """Train Prophet model"""
+    """Train Prophet model with improved pattern recognition"""
     # Prepare data for Prophet (requires 'ds' and 'y' columns)
     prophet_data = data.rename(columns={time_col: 'ds', target_col: 'y'})
     
-    # Create and train model
+    # Analyze historical patterns for better configuration
+    historical_values = prophet_data['y'].values
+    data_length = len(historical_values)
+    
+    # Determine seasonality based on data characteristics
+    weekly_seasonality = data_length > 14  # At least 2 weeks of data
+    yearly_seasonality = data_length > 365  # At least 1 year of data
+    daily_seasonality = data_length > 10   # At least 10 days of data
+    
+    # Analyze trend strength
+    trend_strength = abs(np.polyfit(range(len(historical_values)), historical_values, 1)[0])
+    
+    # Create and train model with adaptive parameters
     model = Prophet(
         seasonality_mode=params.get('seasonality_mode', 'additive'),
-        yearly_seasonality=params.get('yearly_seasonality', True),
-        weekly_seasonality=params.get('weekly_seasonality', True),
-        daily_seasonality=params.get('daily_seasonality', False)
+        yearly_seasonality=yearly_seasonality,
+        weekly_seasonality=weekly_seasonality,
+        daily_seasonality=daily_seasonality,
+        changepoint_prior_scale=min(0.05 + trend_strength * 0.1, 0.5),  # Adaptive changepoint sensitivity
+        seasonality_prior_scale=10.0,  # Strong seasonality influence
+        holidays_prior_scale=10.0,
+        interval_width=0.8,
+        growth='linear' if trend_strength > 0.1 else 'linear'
     )
     
     model.fit(prophet_data)
