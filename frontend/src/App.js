@@ -25,6 +25,14 @@ function App() {
   const [realtimePhReadings, setRealtimePhReadings] = useState([]);
   const [lstmPredictions, setLstmPredictions] = useState([]);
   const [predictionConfidence, setPredictionConfidence] = useState(67);
+  
+  // Enhanced ML state
+  const [supportedModels, setSupportedModels] = useState([]);
+  const [modelPerformance, setModelPerformance] = useState(null);
+  const [dataQuality, setDataQuality] = useState(null);
+  const [isAdvancedMode, setIsAdvancedMode] = useState(false);
+  const [modelComparison, setModelComparison] = useState(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   // File upload handler
   const onDrop = useCallback(async (acceptedFiles) => {
