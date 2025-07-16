@@ -581,24 +581,31 @@ async def continuous_prediction_task():
     while True:
         if current_model is not None:
             try:
-                # Generate new prediction
-                prediction = await generate_prediction("current", 1)
+                # Generate continuous prediction that extrapolates forward
+                prediction = await generate_continuous_prediction("current", 30, 100)
+                
+                # Also get real-time pH simulation
+                ph_reading = simulate_real_time_ph()
                 
                 # Broadcast to all connected clients
                 await manager.broadcast(json.dumps({
                     'type': 'prediction_update',
-                    'data': prediction
+                    'data': prediction,
+                    'ph_reading': ph_reading
                 }))
                 
             except Exception as e:
                 print(f"Error in continuous prediction: {e}")
         
-        await asyncio.sleep(2)  # Update every 2 seconds
+        await asyncio.sleep(1)  # Update every 1 second for smoother experience
 
 @api_router.post("/start-continuous-prediction")
 async def start_continuous_prediction():
     """Start continuous prediction updates"""
-    global prediction_task
+    global prediction_task, continuous_predictions
+    
+    # Reset continuous predictions
+    continuous_predictions = []
     
     if prediction_task is None:
         prediction_task = asyncio.create_task(continuous_prediction_task())
@@ -608,13 +615,23 @@ async def start_continuous_prediction():
 @api_router.post("/stop-continuous-prediction")
 async def stop_continuous_prediction():
     """Stop continuous prediction updates"""
-    global prediction_task
+    global prediction_task, continuous_predictions
     
     if prediction_task is not None:
         prediction_task.cancel()
         prediction_task = None
     
+    # Reset continuous predictions
+    continuous_predictions = []
+    
     return {"status": "stopped", "message": "Continuous prediction stopped"}
+
+@api_router.post("/reset-continuous-prediction")
+async def reset_continuous_prediction():
+    """Reset continuous prediction state"""
+    global continuous_predictions
+    continuous_predictions = []
+    return {"status": "reset", "message": "Continuous prediction reset"}
 
 # Include the router in the main app
 app.include_router(api_router)
