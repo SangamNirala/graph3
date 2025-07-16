@@ -107,20 +107,41 @@ function App() {
     }
   };
 
-  // Generate predictions
-  const generatePredictions = async () => {
+  // Generate predictions with offset
+  const generatePredictions = async (offset = 0) => {
     if (!modelId) return;
 
     try {
-      const response = await fetch(`${API}/generate-prediction?model_id=${modelId}&steps=50`);
+      const response = await fetch(`${API}/generate-prediction?model_id=${modelId}&steps=30&offset=${offset}`);
       if (response.ok) {
         const data = await response.json();
-        setPredictionData(data);
+        return data;
       }
     } catch (error) {
       console.error('Error generating predictions:', error);
     }
+    return null;
   };
+
+  // Update predictions based on vertical offset
+  const updatePredictionsWithOffset = async () => {
+    const newOffset = Math.floor(verticalOffset / 10); // Convert slider value to prediction offset
+    setPredictionOffset(newOffset);
+    
+    if (isPredicting) {
+      const newPredictions = await generatePredictions(newOffset);
+      if (newPredictions) {
+        setPredictionData(newPredictions);
+      }
+    }
+  };
+
+  // Update predictions when vertical offset changes
+  useEffect(() => {
+    if (isPredicting && predictionData) {
+      updatePredictionsWithOffset();
+    }
+  }, [verticalOffset]);
 
   // Simple chart component using Canvas
   const SimpleChart = ({ data, title, color = '#3B82F6' }) => {
