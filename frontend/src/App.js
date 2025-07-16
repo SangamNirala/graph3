@@ -63,6 +63,95 @@ function App() {
     }
   }, []);
 
+  // Load supported models
+  const loadSupportedModels = async () => {
+    try {
+      const response = await fetch(`${API}/supported-models`);
+      if (response.ok) {
+        const result = await response.json();
+        setSupportedModels(result);
+      }
+    } catch (error) {
+      console.error('Error loading supported models:', error);
+    }
+  };
+
+  // Load data quality report
+  const loadDataQualityReport = async () => {
+    try {
+      const response = await fetch(`${API}/data-quality-report`);
+      if (response.ok) {
+        const result = await response.json();
+        setDataQuality(result);
+      }
+    } catch (error) {
+      console.error('Error loading data quality report:', error);
+    }
+  };
+
+  // Load model performance
+  const loadModelPerformance = async () => {
+    try {
+      const response = await fetch(`${API}/model-performance`);
+      if (response.ok) {
+        const result = await response.json();
+        setModelPerformance(result);
+      }
+    } catch (error) {
+      console.error('Error loading model performance:', error);
+    }
+  };
+
+  // Compare models
+  const compareModels = async () => {
+    try {
+      const response = await fetch(`${API}/model-comparison`);
+      if (response.ok) {
+        const result = await response.json();
+        setModelComparison(result);
+      }
+    } catch (error) {
+      console.error('Error comparing models:', error);
+    }
+  };
+
+  // Optimize hyperparameters
+  const optimizeHyperparameters = async (modelType) => {
+    setIsOptimizing(true);
+    try {
+      const response = await fetch(`${API}/optimize-hyperparameters?model_type=${modelType}&n_trials=20`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Hyperparameter optimization completed!\nBest parameters: ${JSON.stringify(result.best_parameters)}\nBest score: ${result.best_score.toFixed(4)}`);
+      }
+    } catch (error) {
+      console.error('Error optimizing hyperparameters:', error);
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  // Load enhanced features on component mount
+  useEffect(() => {
+    loadSupportedModels();
+  }, []);
+
+  // Load quality report and performance after data upload
+  useEffect(() => {
+    if (uploadedData) {
+      loadDataQualityReport();
+    }
+  }, [uploadedData]);
+
+  // Load model performance after training
+  useEffect(() => {
+    if (modelId && currentStep === 'prediction') {
+      loadModelPerformance();
+    }
+  }, [modelId, currentStep]);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
