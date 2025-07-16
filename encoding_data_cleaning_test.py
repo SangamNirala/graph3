@@ -122,6 +122,8 @@ class EncodingDataCleaningTester:
                          '2023-01-11', '2023-01-12', '2023-01-13', '2023-01-14', '2023-01-15'],
             'mixed_numeric': [10.5, 'invalid', np.nan, '', '  20.3  ', 15.7, 'bad', np.nan, '  ',
                              '25.8', 'error', np.nan, '', '  18.9  ', '22.1'],
+            'clean_numeric': [100.1, 102.3, 98.7, 105.1, 99.8, 103.2, 97.4, 106.8, 101.1, 104.5,
+                             98.9, 102.7, 105.3, 99.6, 103.8],  # Always valid numeric column
             'utf8_with_nulls': ['São Paulo', '', np.nan, 'München', 'null', 'Zürich', '', np.nan,
                                'Montréal', 'NULL', 'Kraków', '', np.nan, 'São Paulo', 'null'],
             'empty_mixed': ['', '  ', np.nan, 'NULL', 'valid_data', '', '   ', np.nan, 'null',
