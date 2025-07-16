@@ -177,8 +177,8 @@ function App() {
     }
   }, [timeWindow]);
 
-  // Simple chart component using Canvas with enhanced features
-  const SimpleChart = ({ data, title, color = '#3B82F6', showAnimation = false }) => {
+  // Simple chart component for pH monitoring dashboard
+  const PhChart = ({ data, title, color = '#3B82F6', showAnimation = false, currentValue = null }) => {
     const canvasRef = React.useRef(null);
     const [animationFrame, setAnimationFrame] = React.useState(0);
     
@@ -229,18 +229,19 @@ function App() {
       ctx.stroke();
       
       // Draw data
-      if (data.values && data.values.length > 0) {
-        const maxVal = Math.max(...data.values);
-        const minVal = Math.min(...data.values);
+      const values = data.values || data;
+      if (values && values.length > 0) {
+        const maxVal = Math.max(...values);
+        const minVal = Math.min(...values);
         const range = maxVal - minVal || 1;
         
         // Draw area fill
-        ctx.fillStyle = color.replace('rgb', 'rgba').replace(')', ', 0.2)');
+        ctx.fillStyle = color.replace('rgb', 'rgba').replace(')', ', 0.3)');
         ctx.beginPath();
         ctx.moveTo(50, height - 50);
         
-        data.values.forEach((value, index) => {
-          const x = 50 + (index / (data.values.length - 1)) * (width - 100);
+        values.forEach((value, index) => {
+          const x = 50 + (index / (values.length - 1)) * (width - 100);
           const y = height - 50 - ((value - minVal) / range) * (height - 100);
           ctx.lineTo(x, y);
         });
@@ -254,8 +255,8 @@ function App() {
         ctx.lineWidth = 3;
         ctx.beginPath();
         
-        data.values.forEach((value, index) => {
-          const x = 50 + (index / (data.values.length - 1)) * (width - 100);
+        values.forEach((value, index) => {
+          const x = 50 + (index / (values.length - 1)) * (width - 100);
           const y = height - 50 - ((value - minVal) / range) * (height - 100);
           
           if (index === 0) {
@@ -269,8 +270,8 @@ function App() {
         
         // Draw data points
         ctx.fillStyle = color;
-        data.values.forEach((value, index) => {
-          const x = 50 + (index / (data.values.length - 1)) * (width - 100);
+        values.forEach((value, index) => {
+          const x = 50 + (index / (values.length - 1)) * (width - 100);
           const y = height - 50 - ((value - minVal) / range) * (height - 100);
           
           ctx.beginPath();
@@ -278,12 +279,12 @@ function App() {
           ctx.fill();
         });
         
-        // Show animation effect for predictions
+        // Show animation effect for live data
         if (showAnimation && isPredicting) {
-          const pulseSize = 2 + Math.sin(animationFrame * 0.1) * 2;
-          const lastIndex = data.values.length - 1;
-          const x = 50 + (lastIndex / (data.values.length - 1)) * (width - 100);
-          const y = height - 50 - ((data.values[lastIndex] - minVal) / range) * (height - 100);
+          const pulseSize = 3 + Math.sin(animationFrame * 0.1) * 2;
+          const lastIndex = values.length - 1;
+          const x = 50 + (lastIndex / (values.length - 1)) * (width - 100);
+          const y = height - 50 - ((values[lastIndex] - minVal) / range) * (height - 100);
           
           ctx.strokeStyle = '#10B981';
           ctx.lineWidth = 2;
@@ -297,19 +298,17 @@ function App() {
       ctx.fillStyle = '#1f2937';
       ctx.font = 'bold 16px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(title, width / 2, 30);
+      ctx.fillText(title, width / 2, 25);
       
-      // Draw value labels
-      if (data.values && data.values.length > 0) {
-        ctx.fillStyle = '#6b7280';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(`Min: ${Math.min(...data.values).toFixed(2)}`, 60, height - 20);
+      // Draw current value if provided
+      if (currentValue !== null) {
+        ctx.fillStyle = '#059669';
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'right';
-        ctx.fillText(`Max: ${Math.max(...data.values).toFixed(2)}`, width - 60, height - 20);
+        ctx.fillText(`Current: ${currentValue}`, width - 60, 45);
       }
       
-    }, [data, title, color, showAnimation, animationFrame, isPredicting]);
+    }, [data, title, color, showAnimation, animationFrame, isPredicting, currentValue]);
     
     React.useEffect(() => {
       let animationId;
@@ -327,7 +326,7 @@ function App() {
       };
     }, [showAnimation, isPredicting]);
     
-    return <canvas ref={canvasRef} width={450} height={350} className="border border-gray-300 rounded-lg shadow-sm" />;
+    return <canvas ref={canvasRef} width={360} height={280} className="border border-gray-300 rounded-lg shadow-sm" />;
   };
 
   // Start continuous prediction
