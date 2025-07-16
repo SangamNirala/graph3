@@ -329,42 +329,57 @@ function App() {
     return <canvas ref={canvasRef} width={360} height={280} className="border border-gray-300 rounded-lg shadow-sm" />;
   };
 
-  // Start continuous prediction
+  // Start continuous prediction with proper extrapolation
   const startContinuousPrediction = async () => {
     setIsPredicting(true);
-    setPredictionOffset(0);
     setContinuousPredictions([]);
     
+    // Load pH simulation data
+    await loadPhSimulation();
+    
     try {
+      // Reset backend continuous prediction state
+      await fetch(`${API}/reset-continuous-prediction`, { method: 'POST' });
+      
       // Start continuous prediction on backend
       await fetch(`${API}/start-continuous-prediction`, { method: 'POST' });
       
       // Generate initial predictions
-      const initialPredictions = await generatePredictions(0);
+      const initialPredictions = await generateContinuousPredictions();
       if (initialPredictions) {
         setPredictionData(initialPredictions);
-        setContinuousPredictions([initialPredictions]);
+        setLstmPredictions(initialPredictions.predictions);
       }
       
-      // Set up interval for continuous predictions
+      // Set up interval for continuous predictions that extrapolate
       const interval = setInterval(async () => {
-        if (isPredicting) {
-          // Generate predictions with increasing offset for continuous effect
-          const currentOffset = Math.floor(Date.now() / 5000) % 100; // Change offset every 5 seconds
-          const sliderOffset = Math.floor(verticalOffset / 10);
-          const totalOffset = currentOffset + sliderOffset;
-          
-          const newPredictions = await generatePredictions(totalOffset);
-          if (newPredictions) {
-            setPredictionData(newPredictions);
-            setContinuousPredictions(prev => {
-              const updated = [...prev, newPredictions];
-              // Keep only last 10 prediction sets to avoid memory issues
-              return updated.slice(-10);
-            });
+        try {
+          if (isPredicting) {
+            // Generate new continuous predictions
+            const newPredictions = await generateContinuousPredictions();
+            if (newPredictions) {
+              setPredictionData(newPredictions);
+              setLstmPredictions(prev => {
+                const updated = [...prev, ...newPredictions.predictions];
+                return updated.slice(-timeWindow); // Keep within time window
+              });
+            }
+            
+            // Update pH simulation
+            const phResponse = await fetch(`${API}/ph-simulation`);
+            if (phResponse.ok) {
+              const phReading = await phResponse.json();
+              setPhData(prev => ({ ...prev, current_ph: phReading.ph_value }));
+              setRealtimePhReadings(prev => {
+                const updated = [...prev, phReading];
+                return updated.slice(-timeWindow); // Keep within time window
+              });
+            }
           }
+        } catch (error) {
+          console.error('Error in continuous prediction loop:', error);
         }
-      }, 2000); // Update every 2 seconds
+      }, 1000); // Update every 1 second for smooth extrapolation
       
       setWebsocket(interval);
       
