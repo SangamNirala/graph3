@@ -312,7 +312,6 @@ test_plan:
     - "Fixed continuous prediction with proper extrapolation"
   stuck_tasks:
     - "WebSocket for real-time updates"
-    - "Fixed continuous prediction with proper extrapolation"
   test_all: false
   test_priority: "high_first"
 
