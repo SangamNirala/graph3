@@ -411,14 +411,19 @@ function App() {
       const interval = setInterval(async () => {
         try {
           if (isPredicting) {
-            // Generate new continuous predictions
-            const newPredictions = await generateContinuousPredictions();
-            if (newPredictions) {
-              setPredictionData(newPredictions);
+            // Use the new extend-prediction endpoint for smoother continuous prediction
+            const extensionResponse = await fetch(`${API}/extend-prediction?steps=5`);
+            if (extensionResponse.ok) {
+              const extensionData = await extensionResponse.json();
+              
+              // Update predictions with smooth extension
               setLstmPredictions(prev => {
-                const updated = [...prev, ...(newPredictions.predictions || [])];
+                const updated = [...prev, ...extensionData.predictions];
                 return updated.slice(-timeWindow); // Keep within time window
               });
+              
+              // Update prediction data for display
+              setPredictionData(extensionData);
             }
             
             // Update pH simulation
@@ -435,7 +440,7 @@ function App() {
         } catch (error) {
           console.error('Error in continuous prediction loop:', error);
         }
-      }, 1000); // Update every 1 second for smooth extrapolation
+      }, 2000); // Update every 2 seconds for smooth but not overwhelming updates
       
       setWebsocket(interval);
       
