@@ -31,8 +31,8 @@ aiofiles>=23.2.1
 importlib-resources>=6.5.2
 # Enhanced ML libraries for advanced time series forecasting
 torch>=2.0.0
-torch-audio>=2.0.0
-torch-vision>=0.15.0
+torchaudio>=2.0.0
+torchvision>=0.15.0
 pytorch-forecasting>=1.0.0
 pytorch-lightning>=2.0.0
 # Additional ML and data processing libraries
