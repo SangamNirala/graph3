@@ -66,10 +66,15 @@ class EncodingDataCleaningTester:
     def create_nan_test_data(self):
         """Create test data with NaN values"""
         data = {
-            'time': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'],
-            'value1': [10.5, np.nan, 12.3, np.nan, 11.8],
-            'value2': [np.nan, 20.1, np.nan, 22.5, np.nan],
-            'category': ['A', np.nan, 'B', 'C', np.nan]
+            'time': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05',
+                    '2023-01-06', '2023-01-07', '2023-01-08', '2023-01-09', '2023-01-10',
+                    '2023-01-11', '2023-01-12', '2023-01-13', '2023-01-14', '2023-01-15'],
+            'value1': [10.5, np.nan, 12.3, np.nan, 11.8, 13.2, np.nan, 14.1, 12.7, np.nan,
+                      11.4, 13.8, np.nan, 12.9, 14.3],
+            'value2': [np.nan, 20.1, np.nan, 22.5, np.nan, 21.8, 23.2, np.nan, 20.7, 22.9,
+                      np.nan, 21.3, 23.6, np.nan, 22.1],
+            'category': ['A', np.nan, 'B', 'C', np.nan, 'A', 'B', np.nan, 'C', 'A',
+                        np.nan, 'B', 'C', np.nan, 'A']
         }
         df = pd.DataFrame(data)
         return df.to_csv(index=False)
