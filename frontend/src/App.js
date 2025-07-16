@@ -641,12 +641,64 @@ function App() {
   // Render parameters step
   const renderParametersStep = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
           ⚙️ Configure Model Parameters
         </h1>
         
         <div className="bg-white rounded-lg shadow-xl p-8">
+          {/* Toggle for Advanced Mode */}
+          <div className="mb-6">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isAdvancedMode}
+                onChange={(e) => setIsAdvancedMode(e.target.checked)}
+                className="mr-2"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                🚀 Enable Advanced ML Models (DLinear, N-BEATS, LSTM, Ensemble)
+              </span>
+            </label>
+          </div>
+
+          {/* Data Quality Report */}
+          {dataQuality && (
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+              <h3 className="font-semibold text-blue-800 mb-2">📊 Data Quality Report</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Quality Score:</span>
+                  <span className={`ml-2 px-2 py-1 rounded ${
+                    dataQuality.validation_results.quality_score >= 80 ? 'bg-green-100 text-green-800' :
+                    dataQuality.validation_results.quality_score >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {dataQuality.validation_results.quality_score.toFixed(1)}%
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Total Rows:</span>
+                  <span className="ml-2">{dataQuality.validation_results.total_rows}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Missing Values:</span>
+                  <span className="ml-2">{Object.values(dataQuality.validation_results.missing_values).reduce((a, b) => a + b, 0)}</span>
+                </div>
+              </div>
+              {dataQuality.recommendations && dataQuality.recommendations.length > 0 && (
+                <div className="mt-2">
+                  <span className="font-medium text-blue-800">Recommendations:</span>
+                  <ul className="list-disc list-inside text-sm text-blue-700 mt-1">
+                    {dataQuality.recommendations.slice(0, 3).map((rec, idx) => (
+                      <li key={idx}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -689,8 +741,13 @@ function App() {
                 onChange={(e) => setParameters({...parameters, model_type: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="prophet">Prophet (Recommended)</option>
-                <option value="arima">ARIMA</option>
+                <option value="prophet">Prophet (Traditional)</option>
+                <option value="arima">ARIMA (Traditional)</option>
+                {isAdvancedMode && supportedModels.advanced_models && supportedModels.advanced_models.map(model => (
+                  <option key={model} value={model}>
+                    {model.toUpperCase()} (Advanced)
+                  </option>
+                ))}
               </select>
             </div>
             
@@ -707,7 +764,93 @@ function App() {
                 max="365"
               />
             </div>
+
+            {/* Advanced Parameters */}
+            {isAdvancedMode && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sequence Length
+                  </label>
+                  <input
+                    type="number"
+                    value={parameters.seq_len || 50}
+                    onChange={(e) => setParameters({...parameters, seq_len: parseInt(e.target.value)})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="10"
+                    max="200"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Training Epochs
+                  </label>
+                  <input
+                    type="number"
+                    value={parameters.epochs || 100}
+                    onChange={(e) => setParameters({...parameters, epochs: parseInt(e.target.value)})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="10"
+                    max="500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Learning Rate
+                  </label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={parameters.learning_rate || 0.001}
+                    onChange={(e) => setParameters({...parameters, learning_rate: parseFloat(e.target.value)})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0.0001"
+                    max="0.1"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Batch Size
+                  </label>
+                  <select
+                    value={parameters.batch_size || 32}
+                    onChange={(e) => setParameters({...parameters, batch_size: parseInt(e.target.value)})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={16}>16</option>
+                    <option value={32}>32</option>
+                    <option value={64}>64</option>
+                  </select>
+                </div>
+              </>
+            )}
           </div>
+          
+          {/* Advanced Actions */}
+          {isAdvancedMode && (
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-semibold text-gray-800 mb-3">🔧 Advanced Actions</h3>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => optimizeHyperparameters(parameters.model_type)}
+                  disabled={isOptimizing || !parameters.model_type}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition-colors text-sm"
+                >
+                  {isOptimizing ? '🔄 Optimizing...' : '⚡ Optimize Hyperparameters'}
+                </button>
+                
+                <button
+                  onClick={compareModels}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                >
+                  📊 Compare Models
+                </button>
+              </div>
+            </div>
+          )}
           
           <div className="mt-8 flex justify-between">
             <button
