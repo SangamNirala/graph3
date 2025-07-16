@@ -19,6 +19,8 @@ function App() {
   const [continuousPredictions, setContinuousPredictions] = useState([]);
   const [websocket, setWebsocket] = useState(null);
   const [phData, setPhData] = useState({ current_ph: 7.0, target_ph: 7.6, status: 'Connected' });
+  const [targetPh, setTargetPh] = useState(7.6);
+  const [isAdjustingPh, setIsAdjustingPh] = useState(false);
   const [realtimePhReadings, setRealtimePhReadings] = useState([]);
   const [lstmPredictions, setLstmPredictions] = useState([]);
   const [predictionConfidence, setPredictionConfidence] = useState(67);
