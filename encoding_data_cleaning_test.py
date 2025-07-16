@@ -82,10 +82,16 @@ class EncodingDataCleaningTester:
     def create_mixed_types_test_data(self):
         """Create test data with mixed data types"""
         data = {
-            'timestamp': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'],
-            'mixed_column': ['123.45', '67.89', 'invalid', '234.56', '89.12'],
-            'numeric_strings': ['100', '200', '300', 'abc', '500'],
-            'boolean_mixed': ['true', 'false', '1', '0', 'yes']
+            'timestamp': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05',
+                         '2023-01-06', '2023-01-07', '2023-01-08', '2023-01-09', '2023-01-10',
+                         '2023-01-11', '2023-01-12', '2023-01-13', '2023-01-14', '2023-01-15'],
+            'mixed_column': ['123.45', '67.89', 'invalid', '234.56', '89.12',
+                            '156.78', 'bad_data', '345.67', '123.89', 'error',
+                            '234.12', '456.78', 'invalid', '567.89', '678.90'],
+            'numeric_strings': ['100', '200', '300', 'abc', '500', '600', 'def', '800', '900', 'ghi',
+                               '1000', '1100', 'jkl', '1300', '1400'],
+            'boolean_mixed': ['true', 'false', '1', '0', 'yes', 'no', 'TRUE', 'FALSE', '1', '0',
+                             'yes', 'no', 'true', 'false', '1']
         }
         df = pd.DataFrame(data)
         return df.to_csv(index=False)
