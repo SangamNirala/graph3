@@ -442,8 +442,15 @@ class AdvancedTimeSeriesForecaster:
         # Reshape data for gradient boosting
         X_train_gb = X_train.reshape(X_train.shape[0], -1)
         X_test_gb = X_test.reshape(X_test.shape[0], -1)
-        y_train_gb = y_train.reshape(y_train.shape[0], -1)
-        y_test_gb = y_test.reshape(y_test.shape[0], -1)
+        
+        # For multi-step prediction, we need to flatten y for gradient boosting
+        # We'll use the first step of multi-step prediction as target
+        if len(y_train.shape) > 1:
+            y_train_gb = y_train[:, 0]  # Use first step as target
+            y_test_gb = y_test[:, 0]
+        else:
+            y_train_gb = y_train
+            y_test_gb = y_test
         
         models = {}
         
