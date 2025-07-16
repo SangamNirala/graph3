@@ -256,6 +256,28 @@ def create_smooth_transition(historical_data, predicted_data, transition_points=
         print(f"Error creating smooth transition: {e}")
         return predicted_data
 
+def safe_json_serialization(obj):
+    """Safely handle JSON serialization of objects with NaN and inf values"""
+    if isinstance(obj, dict):
+        return {k: safe_json_serialization(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [safe_json_serialization(item) for item in obj]
+    elif isinstance(obj, (np.ndarray, pd.Series)):
+        return safe_json_serialization(obj.tolist())
+    elif isinstance(obj, (np.floating, float)):
+        if np.isnan(obj):
+            return None
+        elif np.isinf(obj):
+            return "Infinity" if obj > 0 else "-Infinity"
+        else:
+            return float(obj)
+    elif isinstance(obj, (np.integer, int)):
+        return int(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    else:
+        return obj
+
 # Utility functions
 def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
     """Analyze uploaded data and suggest parameters"""
