@@ -381,27 +381,29 @@ function App() {
             <div className="flex-1">
               <h3 className="text-lg font-semibold mb-4 text-center">Historical Data</h3>
               {historicalData && (
-                <Plot
-                  data={[
-                    {
-                      x: historicalData.timestamps,
-                      y: historicalData.values.map(v => v + verticalOffset),
-                      type: 'scatter',
-                      mode: 'lines',
-                      line: { color: '#3B82F6' },
-                      name: 'Historical Data'
-                    }
-                  ]}
-                  layout={{
-                    width: 500,
-                    height: 400,
-                    title: 'Historical Data',
-                    xaxis: { title: 'Time' },
-                    yaxis: { title: 'Value' },
-                    margin: { l: 50, r: 50, t: 50, b: 50 }
-                  }}
-                  config={{ responsive: true }}
-                />
+                <React.Suspense fallback={<div className="text-center py-8">Loading graph...</div>}>
+                  <Plot
+                    data={[
+                      {
+                        x: historicalData.timestamps,
+                        y: historicalData.values.map(v => v + verticalOffset),
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: '#3B82F6' },
+                        name: 'Historical Data'
+                      }
+                    ]}
+                    layout={{
+                      width: 500,
+                      height: 400,
+                      title: 'Historical Data',
+                      xaxis: { title: 'Time' },
+                      yaxis: { title: 'Value' },
+                      margin: { l: 50, r: 50, t: 50, b: 50 }
+                    }}
+                    config={{ responsive: true }}
+                  />
+                </React.Suspense>
               )}
             </div>
             
