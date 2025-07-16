@@ -421,7 +421,7 @@ class AdvancedTimeSeriesForecaster:
         
         # Load best model with error handling
         try:
-            model_path = f'/tmp/best_model_{self.model_type}.pth'
+            model_path = f'/tmp/best_model_{self.model_type}_{id(self)}.pth'
             if os.path.exists(model_path):
                 state_dict = torch.load(model_path)
                 missing_keys, unexpected_keys = self.model.load_state_dict(state_dict, strict=False)
