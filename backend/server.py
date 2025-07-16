@@ -452,28 +452,73 @@ def _apply_bounds(value, patterns, step):
     return value
 
 def create_smooth_transition(historical_data, predicted_data, transition_points=5):
-    """Create smooth transition between historical and predicted data"""
+    """
+    Create smooth transition between historical and predicted data
+    Enhanced with pattern preservation and bias correction
+    """
     try:
         if len(historical_data) < transition_points:
             return predicted_data
         
+        if len(predicted_data) == 0:
+            return []
+        
         # Get the last few points from historical data
-        transition_hist = historical_data[-transition_points:]
+        transition_history = historical_data[-transition_points:]
         
-        # Calculate smoothing weights
-        weights = np.linspace(0.8, 0.2, transition_points)
+        # Calculate historical characteristics
+        historical_mean = np.mean(historical_data)
+        historical_std = np.std(historical_data)
+        last_value = historical_data[-1]
         
-        # Apply smoothing to first few predicted points
-        smoothed_predictions = predicted_data.copy()
+        # Calculate trend in transition region
+        transition_trend = np.polyfit(np.arange(len(transition_history)), transition_history, 1)[0]
         
-        for i in range(min(transition_points, len(predicted_data))):
-            if i < len(transition_hist):
-                # Blend historical trend with prediction
-                hist_trend = transition_hist[i] if i < len(transition_hist) else transition_hist[-1]
-                smoothed_predictions[i] = (
-                    smoothed_predictions[i] * (1 - weights[i]) +
-                    hist_trend * weights[i]
-                )
+        # Enhanced smoothing with pattern preservation
+        smoothed_predictions = []
+        
+        for i, pred_value in enumerate(predicted_data):
+            # Calculate transition weight (stronger for early predictions)
+            transition_weight = np.exp(-i / 10.0)  # Exponential decay
+            
+            # Calculate expected value based on transition
+            if i == 0:
+                # First prediction - smooth from last historical value
+                expected_value = last_value + transition_trend
+            else:
+                # Subsequent predictions - use previous smoothed value
+                expected_value = smoothed_predictions[-1] + transition_trend * (1 - transition_weight)
+            
+            # Weighted combination
+            smoothed_value = (
+                pred_value * (1 - transition_weight) + 
+                expected_value * transition_weight
+            )
+            
+            # Apply bounds to prevent extreme deviations
+            max_deviation = historical_std * 2 * (1 + i * 0.1)
+            if abs(smoothed_value - historical_mean) > max_deviation:
+                # Apply soft correction
+                overshoot = abs(smoothed_value - historical_mean) - max_deviation
+                correction_factor = 1.0 / (1.0 + overshoot / max_deviation)
+                smoothed_value = historical_mean + (smoothed_value - historical_mean) * correction_factor
+            
+            smoothed_predictions.append(smoothed_value)
+        
+        # Additional smoothing pass to reduce noise
+        if len(smoothed_predictions) > 2:
+            final_smoothed = []
+            for i in range(len(smoothed_predictions)):
+                if i == 0:
+                    final_smoothed.append(smoothed_predictions[i])
+                elif i == len(smoothed_predictions) - 1:
+                    final_smoothed.append(smoothed_predictions[i])
+                else:
+                    # Simple moving average
+                    smoothed_val = (smoothed_predictions[i-1] + smoothed_predictions[i] + smoothed_predictions[i+1]) / 3
+                    final_smoothed.append(smoothed_val)
+            
+            return final_smoothed
         
         return smoothed_predictions
         
