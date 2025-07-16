@@ -206,20 +206,39 @@ function App() {
   // Start continuous prediction
   const startContinuousPrediction = async () => {
     setIsPredicting(true);
+    setPredictionOffset(0);
+    setContinuousPredictions([]);
     
     try {
       // Start continuous prediction on backend
       await fetch(`${API}/start-continuous-prediction`, { method: 'POST' });
       
       // Generate initial predictions
-      await generatePredictions();
+      const initialPredictions = await generatePredictions(0);
+      if (initialPredictions) {
+        setPredictionData(initialPredictions);
+        setContinuousPredictions([initialPredictions]);
+      }
       
-      // Set up polling for updates instead of WebSocket
+      // Set up interval for continuous predictions
       const interval = setInterval(async () => {
         if (isPredicting) {
-          await generatePredictions();
+          // Generate predictions with increasing offset for continuous effect
+          const currentOffset = Math.floor(Date.now() / 5000) % 100; // Change offset every 5 seconds
+          const sliderOffset = Math.floor(verticalOffset / 10);
+          const totalOffset = currentOffset + sliderOffset;
+          
+          const newPredictions = await generatePredictions(totalOffset);
+          if (newPredictions) {
+            setPredictionData(newPredictions);
+            setContinuousPredictions(prev => {
+              const updated = [...prev, newPredictions];
+              // Keep only last 10 prediction sets to avoid memory issues
+              return updated.slice(-10);
+            });
+          }
         }
-      }, 3000);
+      }, 2000); // Update every 2 seconds
       
       setWebsocket(interval);
       
