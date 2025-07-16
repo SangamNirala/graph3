@@ -228,20 +228,43 @@ function App() {
       ctx.lineTo(50, height - 50);
       ctx.stroke();
       
-      // Draw data
-      const values = data.values || data;
+      // Process data - handle multiple formats
+      let values = [];
+      if (Array.isArray(data)) {
+        values = data;
+      } else if (data && data.values) {
+        values = data.values;
+      } else if (data && data.predictions) {
+        values = data.predictions;
+      }
+      
+      // Ensure we have valid numeric values
+      values = values.filter(v => v !== null && v !== undefined && !isNaN(v));
+      
+      console.log('PhChart rendering values:', values.length, 'data points:', values.slice(0, 5));
+      
       if (values && values.length > 0) {
         const maxVal = Math.max(...values);
         const minVal = Math.min(...values);
         const range = maxVal - minVal || 1;
         
+        console.log('PhChart range:', { minVal, maxVal, range });
+        
+        // Convert hex color to rgba for area fill
+        const hexToRgba = (hex, alpha = 0.3) => {
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+        
         // Draw area fill
-        ctx.fillStyle = color.replace('rgb', 'rgba').replace(')', ', 0.3)');
+        ctx.fillStyle = hexToRgba(color, 0.3);
         ctx.beginPath();
         ctx.moveTo(50, height - 50);
         
         values.forEach((value, index) => {
-          const x = 50 + (index / (values.length - 1)) * (width - 100);
+          const x = 50 + (index / Math.max(values.length - 1, 1)) * (width - 100);
           const y = height - 50 - ((value - minVal) / range) * (height - 100);
           ctx.lineTo(x, y);
         });
@@ -256,7 +279,7 @@ function App() {
         ctx.beginPath();
         
         values.forEach((value, index) => {
-          const x = 50 + (index / (values.length - 1)) * (width - 100);
+          const x = 50 + (index / Math.max(values.length - 1, 1)) * (width - 100);
           const y = height - 50 - ((value - minVal) / range) * (height - 100);
           
           if (index === 0) {
@@ -271,7 +294,7 @@ function App() {
         // Draw data points
         ctx.fillStyle = color;
         values.forEach((value, index) => {
-          const x = 50 + (index / (values.length - 1)) * (width - 100);
+          const x = 50 + (index / Math.max(values.length - 1, 1)) * (width - 100);
           const y = height - 50 - ((value - minVal) / range) * (height - 100);
           
           ctx.beginPath();
@@ -283,7 +306,7 @@ function App() {
         if (showAnimation && isPredicting) {
           const pulseSize = 3 + Math.sin(animationFrame * 0.1) * 2;
           const lastIndex = values.length - 1;
-          const x = 50 + (lastIndex / (values.length - 1)) * (width - 100);
+          const x = 50 + (lastIndex / Math.max(values.length - 1, 1)) * (width - 100);
           const y = height - 50 - ((values[lastIndex] - minVal) / range) * (height - 100);
           
           ctx.strokeStyle = '#10B981';
@@ -292,6 +315,12 @@ function App() {
           ctx.arc(x, y, pulseSize, 0, 2 * Math.PI);
           ctx.stroke();
         }
+      } else {
+        // Draw "No Data" message
+        ctx.fillStyle = '#9CA3AF';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('No data available', width / 2, height / 2);
       }
       
       // Draw title
