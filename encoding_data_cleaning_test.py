@@ -501,7 +501,9 @@ class EncodingDataCleaningTester:
         try:
             # Create data with mixed encoding challenges
             # This simulates a file that might fail with one encoding but work with another
-            test_data = "timestamp,value,description\n2023-01-01,100,Café\n2023-01-02,200,Niño\n"
+            test_data = "timestamp,value,description\n"
+            for i in range(15):  # Create 15 rows to meet minimum requirement
+                test_data += f"2023-01-{i+1:02d},{100+i*10},Café_{i}\n"
             
             # Test with different encoding scenarios
             encodings_to_test = [
