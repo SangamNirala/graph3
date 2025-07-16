@@ -569,7 +569,10 @@ class AdvancedTimeSeriesForecaster:
         return predictions
     
     def predict_next_steps(self, last_sequence: np.ndarray, steps: int = 30) -> np.ndarray:
-        """Predict next steps using the model"""
+        """
+        Predict next steps using the model with improved pattern-based prediction
+        and bias correction to prevent downward drift
+        """
         if not self.fitted:
             raise ValueError("Model must be trained first")
         
@@ -582,13 +585,24 @@ class AdvancedTimeSeriesForecaster:
         # Take the last seq_len points
         input_sequence = last_sequence[-self.seq_len:]
         
+        # Analyze historical patterns for bias correction
+        historical_mean = np.mean(last_sequence)
+        historical_std = np.std(last_sequence)
+        recent_trend = np.polyfit(np.arange(len(input_sequence)), input_sequence, 1)[0]
+        
+        # Calculate local statistics for stabilization
+        local_mean = np.mean(input_sequence)
+        local_std = np.std(input_sequence)
+        
         # Scale input
         input_scaled = self.scaler.transform(input_sequence.reshape(-1, 1)).flatten()
         
         predictions = []
         current_input = input_scaled.copy()
+        original_input = input_sequence.copy()  # Keep original for pattern analysis
         
-        for _ in range(steps):
+        # Multi-step prediction with error correction
+        for step in range(steps):
             # Prepare input for prediction
             if isinstance(self.model, dict):  # Gradient boosting
                 pred_input = current_input.reshape(1, -1)
@@ -608,16 +622,113 @@ class AdvancedTimeSeriesForecaster:
                     pred = self.model(pred_input).numpy()
                     next_pred = pred[0, 0] if pred.shape[1] > 0 else current_input[-1]
             
+            # Apply bias correction and stabilization
+            next_pred = self._apply_bias_correction(
+                next_pred, step, historical_mean, historical_std, 
+                recent_trend, local_mean, local_std, original_input
+            )
+            
             predictions.append(next_pred)
             
-            # Update input sequence
-            current_input = np.append(current_input[1:], next_pred)
+            # Update input sequence with controlled feedback
+            # Mix predicted value with pattern-based estimate to reduce error accumulation
+            pattern_estimate = self._estimate_pattern_based_value(
+                original_input, step, recent_trend, local_mean
+            )
+            
+            # Weighted combination to reduce feedback loop bias
+            feedback_weight = max(0.3, 1.0 - (step * 0.02))  # Reduce weight as we go further
+            pattern_weight = 1.0 - feedback_weight
+            
+            combined_pred = feedback_weight * next_pred + pattern_weight * pattern_estimate
+            current_input = np.append(current_input[1:], combined_pred)
         
         # Inverse transform predictions
         predictions_array = np.array(predictions)
         predictions_unscaled = self.scaler.inverse_transform(predictions_array.reshape(-1, 1)).flatten()
         
+        # Apply final smoothing to maintain historical patterns
+        predictions_unscaled = self._apply_final_smoothing(
+            predictions_unscaled, last_sequence, historical_mean, recent_trend
+        )
+        
         return predictions_unscaled
+    
+    def _apply_bias_correction(self, prediction, step, historical_mean, historical_std, 
+                              recent_trend, local_mean, local_std, original_input):
+        """Apply bias correction to prevent accumulated drift"""
+        # Mean reversion component - pull predictions back to historical mean
+        mean_reversion = (historical_mean - prediction) * 0.05 * (1 + step * 0.01)
+        
+        # Trend continuation with decay
+        trend_component = recent_trend * (0.8 ** step)
+        
+        # Volatility constraint - limit extreme movements
+        if abs(prediction - local_mean) > 3 * local_std:
+            volatility_correction = np.sign(local_mean - prediction) * local_std * 0.5
+        else:
+            volatility_correction = 0
+        
+        # Pattern-based correction
+        pattern_correction = self._calculate_pattern_correction(
+            prediction, step, original_input, local_mean
+        )
+        
+        corrected_prediction = prediction + mean_reversion + trend_component + volatility_correction + pattern_correction
+        
+        return corrected_prediction
+    
+    def _calculate_pattern_correction(self, prediction, step, original_input, local_mean):
+        """Calculate pattern-based correction to maintain historical characteristics"""
+        # Analyze cyclical patterns in historical data
+        if len(original_input) >= 4:
+            # Simple pattern detection
+            recent_changes = np.diff(original_input[-4:])
+            if len(recent_changes) > 0:
+                avg_change = np.mean(recent_changes)
+                # If prediction deviates too much from expected pattern
+                expected_next = original_input[-1] + avg_change
+                deviation = prediction - expected_next
+                pattern_correction = -deviation * 0.2  # Gentle correction
+                return pattern_correction
+        
+        return 0.0
+    
+    def _estimate_pattern_based_value(self, original_input, step, recent_trend, local_mean):
+        """Estimate next value based on historical patterns rather than pure autoregression"""
+        # Simple pattern-based estimation
+        if len(original_input) >= 3:
+            # Use trend + local patterns
+            trend_component = recent_trend * (step + 1)
+            cyclical_component = np.sin(step * 0.3) * np.std(original_input) * 0.1
+            base_value = original_input[-1] + trend_component + cyclical_component
+            
+            # Mean reversion
+            mean_reversion = (local_mean - base_value) * 0.1
+            
+            return base_value + mean_reversion
+        
+        return original_input[-1]
+    
+    def _apply_final_smoothing(self, predictions, last_sequence, historical_mean, recent_trend):
+        """Apply final smoothing to maintain consistency with historical patterns"""
+        # Smooth transitions between predictions
+        smoothed_predictions = predictions.copy()
+        
+        # Apply moving average smoothing
+        window_size = min(3, len(predictions))
+        if window_size > 1:
+            for i in range(window_size, len(smoothed_predictions)):
+                smoothed_predictions[i] = np.mean(smoothed_predictions[i-window_size:i+1])
+        
+        # Ensure predictions don't drift too far from historical characteristics
+        prediction_mean = np.mean(smoothed_predictions)
+        if abs(prediction_mean - historical_mean) > 2 * np.std(last_sequence):
+            # Apply global correction
+            correction = (historical_mean - prediction_mean) * 0.3
+            smoothed_predictions += correction
+        
+        return smoothed_predictions
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get model information and metrics"""
