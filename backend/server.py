@@ -310,54 +310,146 @@ def _calculate_bias_correction_factor(target_values):
     return max(0.8, min(1.2, bias_factor))
 
 def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
-    """Generate advanced extrapolation based on historical patterns"""
+    """
+    Generate advanced extrapolation based on historical patterns
+    Enhanced with bias correction and trend stabilization
+    """
     try:
         if not patterns:
             return []
-            
+        
         predictions = []
         current_value = patterns['last_value']
-        current_velocity = patterns['velocity']
-        current_acceleration = patterns['acceleration']
         
-        # Weight factors for different components
-        trend_weight = 0.3
-        velocity_weight = 0.4
-        acceleration_weight = 0.2
-        noise_weight = 0.1
+        # Enhanced pattern analysis
+        historical_mean = patterns['mean']
+        recent_mean = patterns['recent_mean']
+        trend_slope = patterns['trend_slope']
+        velocity = patterns['velocity']
+        acceleration = patterns['acceleration']
+        stability_factor = patterns['stability_factor']
+        trend_consistency = patterns['trend_consistency']
+        bias_correction_factor = patterns['bias_correction_factor']
+        
+        # Adaptive weights based on trend consistency and stability
+        trend_weight = 0.2 + (trend_consistency * 0.2)  # 0.2 to 0.4
+        velocity_weight = 0.15 + (stability_factor * 0.15)  # 0.15 to 0.3
+        acceleration_weight = 0.05 + (stability_factor * 0.05)  # 0.05 to 0.1
+        mean_reversion_weight = 0.3 + ((1 - trend_consistency) * 0.2)  # 0.3 to 0.5
+        noise_weight = 0.05 + (patterns['volatility'] / patterns['std'] * 0.05)  # 0.05 to 0.1
+        
+        # Normalize weights
+        total_weight = trend_weight + velocity_weight + acceleration_weight + mean_reversion_weight + noise_weight
+        trend_weight /= total_weight
+        velocity_weight /= total_weight
+        acceleration_weight /= total_weight
+        mean_reversion_weight /= total_weight
+        noise_weight /= total_weight
+        
+        # Initialize current velocity and acceleration with decay
+        current_velocity = velocity
+        current_acceleration = acceleration
         
         for i in range(steps):
-            # Trend component
-            trend_component = patterns['trend_slope'] * time_step * trend_weight
+            # Progressive decay factors
+            step_factor = 1.0 / (1.0 + i * 0.05)  # Reduce influence as we go further
             
-            # Velocity component (momentum)
-            velocity_component = current_velocity * velocity_weight
+            # 1. Trend component with adaptive strength
+            trend_strength = min(1.0, patterns['trend_strength'] * step_factor)
+            trend_component = trend_slope * trend_strength * trend_weight
             
-            # Acceleration component (curvature)
-            acceleration_component = current_acceleration * acceleration_weight
+            # 2. Velocity component (momentum) with decay
+            velocity_decay = 0.95 ** i
+            velocity_component = current_velocity * velocity_decay * velocity_weight
             
-            # Add controlled noise for realism
-            noise_component = np.random.normal(0, patterns['recent_std'] * 0.1) * noise_weight
+            # 3. Acceleration component (curvature) with stronger decay
+            acceleration_decay = 0.9 ** i
+            acceleration_component = current_acceleration * acceleration_decay * acceleration_weight
+            
+            # 4. Mean reversion component - stronger for unstable series
+            target_mean = historical_mean * 0.7 + recent_mean * 0.3  # Weighted target
+            mean_reversion_strength = mean_reversion_weight * (1 + i * 0.02)  # Increase with steps
+            mean_reversion_component = (target_mean - current_value) * mean_reversion_strength
+            
+            # 5. Controlled noise for realism
+            noise_std = patterns['recent_std'] * 0.1 * step_factor
+            noise_component = np.random.normal(0, noise_std) * noise_weight
+            
+            # 6. Pattern-based component to maintain historical characteristics
+            pattern_component = _calculate_pattern_component(patterns, i, current_value)
             
             # Combine all components
-            prediction = current_value + trend_component + velocity_component + acceleration_component + noise_component
+            next_value = current_value + (
+                trend_component +
+                velocity_component +
+                acceleration_component +
+                mean_reversion_component +
+                noise_component +
+                pattern_component
+            )
             
-            # Apply gentle mean reversion to prevent extreme drift
-            mean_reversion = (patterns['recent_mean'] - prediction) * 0.05
-            prediction += mean_reversion
+            # Apply bias correction
+            next_value *= bias_correction_factor
             
-            predictions.append(prediction)
+            # Apply bounds based on historical data
+            next_value = _apply_bounds(next_value, patterns, i)
             
-            # Update for next iteration
-            current_value = prediction
-            current_velocity = current_velocity * 0.95 + (prediction - patterns['last_value']) * 0.05  # Decay velocity
-            current_acceleration = current_acceleration * 0.9  # Decay acceleration
+            predictions.append(next_value)
+            
+            # Update for next iteration with controlled feedback
+            current_value = next_value
+            
+            # Update velocity and acceleration with decay
+            new_velocity = (next_value - patterns['last_value']) / (i + 1)
+            current_velocity = current_velocity * 0.8 + new_velocity * 0.2
+            
+            if i > 0:
+                new_acceleration = (predictions[i] - predictions[i-1]) - (predictions[i-1] - (predictions[i-2] if i > 1 else patterns['last_value']))
+                current_acceleration = current_acceleration * 0.7 + new_acceleration * 0.3
             
         return predictions
         
     except Exception as e:
         print(f"Error generating extrapolation: {e}")
         return []
+
+def _calculate_pattern_component(patterns, step, current_value):
+    """Calculate pattern-based component to maintain historical characteristics"""
+    # Cyclical component based on historical patterns
+    if len(patterns['last_10_values']) >= 5:
+        # Simple cyclical pattern detection
+        recent_changes = np.diff(patterns['last_10_values'])
+        if len(recent_changes) > 0:
+            avg_change = np.mean(recent_changes)
+            cycle_period = 5  # Simple 5-step cycle
+            cycle_phase = step % cycle_period
+            cycle_amplitude = patterns['recent_std'] * 0.1
+            
+            # Combine trend with cyclical component
+            cyclical_value = avg_change + cycle_amplitude * np.sin(2 * np.pi * cycle_phase / cycle_period)
+            
+            # Weight by pattern strength
+            pattern_strength = min(1.0, patterns['stability_factor'] * 2)
+            return cyclical_value * pattern_strength * 0.1
+    
+    return 0.0
+
+def _apply_bounds(value, patterns, step):
+    """Apply reasonable bounds to prevent extreme values"""
+    # Calculate dynamic bounds based on historical data
+    historical_range = patterns['std'] * 3
+    lower_bound = patterns['mean'] - historical_range * (1 + step * 0.1)
+    upper_bound = patterns['mean'] + historical_range * (1 + step * 0.1)
+    
+    # Apply soft bounds (gradual correction rather than hard clipping)
+    if value < lower_bound:
+        correction = (lower_bound - value) * 0.5
+        value = lower_bound - correction
+    elif value > upper_bound:
+        correction = (value - upper_bound) * 0.5
+        value = upper_bound + correction
+    
+    return value
 
 def create_smooth_transition(historical_data, predicted_data, transition_points=5):
     """Create smooth transition between historical and predicted data"""
