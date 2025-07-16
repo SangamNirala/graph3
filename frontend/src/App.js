@@ -758,9 +758,16 @@ function App() {
               {lstmPredictions.length > 0 ? (
                 <PhChart 
                   data={lstmPredictions.slice(-timeWindow)} 
-                  title=""
+                  title="LSTM Predictions"
                   color="#10B981"
                   showAnimation={isPredicting}
+                />
+              ) : predictionData && predictionData.predictions && predictionData.predictions.length > 0 ? (
+                <PhChart 
+                  data={predictionData.predictions.slice(-timeWindow)} 
+                  title="Generated Predictions"
+                  color="#10B981"
+                  showAnimation={false}
                 />
               ) : (
                 <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
