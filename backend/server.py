@@ -1284,14 +1284,18 @@ async def generate_advanced_prediction(steps: int = 30, confidence_level: float 
     """Generate predictions using advanced models with confidence intervals"""
     global current_model, current_advanced_model
     
-    if current_model is None:
-        raise HTTPException(status_code=400, detail="No model trained")
+    # Check if we have a trained advanced model
+    if current_advanced_model is None:
+        raise HTTPException(status_code=400, detail="No advanced model trained. Please train an advanced model first.")
     
-    if not current_model.get('is_advanced', False):
-        raise HTTPException(status_code=400, detail="This endpoint requires an advanced model")
+    if not hasattr(current_advanced_model, 'fitted') or not current_advanced_model.fitted:
+        raise HTTPException(status_code=400, detail="Advanced model must be trained first")
     
     try:
         # Get the last sequence from the data
+        if current_model is None or 'data' not in current_model:
+            raise HTTPException(status_code=400, detail="No training data available")
+            
         data = current_model['data']
         target_col = current_model['target_col']
         
