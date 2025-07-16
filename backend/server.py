@@ -434,7 +434,7 @@ async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any])
 
 @api_router.get("/generate-prediction")
 async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
-    """Generate predictions using trained model with optional offset for continuous prediction"""
+    """Generate predictions using trained model with improved pattern recognition"""
     try:
         global current_model, continuous_predictions
         
@@ -444,69 +444,17 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
         model = current_model['model']
         model_type = current_model['model_type']
         data = current_model['data']
+        time_col = current_model['time_col']
+        target_col = current_model['target_col']
+        patterns = current_model.get('patterns', {})
         
+        # Generate improved predictions with pattern awareness
         if model_type == 'prophet':
-            # Create future dataframe with offset
-            future = model.make_future_dataframe(periods=steps + offset)
-            forecast = model.predict(future)
-            
-            # Extract predictions (skip offset, take next 'steps' predictions)
-            predictions = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(steps + offset).head(steps)
-            
-            result = {
-                'timestamps': predictions['ds'].dt.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-                'predictions': predictions['yhat'].tolist(),
-                'confidence_intervals': [
-                    {'lower': row['yhat_lower'], 'upper': row['yhat_upper']} 
-                    for _, row in predictions.iterrows()
-                ]
-            }
-            
+            result = generate_improved_prophet_predictions(model, data, time_col, target_col, steps, patterns)
         elif model_type == 'arima':
-            # Generate ARIMA predictions with offset
-            forecast = model.forecast(steps=steps + offset)
-            
-            # Create timestamps - handle the case where data index might not be datetime
-            time_col = current_model['time_col']
-            original_data = current_model['data']
-            
-            # Get the last timestamp from the original data
-            if time_col in original_data.columns:
-                last_timestamp = pd.to_datetime(original_data[time_col].iloc[-1])
-                # Try to infer frequency from the time series
-                time_series = pd.to_datetime(original_data[time_col])
-                freq = pd.infer_freq(time_series)
-            else:
-                last_timestamp = pd.to_datetime(original_data.index[-1])
-                freq = pd.infer_freq(pd.to_datetime(original_data.index))
-            
-            # Default to daily frequency if inference fails
-            if freq is None:
-                freq = 'D'
-            
-            # Create future timestamps with offset
-            try:
-                future_timestamps = pd.date_range(
-                    start=last_timestamp + pd.Timedelta(days=1 + offset), 
-                    periods=steps, 
-                    freq=freq
-                )
-            except:
-                # Fallback to daily frequency
-                future_timestamps = pd.date_range(
-                    start=last_timestamp + pd.Timedelta(days=1 + offset), 
-                    periods=steps, 
-                    freq='D'
-                )
-            
-            # Take the forecasted values (skip offset, take next 'steps' values)
-            prediction_values = forecast.tolist()[offset:offset + steps] if offset < len(forecast) else forecast.tolist()[-steps:]
-            
-            result = {
-                'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-                'predictions': prediction_values,
-                'confidence_intervals': None
-            }
+            result = generate_improved_arima_predictions(model, data, time_col, target_col, steps, patterns)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported model type")
         
         # Store prediction for continuous use
         continuous_predictions.append(result)
