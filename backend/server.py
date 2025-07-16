@@ -26,6 +26,23 @@ import random
 import math
 from datetime import datetime, timedelta
 
+# Import new advanced models
+from advanced_models import (
+    AdvancedTimeSeriesForecaster, 
+    ModelEnsemble, 
+    create_advanced_forecasting_models,
+    optimize_hyperparameters
+)
+from data_preprocessing import (
+    AdvancedTimeSeriesPreprocessor,
+    TimeSeriesValidator,
+    preprocess_time_series_data
+)
+from model_evaluation import (
+    TimeSeriesEvaluator,
+    evaluate_model_performance
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
