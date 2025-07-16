@@ -574,9 +574,30 @@ async def get_ph_simulation_history(hours: int = 24):
         return {
             'data': ph_simulation_data,
             'current_ph': ph_simulation_data[-1]['ph_value'] if ph_simulation_data else 7.0,
-            'target_ph': 7.6,  # Target pH for monitoring
+            'target_ph': target_ph,  # Use global target pH
             'status': 'Connected'
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/set-ph-target")
+async def set_ph_target(request: dict):
+    """Set target pH for monitoring"""
+    try:
+        global target_ph
+        target_ph = float(request.get('target_ph', 7.6))
+        
+        # Validate pH range
+        if target_ph < 0 or target_ph > 14:
+            raise HTTPException(status_code=400, detail="pH must be between 0 and 14")
+        
+        return {
+            'status': 'success',
+            'target_ph': target_ph,
+            'message': f'Target pH set to {target_ph}'
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid pH value")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
