@@ -130,7 +130,7 @@ def test_advanced_ml_pipeline():
     
     # 6. Test hyperparameter optimization
     print("\n6. Testing hyperparameter optimization...")
-    response = requests.post(f"{BASE_URL}/optimize-hyperparameters", json={
+    response = requests.post(f"{BASE_URL}/optimize-hyperparameters", params={
         'model_type': 'dlinear',
         'time_column': 'timestamp',
         'target_column': 'pH',
