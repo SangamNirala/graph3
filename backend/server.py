@@ -627,7 +627,7 @@ def simulate_real_time_ph():
 # API Routes
 @api_router.post("/upload-data")
 async def upload_data(file: UploadFile = File(...)):
-    """Upload and analyze data file"""
+    """Upload and analyze data file with enhanced encoding support and data cleaning"""
     try:
         # Read file content
         content = await file.read()
@@ -636,75 +636,121 @@ async def upload_data(file: UploadFile = File(...)):
         if len(content) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
         
-        # Determine file type and read accordingly with better error handling
+        # Detect and handle different file types
         df = None
+        
         try:
             if file.filename.endswith('.csv'):
-                # Try different encodings for CSV files
+                # Enhanced CSV reading with encoding detection
+                detected_encoding = detect_encoding(content)
+                
+                # Try the detected encoding first
                 try:
-                    df = pd.read_csv(io.StringIO(content.decode('utf-8')))
-                except UnicodeDecodeError:
-                    try:
-                        df = pd.read_csv(io.StringIO(content.decode('latin-1')))
-                    except UnicodeDecodeError:
-                        df = pd.read_csv(io.StringIO(content.decode('cp1252')))
+                    df = pd.read_csv(io.StringIO(content.decode(detected_encoding)))
+                except (UnicodeDecodeError, pd.errors.ParserError) as e:
+                    logging.warning(f"Failed to read with detected encoding {detected_encoding}: {e}")
+                    
+                    # Fallback to common encodings with better error handling
+                    encodings_to_try = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1', 'utf-16']
+                    
+                    for encoding in encodings_to_try:
+                        try:
+                            df = pd.read_csv(io.StringIO(content.decode(encoding)))
+                            logging.info(f"Successfully read file with encoding: {encoding}")
+                            break
+                        except (UnicodeDecodeError, pd.errors.ParserError) as enc_error:
+                            logging.warning(f"Failed to read with encoding {encoding}: {enc_error}")
+                            continue
+                    
+                    if df is None:
+                        raise ValueError("Could not read CSV file with any supported encoding")
+                        
             elif file.filename.endswith(('.xlsx', '.xls')):
-                df = pd.read_excel(io.BytesIO(content))
+                try:
+                    df = pd.read_excel(io.BytesIO(content))
+                except Exception as excel_error:
+                    raise ValueError(f"Error reading Excel file: {str(excel_error)}")
             else:
                 raise HTTPException(status_code=400, detail="Unsupported file format. Please upload CSV, XLS, or XLSX files.")
+                
         except Exception as read_error:
-            raise HTTPException(status_code=400, detail=f"Error reading file: {str(read_error)}. Please check your file format and ensure it's a valid CSV or Excel file.")
+            logging.error(f"File reading error: {str(read_error)}")
+            raise HTTPException(status_code=400, detail=f"Error reading file: {str(read_error)}. Please check your file format and encoding.")
         
         # Validate dataframe
-        if df is None or df.empty:
+        if df is None:
+            raise HTTPException(status_code=400, detail="Failed to read file. Please ensure it's a valid CSV or Excel file.")
+        
+        if df.empty:
             raise HTTPException(status_code=400, detail="The uploaded file is empty or contains no valid data.")
         
         # Check minimum data requirements
         if len(df) < 10:
             raise HTTPException(status_code=400, detail="Dataset too small. Please upload at least 10 rows of data for meaningful analysis.")
         
-        # Data cleaning and validation
+        # Enhanced data cleaning and validation with better error handling
         try:
             df = clean_and_validate_data(df)
-        except Exception as clean_error:
+            
+            # Additional validation after cleaning
+            if df.empty:
+                raise HTTPException(status_code=400, detail="Dataset is empty after cleaning. Please check your data quality.")
+                
+            if len(df) < 5:
+                raise HTTPException(status_code=400, detail="Dataset too small after cleaning. Please provide more valid data.")
+                
+        except ValueError as clean_error:
+            logging.error(f"Data cleaning error: {str(clean_error)}")
             raise HTTPException(status_code=400, detail=f"Data validation failed: {str(clean_error)}")
+        except Exception as clean_error:
+            logging.error(f"Unexpected cleaning error: {str(clean_error)}")
+            raise HTTPException(status_code=500, detail=f"An error occurred during data cleaning: {str(clean_error)}")
         
-        # Analyze data
-        analysis = analyze_data(df)
+        # Analyze data with enhanced error handling
+        try:
+            analysis = analyze_data(df)
+        except Exception as analysis_error:
+            logging.error(f"Data analysis error: {str(analysis_error)}")
+            raise HTTPException(status_code=500, detail=f"Data analysis failed: {str(analysis_error)}")
         
         # Validate analysis results
         if not analysis['numeric_columns']:
             raise HTTPException(status_code=400, detail="No numeric columns found in the data. Please ensure your data contains numeric values for modeling.")
         
         # Create analysis record
-        data_analysis = DataAnalysis(
-            filename=file.filename,
-            columns=analysis['columns'],
-            time_columns=analysis['time_columns'],
-            numeric_columns=analysis['numeric_columns'],
-            data_shape=analysis['data_shape'],
-            data_preview=analysis['data_preview'],
-            suggested_parameters=analysis['suggested_parameters']
-        )
-        
-        # Store in database
-        await db.data_analyses.insert_one(data_analysis.dict())
-        
-        # Store dataframe globally for model training
-        global current_data
-        current_data = df
-        
-        return {
-            "status": "success",
-            "data_id": data_analysis.id,
-            "analysis": analysis,
-            "message": "Data uploaded and analyzed successfully"
-        }
+        try:
+            data_analysis = DataAnalysis(
+                filename=file.filename,
+                columns=analysis['columns'],
+                time_columns=analysis['time_columns'],
+                numeric_columns=analysis['numeric_columns'],
+                data_shape=analysis['data_shape'],
+                data_preview=analysis['data_preview'],
+                suggested_parameters=analysis['suggested_parameters']
+            )
+            
+            # Store in database
+            await db.data_analyses.insert_one(data_analysis.dict())
+            
+            # Store dataframe globally for model training
+            global current_data
+            current_data = df
+            
+            return {
+                "status": "success",
+                "data_id": data_analysis.id,
+                "analysis": analysis,
+                "message": "Data uploaded and analyzed successfully"
+            }
+            
+        except Exception as storage_error:
+            logging.error(f"Data storage error: {str(storage_error)}")
+            raise HTTPException(status_code=500, detail=f"Error storing data analysis: {str(storage_error)}")
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Upload error: {str(e)}")
+        logging.error(f"Unexpected upload error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred during file upload: {str(e)}")
 
 @api_router.post("/train-model")
