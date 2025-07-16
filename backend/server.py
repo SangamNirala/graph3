@@ -341,6 +341,86 @@ def train_arima_model(data: pd.DataFrame, time_col: str, target_col: str, params
     
     return fitted_model
 
+def train_advanced_model(data: pd.DataFrame, time_col: str, target_col: str, params: Dict[str, Any]):
+    """Train advanced ML models (DLinear, N-BEATS, LSTM, etc.)"""
+    global current_advanced_model, current_preprocessor, model_evaluation_results
+    
+    try:
+        model_type = params.get('model_type', 'dlinear')
+        seq_len = params.get('seq_len', 50)
+        pred_len = params.get('pred_len', 30)
+        
+        print(f"Training advanced model: {model_type}")
+        
+        # Enhanced preprocessing
+        preprocessing_config = {
+            'scaling_method': params.get('scaling_method', 'standard'),
+            'denoise': params.get('denoise', True),
+            'denoise_method': params.get('denoise_method', 'savgol'),
+            'create_features': params.get('create_features', False),  # Keep simple for now
+            'outlier_method': params.get('outlier_method', 'zscore')
+        }
+        
+        # Preprocess data
+        preprocessing_results = preprocess_time_series_data(
+            data, time_col, target_col, preprocessing_config
+        )
+        
+        current_preprocessor = preprocessing_results['preprocessor']
+        processed_data = preprocessing_results['preprocessing_results']['processed_data']
+        
+        print(f"Data preprocessing completed. Quality score: {preprocessing_results['validation_results']['quality_score']:.2f}")
+        
+        # Create advanced model
+        if model_type == 'ensemble':
+            # Create ensemble of multiple models
+            models = create_advanced_forecasting_models(seq_len, pred_len)
+            current_advanced_model = ModelEnsemble(models)
+            
+            # Train ensemble
+            training_results = current_advanced_model.fit(processed_data, time_col, target_col)
+            
+        else:
+            # Create single advanced model
+            current_advanced_model = AdvancedTimeSeriesForecaster(seq_len, pred_len, model_type)
+            
+            # Prepare data for training
+            data_dict = current_advanced_model.prepare_data(processed_data, time_col, target_col)
+            
+            # Train model based on type
+            if model_type in ['dlinear', 'nbeats', 'lstm']:
+                training_results = current_advanced_model.train_pytorch_model(
+                    data_dict['X_train'], data_dict['y_train'],
+                    data_dict['X_test'], data_dict['y_test'],
+                    epochs=params.get('epochs', 100),
+                    batch_size=params.get('batch_size', 32),
+                    lr=params.get('learning_rate', 0.001)
+                )
+            else:
+                training_results = current_advanced_model.train_gradient_boosting(
+                    data_dict['X_train'], data_dict['y_train'],
+                    data_dict['X_test'], data_dict['y_test']
+                )
+            
+            # Evaluate model
+            evaluation_results = evaluate_model_performance(
+                current_advanced_model, processed_data, time_col, target_col
+            )
+            model_evaluation_results = evaluation_results
+            
+        print(f"Advanced model training completed: {model_type}")
+        return {
+            'model': current_advanced_model,
+            'preprocessor': current_preprocessor,
+            'training_results': training_results,
+            'evaluation_results': model_evaluation_results,
+            'model_type': model_type
+        }
+        
+    except Exception as e:
+        print(f"Error training advanced model: {e}")
+        raise e
+
 def generate_ph_simulation_data(duration_hours: int = 24) -> List[Dict]:
     """Generate realistic pH simulation data for testing"""
     data = []
