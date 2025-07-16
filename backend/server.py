@@ -350,7 +350,7 @@ async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any])
 async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
     """Generate predictions using trained model with optional offset for continuous prediction"""
     try:
-        global current_model
+        global current_model, continuous_predictions
         
         if current_model is None:
             raise HTTPException(status_code=400, detail="No model trained")
@@ -422,8 +422,121 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
                 'confidence_intervals': None
             }
         
+        # Store prediction for continuous use
+        continuous_predictions.append(result)
+        
         return result
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/generate-continuous-prediction")
+async def generate_continuous_prediction(model_id: str, steps: int = 30, time_window: int = 100):
+    """Generate continuous predictions that extrapolate forward"""
+    try:
+        global current_model, continuous_predictions
+        
+        if current_model is None:
+            raise HTTPException(status_code=400, detail="No model trained")
+        
+        model = current_model['model']
+        model_type = current_model['model_type']
+        data = current_model['data']
+        
+        # Calculate how many predictions to generate based on time window
+        prediction_offset = len(continuous_predictions) * 5  # Each call advances by 5 steps
+        
+        if model_type == 'prophet':
+            # Create future dataframe with increasing offset
+            future = model.make_future_dataframe(periods=steps + prediction_offset)
+            forecast = model.predict(future)
+            
+            # Extract predictions from the end
+            predictions = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(steps)
+            
+            result = {
+                'timestamps': predictions['ds'].dt.strftime('%Y-%m-%d %H:%M:%S').tolist(),
+                'predictions': predictions['yhat'].tolist(),
+                'confidence_intervals': [
+                    {'lower': row['yhat_lower'], 'upper': row['yhat_upper']} 
+                    for _, row in predictions.iterrows()
+                ]
+            }
+            
+        elif model_type == 'arima':
+            # Generate ARIMA predictions with increasing offset
+            forecast = model.forecast(steps=steps + prediction_offset)
+            
+            # Create timestamps
+            time_col = current_model['time_col']
+            original_data = current_model['data']
+            
+            # Get the last timestamp from the original data
+            if time_col in original_data.columns:
+                last_timestamp = pd.to_datetime(original_data[time_col].iloc[-1])
+                # Try to infer frequency from the time series
+                time_series = pd.to_datetime(original_data[time_col])
+                freq = pd.infer_freq(time_series)
+            else:
+                last_timestamp = pd.to_datetime(original_data.index[-1])
+                freq = pd.infer_freq(pd.to_datetime(original_data.index))
+            
+            # Default to daily frequency if inference fails
+            if freq is None:
+                freq = 'D'
+            
+            # Create future timestamps starting from last prediction
+            try:
+                future_timestamps = pd.date_range(
+                    start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
+                    periods=steps, 
+                    freq=freq
+                )
+            except:
+                # Fallback to daily frequency
+                future_timestamps = pd.date_range(
+                    start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
+                    periods=steps, 
+                    freq='D'
+                )
+            
+            # Take the forecasted values from the end
+            prediction_values = forecast.tolist()[-steps:]
+            
+            result = {
+                'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
+                'predictions': prediction_values,
+                'confidence_intervals': None
+            }
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/ph-simulation")
+async def get_ph_simulation():
+    """Get simulated pH readings"""
+    try:
+        ph_reading = simulate_real_time_ph()
+        return ph_reading
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/ph-simulation-history")
+async def get_ph_simulation_history(hours: int = 24):
+    """Get historical pH simulation data"""
+    try:
+        global ph_simulation_data
+        if not ph_simulation_data:
+            ph_simulation_data = generate_ph_simulation_data(hours)
+        
+        return {
+            'data': ph_simulation_data,
+            'current_ph': ph_simulation_data[-1]['ph_value'] if ph_simulation_data else 7.0,
+            'target_ph': 7.6,  # Target pH for monitoring
+            'status': 'Connected'
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
