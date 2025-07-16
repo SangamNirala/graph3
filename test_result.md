@@ -389,6 +389,8 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "CRITICAL FIXES APPLIED: Fixed N-BEATS state_dict loading with error handling, LightGBM data reshaping for 1D targets, JSON serialization issues in data quality report, and advanced prediction endpoint model state management. However, new issues identified with data preparation for small datasets (49 samples) causing 'num_samples=0' errors. Need comprehensive testing of advanced models with proper data preparation fixes."
+  - agent: "testing"
+    message: "🔍 COMPREHENSIVE ADVANCED ML TESTING COMPLETED: Tested all advanced ML models with pH dataset (49 samples). FINDINGS: ✅ WORKING: File upload (100% quality score), data quality report, supported models endpoint, LSTM model training (Grade A), LightGBM model training, model performance retrieval. ❌ CRITICAL ISSUES IDENTIFIED: 1) DLinear: Tensor size mismatch with small datasets - sequence generation needs adjustment for seq_len vs dataset size, 2) N-BEATS: NaN training losses and state_dict architecture mismatch - model loading wrong state_dict, 3) Advanced prediction: DateTime arithmetic error ('int' + 'timedelta'), 4) Model comparison: 'duplicate keys' pandas DataFrame error, 5) Hyperparameter optimization: Same duplicate keys issue. SUCCESS RATE: 50% (5/10 tests passed). Core data preparation works but specific model implementations and prediction endpoints need fixes."
 
 backend:
   - task: "File upload and data analysis endpoint"
