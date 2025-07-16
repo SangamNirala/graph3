@@ -26,6 +26,15 @@ import random
 import math
 from datetime import datetime, timedelta
 
+# Import improved prediction algorithms
+from improved_predictions import (
+    analyze_historical_patterns,
+    generate_improved_prophet_predictions,
+    generate_improved_arima_predictions,
+    train_improved_prophet_model,
+    train_improved_arima_model
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
