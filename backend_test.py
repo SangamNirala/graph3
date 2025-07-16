@@ -1012,6 +1012,11 @@ class BackendTester:
         self.test_reset_functionality()
         self.test_complete_continuous_prediction_flow()
         
+        # ENHANCED NEW FEATURE TESTS (from review request)
+        self.test_ph_target_management()
+        self.test_advanced_pattern_analysis()
+        self.test_integration_flow()
+        
         self.test_error_handling()
         
         # Run WebSocket test
