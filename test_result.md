@@ -285,11 +285,10 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Continuous prediction extrapolation fix"
-    - "pH simulation data generation"
     - "Three-panel pH monitoring dashboard UI"
     - "Fixed continuous prediction with proper extrapolation"
     - "Time window slider control"
+    - "Real-time pH simulation integration"
   stuck_tasks:
     - "WebSocket for real-time updates"
   test_all: false
