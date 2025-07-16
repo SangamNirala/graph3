@@ -407,9 +407,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Enhanced upload endpoint with encoding support and data cleaning fixes"
-    - "Verify UTF-8 and Latin-1 encoding support works correctly"
-    - "Verify data cleaning handles NaN values, mixed data types, and empty strings"
+    - "WebSocket for real-time updates" 
   stuck_tasks:
     - "WebSocket for real-time updates"
   test_all: false
