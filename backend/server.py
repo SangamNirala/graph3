@@ -63,20 +63,64 @@ api_router = APIRouter(prefix="/api")
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
+        self.sse_connections: List[Any] = []
 
     async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
+        try:
+            await websocket.accept()
+            self.active_connections.append(websocket)
+            logging.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+        except Exception as e:
+            logging.error(f"Error accepting WebSocket connection: {e}")
+            raise
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        try:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+                logging.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+        except Exception as e:
+            logging.error(f"Error disconnecting WebSocket: {e}")
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
+        try:
+            await websocket.send_text(message)
+        except Exception as e:
+            logging.error(f"Error sending WebSocket message: {e}")
+            self.disconnect(websocket)
 
     async def broadcast(self, message: str):
+        disconnected = []
         for connection in self.active_connections:
-            await connection.send_text(message)
+            try:
+                await connection.send_text(message)
+            except Exception as e:
+                logging.error(f"Error broadcasting to WebSocket: {e}")
+                disconnected.append(connection)
+        
+        # Remove disconnected connections
+        for conn in disconnected:
+            self.disconnect(conn)
+
+    def add_sse_connection(self, connection):
+        self.sse_connections.append(connection)
+
+    def remove_sse_connection(self, connection):
+        if connection in self.sse_connections:
+            self.sse_connections.remove(connection)
+
+    async def broadcast_sse(self, message: str):
+        disconnected = []
+        for connection in self.sse_connections:
+            try:
+                await connection.put(message)
+            except Exception as e:
+                logging.error(f"Error broadcasting to SSE: {e}")
+                disconnected.append(connection)
+        
+        # Remove disconnected connections
+        for conn in disconnected:
+            self.remove_sse_connection(conn)
 
 manager = ConnectionManager()
 
