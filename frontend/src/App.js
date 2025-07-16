@@ -404,6 +404,13 @@ function App() {
     }
   };
 
+  // Load pH simulation data when component mounts
+  useEffect(() => {
+    if (currentStep === 'prediction' && modelId) {
+      loadPhSimulation();
+    }
+  }, [currentStep, modelId]);
+
   // Cleanup interval on component unmount
   useEffect(() => {
     return () => {
