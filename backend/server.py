@@ -295,26 +295,57 @@ async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any])
     try:
         global current_model, current_data, current_scaler
         
+        print(f"Training model with data_id: {data_id}, model_type: {model_type}")
+        print(f"Parameters: {parameters}")
+        
         if current_data is None:
-            raise HTTPException(status_code=400, detail="No data uploaded")
+            print("Error: No data uploaded - current_data is None")
+            raise HTTPException(status_code=400, detail="No data uploaded. Please upload data first.")
+        
+        print(f"Current data shape: {current_data.shape}")
+        print(f"Current data columns: {current_data.columns.tolist()}")
         
         # Get parameters
         time_col = parameters.get('time_column')
         target_col = parameters.get('target_column')
         
+        print(f"Time column: {time_col}, Target column: {target_col}")
+        
         if not time_col or not target_col:
             raise HTTPException(status_code=400, detail="Time column and target column are required")
         
+        # Check if columns exist in the data
+        if time_col not in current_data.columns:
+            raise HTTPException(status_code=400, detail=f"Time column '{time_col}' not found in data. Available columns: {current_data.columns.tolist()}")
+        
+        if target_col not in current_data.columns:
+            raise HTTPException(status_code=400, detail=f"Target column '{target_col}' not found in data. Available columns: {current_data.columns.tolist()}")
+        
         # Prepare data
+        print("Preparing data for model training...")
         prepared_data = prepare_data_for_model(current_data, time_col, target_col)
+        print(f"Prepared data shape: {prepared_data.shape}")
         
         # Train model based on type
         if model_type == 'prophet':
-            model = train_prophet_model(prepared_data, time_col, target_col, parameters)
+            print("Training Prophet model...")
+            try:
+                model = train_prophet_model(prepared_data, time_col, target_col, parameters)
+                print("Prophet model trained successfully")
+            except Exception as prophet_error:
+                print(f"Prophet training error: {prophet_error}")
+                raise HTTPException(status_code=500, detail=f"Prophet model training failed: {str(prophet_error)}")
+                
         elif model_type == 'arima':
-            model = train_arima_model(prepared_data, time_col, target_col, parameters)
+            print("Training ARIMA model...")
+            try:
+                model = train_arima_model(prepared_data, time_col, target_col, parameters)
+                print("ARIMA model trained successfully")
+            except Exception as arima_error:
+                print(f"ARIMA training error: {arima_error}")
+                raise HTTPException(status_code=500, detail=f"ARIMA model training failed: {str(arima_error)}")
         else:
-            raise HTTPException(status_code=400, detail="Unsupported model type")
+            raise HTTPException(status_code=400, detail="Unsupported model type. Use 'prophet' or 'arima'")
         
         # Store model globally
         current_model = {
@@ -337,14 +368,19 @@ async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any])
         
         await db.model_trainings.insert_one(training_record.dict())
         
+        print(f"Model training completed successfully. Model ID: {training_record.id}")
+        
         return {
             "status": "success",
             "model_id": training_record.id,
-            "message": "Model trained successfully"
+            "message": f"{model_type.upper()} model trained successfully"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"General training error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Model training failed: {str(e)}")
 
 @api_router.get("/generate-prediction")
 async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
