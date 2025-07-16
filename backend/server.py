@@ -1291,9 +1291,9 @@ async def optimize_model_hyperparameters(model_type: str, n_trials: int = 30):
         return {
             "status": "success",
             "model_type": model_type,
-            "optimization_results": optimization_results,
-            "best_parameters": optimization_results['best_params'],
-            "best_score": optimization_results['best_value']
+            "optimization_results": safe_json_serialization(optimization_results),
+            "best_parameters": safe_json_serialization(optimization_results['best_params']),
+            "best_score": safe_json_serialization(optimization_results['best_value'])
         }
         
     except Exception as e:
