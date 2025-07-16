@@ -87,9 +87,8 @@ def test_advanced_ml_pipeline():
         
         response = requests.post(f"{BASE_URL}/train-model", params={
             'data_id': data_id,
-            'model_type': model_type,
-            'parameters': json.dumps(training_params)
-        })
+            'model_type': model_type
+        }, json=training_params)
         
         if response.status_code == 200:
             print(f"✅ {model_type} model training successful")
