@@ -183,6 +183,66 @@ def train_arima_model(data: pd.DataFrame, time_col: str, target_col: str, params
     
     return fitted_model
 
+def generate_ph_simulation_data(duration_hours: int = 24) -> List[Dict]:
+    """Generate realistic pH simulation data for testing"""
+    data = []
+    start_time = datetime.now() - timedelta(hours=duration_hours)
+    
+    # Base pH level around 7.0 with realistic variations
+    base_ph = 7.0
+    current_ph = base_ph
+    
+    for i in range(duration_hours * 60):  # Generate data every minute
+        # Add realistic pH fluctuations
+        # Small random walk + periodic variations
+        noise = random.gauss(0, 0.02)  # Small random noise
+        periodic = 0.1 * math.sin(i * 2 * math.pi / (24 * 60))  # Daily cycle
+        trend = 0.05 * math.sin(i * 2 * math.pi / (4 * 60))  # 4-hour cycle
+        
+        current_ph += noise + periodic/100 + trend/100
+        
+        # Keep pH in realistic range (6.0-8.0)
+        current_ph = max(6.0, min(8.0, current_ph))
+        
+        timestamp = start_time + timedelta(minutes=i)
+        data.append({
+            'timestamp': timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            'ph_value': round(current_ph, 2),
+            'confidence': random.uniform(85, 98)  # Simulation confidence
+        })
+    
+    return data
+
+def simulate_real_time_ph():
+    """Generate a single real-time pH reading"""
+    global ph_simulation_data
+    
+    if not ph_simulation_data:
+        ph_simulation_data = generate_ph_simulation_data(24)
+    
+    # Get current pH based on simulation
+    current_index = len(ph_simulation_data) - 1
+    if current_index < len(ph_simulation_data):
+        base_reading = ph_simulation_data[current_index]
+        
+        # Add small real-time variation
+        ph_variation = random.gauss(0, 0.01)
+        current_ph = base_reading['ph_value'] + ph_variation
+        current_ph = max(6.0, min(8.0, current_ph))
+        
+        return {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'ph_value': round(current_ph, 2),
+            'confidence': random.uniform(88, 97)
+        }
+    
+    # Fallback to random realistic pH
+    return {
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'ph_value': round(random.uniform(6.8, 7.2), 2),
+        'confidence': random.uniform(85, 95)
+    }
+
 # API Routes
 @api_router.post("/upload-data")
 async def upload_data(file: UploadFile = File(...)):
