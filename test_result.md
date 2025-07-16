@@ -311,8 +311,7 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Fixed continuous prediction with proper extrapolation"
+  current_focus: []
   stuck_tasks:
     - "WebSocket for real-time updates"
   test_all: false
