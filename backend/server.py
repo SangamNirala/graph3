@@ -1632,18 +1632,28 @@ async def continuous_prediction_task():
         
         await asyncio.sleep(1)  # Update every 1 second for smoother experience
 
-@api_router.post("/start-continuous-prediction")
-async def start_continuous_prediction():
-    """Start continuous prediction updates"""
-    global prediction_task, continuous_predictions
-    
-    # Reset continuous predictions
-    continuous_predictions = []
-    
-    if prediction_task is None:
-        prediction_task = asyncio.create_task(continuous_prediction_task())
-    
-    return {"status": "started", "message": "Continuous prediction started"}
+@api_router.get("/connection-status")
+async def get_connection_status():
+    """Get current connection status for debugging"""
+    return {
+        "websocket_connections": len(manager.active_connections),
+        "sse_connections": len(manager.sse_connections),
+        "prediction_task_running": prediction_task is not None and not prediction_task.done(),
+        "current_model_available": current_model is not None,
+        "timestamp": datetime.now().isoformat()
+    }
+
+@api_router.get("/test-websocket-support")
+async def test_websocket_support():
+    """Test endpoint to check WebSocket support"""
+    return {
+        "websocket_endpoint": "/ws/predictions",
+        "sse_endpoint": "/api/stream/predictions", 
+        "polling_endpoint": "/api/poll/predictions",
+        "connection_status_endpoint": "/api/connection-status",
+        "message": "WebSocket support available with SSE and polling fallbacks",
+        "timestamp": datetime.now().isoformat()
+    }
 
 @api_router.post("/stop-continuous-prediction")
 async def stop_continuous_prediction():
