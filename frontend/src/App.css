@@ -306,3 +306,40 @@
   background-color: #e9ecef;
   color: #6c757d;
 }
+
+/* pH Slider Styling */
+.slider-vertical {
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to top, #ef4444, #eab308, #22c55e);
+  border-radius: 10px;
+  outline: none;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.slider-vertical:hover {
+  opacity: 1;
+}
+
+.slider-vertical::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #3b82f6;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.slider-vertical::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #3b82f6;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
