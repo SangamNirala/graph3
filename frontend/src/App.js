@@ -15,6 +15,7 @@ function App() {
   const [predictionData, setPredictionData] = useState(null);
   const [isTraining, setIsTraining] = useState(false);
   const [isPredicting, setIsPredicting] = useState(false);
+  const isPredictingRef = useRef(false);
   const [timeWindow, setTimeWindow] = useState(50);
   const [continuousPredictions, setContinuousPredictions] = useState([]);
   const [websocket, setWebsocket] = useState(null);
