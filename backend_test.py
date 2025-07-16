@@ -667,6 +667,13 @@ class BackendTester:
         self.test_prediction_generation()
         self.test_historical_data()
         self.test_continuous_prediction_control()
+        
+        # NEW FEATURE TESTS
+        self.test_ph_simulation_endpoints()
+        self.test_enhanced_continuous_prediction()
+        self.test_reset_functionality()
+        self.test_complete_continuous_prediction_flow()
+        
         self.test_error_handling()
         
         # Run WebSocket test
