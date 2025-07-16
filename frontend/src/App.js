@@ -556,30 +556,105 @@ function App() {
     </div>
   );
 
-  // Render prediction step
+  // Render prediction step with three-panel pH monitoring dashboard layout
   const renderPredictionStep = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
-          📊 Real-Time Predictions
-        </h1>
-        
-        <div className="bg-white rounded-lg shadow-xl p-6">
-          <div className="mb-6 flex justify-between items-center">
-            <button
-              onClick={() => setCurrentStep('parameters')}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-            >
-              ← Back
-            </button>
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-800">pH Monitoring Dashboard</h1>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">Real-time pH sensor monitoring with LSTM predictions</span>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium text-green-700">Connected</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Three-panel layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Panel - Real-time pH Sensor Readings */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Real-time pH Sensor Readings</h2>
+              <span className="text-sm text-green-600 font-medium">Live</span>
+            </div>
             
-            <div className="flex space-x-4">
+            <div className="mb-4">
+              {realtimePhReadings.length > 0 ? (
+                <PhChart 
+                  data={realtimePhReadings.map(r => r.ph_value)} 
+                  title=""
+                  color="#3B82F6"
+                  showAnimation={isPredicting}
+                  currentValue={phData.current_ph}
+                />
+              ) : (
+                <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
+                  <div className="text-center">
+                    <div className="text-6xl mb-2">📊</div>
+                    <p>No sensor data available</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Middle Panel - pH Control Panel */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">pH Control Panel</h2>
+              <button
+                onClick={() => setCurrentStep('parameters')}
+                className="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+              >
+                ← Back
+              </button>
+            </div>
+            
+            <div className="text-center mb-6">
+              <div className="text-5xl font-bold text-blue-600 mb-2">
+                {phData.current_ph.toFixed(2)}
+              </div>
+              <div className="text-sm text-gray-600 mb-1">Current pH Level</div>
+              <div className="text-sm text-gray-500">Target pH: {phData.target_ph}</div>
+            </div>
+
+            {/* pH Control Slider */}
+            <div className="mb-6">
+              <div className="flex justify-center mb-4">
+                <div className="relative">
+                  <div className="w-4 h-64 bg-gradient-to-t from-red-500 via-yellow-500 to-green-500 rounded-full"></div>
+                  <div 
+                    className="absolute w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-lg transform -translate-x-1"
+                    style={{ 
+                      top: `${((14 - phData.current_ph) / 14) * 100}%`,
+                      marginTop: '-12px'
+                    }}
+                  ></div>
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-500 mb-2">pH Scale</div>
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>0</span>
+                  <span>7</span>
+                  <span>14</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Control Buttons */}
+            <div className="space-y-3">
               <button
                 onClick={async () => {
                   const predictions = await generatePredictions(0);
                   if (predictions) setPredictionData(predictions);
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 📈 Generate Predictions
               </button>
@@ -587,115 +662,112 @@ function App() {
               {!isPredicting ? (
                 <button
                   onClick={startContinuousPrediction}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   ▶️ Start Continuous Prediction
                 </button>
               ) : (
                 <button
                   onClick={stopContinuousPrediction}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
                   ⏹️ Stop Continuous Prediction
                 </button>
               )}
             </div>
+
+            {/* Time Window Control */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Time Window Control
+              </label>
+              <input
+                type="range"
+                min="20"
+                max="200"
+                value={timeWindow}
+                onChange={(e) => setTimeWindow(Number(e.target.value))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>20 pts</span>
+                <span>{timeWindow} pts</span>
+                <span>200 pts</span>
+              </div>
+            </div>
           </div>
-          
-          {/* Status Indicator */}
-          {isPredicting && (
-            <div className="mb-4 text-center">
-              <div className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full">
-                <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                Live Predictions Active
-              </div>
-            </div>
-          )}
-          
-          {/* Graphs Container */}
-          <div className="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-6">
-            {/* Historical Data Graph */}
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold mb-4 text-center">📈 Historical Data</h3>
-              {historicalData ? (
-                <SimpleChart 
-                  data={historicalData} 
-                  title="Historical Data"
-                  color="#3B82F6"
-                />
-              ) : (
-                <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
-                  No historical data available
-                </div>
-              )}
+
+          {/* Right Panel - LSTM Predictions */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">LSTM Predictions</h2>
+              <span className="text-sm text-gray-600">Next 30 Steps</span>
             </div>
             
-            {/* Vertical Slider */}
-            <div className="flex lg:flex-col justify-center items-center px-4">
-              <div className="text-center">
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Prediction Control
-                </label>
-                <input
-                  type="range"
-                  min="-100"
-                  max="100"
-                  value={verticalOffset}
-                  onChange={(e) => setVerticalOffset(Number(e.target.value))}
-                  className="w-32 lg:w-32 lg:transform lg:-rotate-90"
-                />
-                <div className="text-xs text-gray-500 mt-2">
-                  Offset: {verticalOffset}
-                </div>
-                <div className="text-xs text-green-600 mt-1">
-                  {isPredicting ? '🔄 Live' : '⏸️ Static'}
-                </div>
-              </div>
-            </div>
-            
-            {/* Predictions Graph */}
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold mb-4 text-center">
-                🔮 Predictions {isPredicting && <span className="text-green-600 animate-pulse">(Live)</span>}
-              </h3>
-              {predictionData ? (
-                <SimpleChart 
-                  data={{ values: predictionData.predictions }} 
-                  title="Continuous Predictions"
+            <div className="mb-4">
+              {lstmPredictions.length > 0 ? (
+                <PhChart 
+                  data={lstmPredictions.slice(-timeWindow)} 
+                  title=""
                   color="#10B981"
-                  showAnimation={true}
+                  showAnimation={isPredicting}
                 />
               ) : (
                 <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
-                  Click "Generate Predictions" to start
+                  <div className="text-center">
+                    <div className="text-6xl mb-2">🔮</div>
+                    <p>Click "Generate Predictions" to start</p>
+                  </div>
                 </div>
               )}
             </div>
+
+            <div className="text-center">
+              <div className="text-sm text-gray-600 mb-2">Prediction Confidence</div>
+              <div className="text-2xl font-bold text-green-600">
+                {predictionConfidence}%
+              </div>
+            </div>
+
+            {/* Status Indicator */}
+            {isPredicting && (
+              <div className="mt-4 text-center">
+                <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                  Live Predictions Active
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Data Summary */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Historical Data</div>
+            <div className="text-lg font-semibold text-blue-600">
+              {historicalData ? `${historicalData.values.length} points` : 'No data'}
+            </div>
           </div>
           
-          {/* Data Summary */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">📊 Historical Data</h4>
-              <p className="text-sm text-blue-700">
-                {historicalData ? `${historicalData.values.length} data points` : 'No data loaded'}
-              </p>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Realtime Readings</div>
+            <div className="text-lg font-semibold text-green-600">
+              {realtimePhReadings.length} points
             </div>
-            
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-green-800 mb-2">🔮 Predictions</h4>
-              <p className="text-sm text-green-700">
-                {predictionData ? `${predictionData.predictions.length} predictions generated` : 'No predictions yet'}
-              </p>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Predictions</div>
+            <div className="text-lg font-semibold text-purple-600">
+              {lstmPredictions.length} points
             </div>
-            
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-purple-800 mb-2">⚙️ Control</h4>
-              <p className="text-sm text-purple-700">
-                Slider offset: {verticalOffset}
-                <br />
-                Prediction offset: {predictionOffset}
-              </p>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Time Window</div>
+            <div className="text-lg font-semibold text-indigo-600">
+              {timeWindow} points
             </div>
           </div>
         </div>
