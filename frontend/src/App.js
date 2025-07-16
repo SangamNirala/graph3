@@ -2,9 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import './App.css';
 
-// Lazy load Plotly to reduce initial bundle size
-const Plot = React.lazy(() => import('react-plotly.js'));
-
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -123,6 +120,66 @@ function App() {
     }
   };
 
+  // Simple chart component using Canvas
+  const SimpleChart = ({ data, title, color = '#3B82F6' }) => {
+    const canvasRef = React.useRef(null);
+    
+    React.useEffect(() => {
+      if (!data || !canvasRef.current) return;
+      
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, width, height);
+      
+      // Draw axes
+      ctx.strokeStyle = '#ddd';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(50, height - 50);
+      ctx.lineTo(width - 50, height - 50);
+      ctx.moveTo(50, 50);
+      ctx.lineTo(50, height - 50);
+      ctx.stroke();
+      
+      // Draw data
+      if (data.values && data.values.length > 0) {
+        const maxVal = Math.max(...data.values);
+        const minVal = Math.min(...data.values);
+        const range = maxVal - minVal || 1;
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        
+        data.values.forEach((value, index) => {
+          const x = 50 + (index / (data.values.length - 1)) * (width - 100);
+          const y = height - 50 - ((value - minVal) / range) * (height - 100);
+          
+          if (index === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        
+        ctx.stroke();
+      }
+      
+      // Draw title
+      ctx.fillStyle = '#333';
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, width / 2, 30);
+      
+    }, [data, title, color]);
+    
+    return <canvas ref={canvasRef} width={400} height={300} className="border border-gray-300 rounded" />;
+  };
+
   // Start continuous prediction
   const startContinuousPrediction = async () => {
     setIsPredicting(true);
@@ -131,31 +188,17 @@ function App() {
       // Start continuous prediction on backend
       await fetch(`${API}/start-continuous-prediction`, { method: 'POST' });
       
-      // Connect to WebSocket
-      const ws = new WebSocket(`${BACKEND_URL.replace('http', 'ws')}/ws/predictions`);
-      
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'prediction_update') {
-          setPredictionData(prev => ({
-            ...prev,
-            ...data.data
-          }));
-        }
-      };
-      
-      ws.onopen = () => {
-        console.log('WebSocket connected');
-      };
-      
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
-      };
-      
-      setWebsocket(ws);
-      
-      // Also generate initial predictions
+      // Generate initial predictions
       await generatePredictions();
+      
+      // Set up polling for updates instead of WebSocket
+      const interval = setInterval(async () => {
+        if (isPredicting) {
+          await generatePredictions();
+        }
+      }, 3000);
+      
+      setWebsocket(interval);
       
     } catch (error) {
       console.error('Error starting continuous prediction:', error);
@@ -167,7 +210,7 @@ function App() {
     setIsPredicting(false);
     
     if (websocket) {
-      websocket.close();
+      clearInterval(websocket);
       setWebsocket(null);
     }
     
@@ -178,11 +221,11 @@ function App() {
     }
   };
 
-  // Cleanup WebSocket on component unmount
+  // Cleanup interval on component unmount
   useEffect(() => {
     return () => {
       if (websocket) {
-        websocket.close();
+        clearInterval(websocket);
       }
     };
   }, [websocket]);
@@ -192,7 +235,7 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
-          Real-Time Graph Prediction
+          🚀 Real-Time Graph Prediction
         </h1>
         
         <div className="bg-white rounded-lg shadow-xl p-8">
@@ -205,9 +248,7 @@ function App() {
           >
             <input {...getInputProps()} />
             <div className="text-gray-600">
-              <svg className="mx-auto h-16 w-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
+              <div className="text-6xl mb-4">📊</div>
               {isDragActive ? (
                 <p className="text-lg">Drop the file here...</p>
               ) : (
@@ -221,7 +262,7 @@ function App() {
           
           {analysis && (
             <div className="mt-8 p-6 bg-gray-50 rounded-lg">
-              <h3 className="text-lg font-semibold mb-4">Data Analysis</h3>
+              <h3 className="text-lg font-semibold mb-4">📈 Data Analysis</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p><strong>File:</strong> {uploadedData.analysis.columns.length} columns, {uploadedData.analysis.data_shape[0]} rows</p>
@@ -245,7 +286,7 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
-          Configure Model Parameters
+          ⚙️ Configure Model Parameters
         </h1>
         
         <div className="bg-white rounded-lg shadow-xl p-8">
@@ -291,7 +332,7 @@ function App() {
                 onChange={(e) => setParameters({...parameters, model_type: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="prophet">Prophet</option>
+                <option value="prophet">Prophet (Recommended)</option>
                 <option value="arima">ARIMA</option>
               </select>
             </div>
@@ -316,7 +357,7 @@ function App() {
               onClick={() => setCurrentStep('upload')}
               className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
             >
-              Back
+              ← Back
             </button>
             
             <button
@@ -324,7 +365,7 @@ function App() {
               disabled={isTraining || !parameters.time_column || !parameters.target_column}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
             >
-              {isTraining ? 'Training...' : 'Train Model'}
+              {isTraining ? '🔄 Training...' : '🚀 Train Model'}
             </button>
           </div>
         </div>
@@ -337,7 +378,7 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
-          Real-Time Predictions
+          📊 Real-Time Predictions
         </h1>
         
         <div className="bg-white rounded-lg shadow-xl p-6">
@@ -346,7 +387,7 @@ function App() {
               onClick={() => setCurrentStep('parameters')}
               className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
             >
-              Back
+              ← Back
             </button>
             
             <div className="flex space-x-4">
@@ -354,7 +395,7 @@ function App() {
                 onClick={generatePredictions}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Generate Predictions
+                📈 Generate Predictions
               </button>
               
               {!isPredicting ? (
@@ -362,54 +403,50 @@ function App() {
                   onClick={startContinuousPrediction}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  Start Continuous Prediction
+                  ▶️ Start Continuous Prediction
                 </button>
               ) : (
                 <button
                   onClick={stopContinuousPrediction}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
-                  Stop Continuous Prediction
+                  ⏹️ Stop Continuous Prediction
                 </button>
               )}
             </div>
           </div>
           
+          {/* Status Indicator */}
+          {isPredicting && (
+            <div className="mb-4 text-center">
+              <div className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full">
+                <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                Live Predictions Active
+              </div>
+            </div>
+          )}
+          
           {/* Graphs Container */}
-          <div className="flex space-x-4">
+          <div className="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-6">
             {/* Historical Data Graph */}
             <div className="flex-1">
-              <h3 className="text-lg font-semibold mb-4 text-center">Historical Data</h3>
-              {historicalData && (
-                <React.Suspense fallback={<div className="text-center py-8">Loading graph...</div>}>
-                  <Plot
-                    data={[
-                      {
-                        x: historicalData.timestamps,
-                        y: historicalData.values.map(v => v + verticalOffset),
-                        type: 'scatter',
-                        mode: 'lines',
-                        line: { color: '#3B82F6' },
-                        name: 'Historical Data'
-                      }
-                    ]}
-                    layout={{
-                      width: 500,
-                      height: 400,
-                      title: 'Historical Data',
-                      xaxis: { title: 'Time' },
-                      yaxis: { title: 'Value' },
-                      margin: { l: 50, r: 50, t: 50, b: 50 }
-                    }}
-                    config={{ responsive: true }}
-                  />
-                </React.Suspense>
+              <h3 className="text-lg font-semibold mb-4 text-center">📈 Historical Data</h3>
+              {historicalData ? (
+                <SimpleChart 
+                  data={historicalData} 
+                  title="Historical Data"
+                  color="#3B82F6"
+                />
+              ) : (
+                <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
+                  No historical data available
+                </div>
               )}
             </div>
             
             {/* Vertical Slider */}
-            <div className="flex flex-col justify-center items-center px-4">
-              <label className="text-sm font-medium text-gray-700 mb-2 transform -rotate-90">
+            <div className="flex lg:flex-col justify-center items-center px-4">
+              <label className="text-sm font-medium text-gray-700 mb-2 lg:transform lg:-rotate-90">
                 Vertical Pan
               </label>
               <input
@@ -418,60 +455,46 @@ function App() {
                 max="100"
                 value={verticalOffset}
                 onChange={(e) => setVerticalOffset(Number(e.target.value))}
-                className="w-32 transform -rotate-90"
-                style={{ writingMode: 'bt-lr' }}
+                className="w-32 lg:w-32 lg:transform lg:-rotate-90"
               />
+              <div className="text-xs text-gray-500 mt-2 lg:transform lg:-rotate-90">
+                {verticalOffset}
+              </div>
             </div>
             
             {/* Predictions Graph */}
             <div className="flex-1">
               <h3 className="text-lg font-semibold mb-4 text-center">
-                Predictions {isPredicting && <span className="text-green-600">(Live)</span>}
+                🔮 Predictions {isPredicting && <span className="text-green-600">(Live)</span>}
               </h3>
-              {predictionData && (
-                <React.Suspense fallback={<div className="text-center py-8">Loading predictions...</div>}>
-                  <Plot
-                    data={[
-                      {
-                        x: predictionData.timestamps,
-                        y: predictionData.predictions.map(p => p + verticalOffset * 0.1),
-                        type: 'scatter',
-                        mode: 'lines',
-                        line: { color: '#10B981' },
-                        name: 'Predictions'
-                      },
-                      ...(predictionData.confidence_intervals ? [{
-                        x: predictionData.timestamps,
-                        y: predictionData.confidence_intervals.map(ci => ci.upper + verticalOffset * 0.1),
-                        type: 'scatter',
-                        mode: 'lines',
-                        line: { color: 'rgba(16, 185, 129, 0.3)' },
-                        name: 'Upper Confidence',
-                        showlegend: false
-                      }, {
-                        x: predictionData.timestamps,
-                        y: predictionData.confidence_intervals.map(ci => ci.lower + verticalOffset * 0.1),
-                        type: 'scatter',
-                        mode: 'lines',
-                        fill: 'tonexty',
-                        fillcolor: 'rgba(16, 185, 129, 0.1)',
-                        line: { color: 'rgba(16, 185, 129, 0.3)' },
-                        name: 'Lower Confidence',
-                        showlegend: false
-                      }] : [])
-                    ]}
-                    layout={{
-                      width: 500,
-                      height: 400,
-                      title: 'Predictions',
-                      xaxis: { title: 'Time' },
-                      yaxis: { title: 'Value' },
-                      margin: { l: 50, r: 50, t: 50, b: 50 }
-                    }}
-                    config={{ responsive: true }}
-                  />
-                </React.Suspense>
+              {predictionData ? (
+                <SimpleChart 
+                  data={{ values: predictionData.predictions }} 
+                  title="Predictions"
+                  color="#10B981"
+                />
+              ) : (
+                <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
+                  Click "Generate Predictions" to start
+                </div>
               )}
+            </div>
+          </div>
+          
+          {/* Data Summary */}
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-semibold text-blue-800 mb-2">📊 Historical Data</h4>
+              <p className="text-sm text-blue-700">
+                {historicalData ? `${historicalData.values.length} data points` : 'No data loaded'}
+              </p>
+            </div>
+            
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h4 className="font-semibold text-green-800 mb-2">🔮 Predictions</h4>
+              <p className="text-sm text-green-700">
+                {predictionData ? `${predictionData.predictions.length} predictions generated` : 'No predictions yet'}
+              </p>
             </div>
           </div>
         </div>
