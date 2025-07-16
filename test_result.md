@@ -286,20 +286,41 @@ frontend:
         agent: "testing"
         comment: "✅ TESTED: Time window slider control working correctly. Slider changes values from 20-200 points, triggers API calls when changed (/api/generate-continuous-prediction with time_window parameter), and updates the time window counter in the data summary. Slider interaction is smooth and responsive."
 
-  - task: "Real-time pH simulation integration"
-    implemented: true
-    working: true
+  - task: "Interactive pH slider functionality"
+    implemented: false
+    working: false
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "NEW: Integrated real-time pH simulation data with proper visualization, added pH control panel with current pH display, target pH, and color-coded pH scale indicator."
-      - working: true
-        agent: "testing"
-        comment: "✅ TESTED: Real-time pH simulation integration working correctly. pH control panel displays current pH value (7.72), target pH (7.6), and color-coded pH scale with proper indicator positioning. pH simulation API calls (/api/ph-simulation-history, /api/ph-simulation) are successful and return realistic pH data. Data counters show correct values (Historical: 5 points, Realtime: 100 points, Predictions: 30 points)."
+        comment: "NEW: Need to implement interactive pH slider that responds to user input and allows smooth adjustment of target pH values. Current implementation is just a visual display."
+
+  - task: "Advanced continuous prediction with historical pattern extrapolation"
+    implemented: false
+    working: false
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW: Need to implement advanced continuous prediction mechanism using extrapolation techniques that honor historical data patterns, trends, and curvature for smooth transitions from known to predicted data."
+
+  - task: "Real-time graph extension with smooth data transitions"
+    implemented: false
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW: Need to ensure graphs extend in real-time with proper trajectory and curvature, maintaining fluid transition from historical to predicted data when continuous prediction is active."
 
 metadata:
   created_by: "main_agent"
