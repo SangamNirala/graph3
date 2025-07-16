@@ -317,8 +317,11 @@ def prepare_data_for_model(df: pd.DataFrame, time_col: str, target_col: str) -> 
     data = data.sort_values(time_col)
     
     # Remove duplicates and handle missing values
-    data = data.drop_duplicates(subset=[time_col])
+    data = data.drop_duplicates(subset=[time_col], keep='first')
     data = data.dropna()
+    
+    # Reset index to avoid any index issues
+    data = data.reset_index(drop=True)
     
     return data
 
