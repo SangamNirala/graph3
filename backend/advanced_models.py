@@ -282,6 +282,11 @@ class AdvancedTimeSeriesForecaster:
         """Create sequences for supervised learning"""
         X, y = [], []
         
+        # Check if we have enough data
+        min_required_length = seq_len + pred_len
+        if len(data) < min_required_length:
+            raise ValueError(f"Dataset too small: {len(data)} samples, need at least {min_required_length} samples for seq_len={seq_len} and pred_len={pred_len}")
+        
         for i in range(len(data) - seq_len - pred_len + 1):
             X.append(data[i:(i + seq_len)])
             y.append(data[i + seq_len:i + seq_len + pred_len])
