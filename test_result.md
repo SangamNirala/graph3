@@ -407,13 +407,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix N-BEATS model state dict loading issues"
-    - "Fix duplicate keys pandas DataFrame errors in model comparison"
-    - "Fix duplicate keys pandas DataFrame errors in hyperparameter optimization"
+    - "Enhanced upload endpoint with encoding support and data cleaning fixes"
+    - "Verify UTF-8 and Latin-1 encoding support works correctly"
+    - "Verify data cleaning handles NaN values, mixed data types, and empty strings"
   stuck_tasks:
-    - "Fix N-BEATS model state dict loading issues"
-    - "Fix duplicate keys pandas DataFrame errors in model comparison"
-    - "Fix duplicate keys pandas DataFrame errors in hyperparameter optimization"
+    - "WebSocket for real-time updates"
   test_all: false
   test_priority: "high_first"
 
