@@ -107,15 +107,18 @@ user_problem_statement: "I am building a real-time, continuous graph prediction 
 backend:
   - task: "Fix N-BEATS model state dict loading issues"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/advanced_models.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "FIXED: Added proper error handling for state_dict loading with strict=False, debugging for missing/unexpected keys, and fallback to current model state if loading fails."
+      - working: false
+        agent: "testing"
+        comment: "❌ TESTED: N-BEATS model training fails with NaN losses and state_dict architecture mismatch. Logs show 'Warning: Missing keys in state_dict' and 'Unexpected keys in state_dict' - the model is trying to load DLinear state_dict into N-BEATS architecture. Training produces NaN values indicating numerical instability. Need to fix model state_dict saving/loading and numerical stability."
 
   - task: "Fix LightGBM data reshaping issues"
     implemented: true
