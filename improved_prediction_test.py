@@ -18,8 +18,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / 'frontend' / '.env')
 
-# Get backend URL from environment
-BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://8ecdc457-5a6d-405e-b237-5d7187d1504c.preview.emergentagent.com')
+# Get backend URL from environment - use localhost for testing
+BACKEND_URL = "http://localhost:8001"
 API_BASE_URL = f"{BACKEND_URL}/api"
 
 print(f"Testing improved prediction system at: {API_BASE_URL}")
