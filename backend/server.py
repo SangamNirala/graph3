@@ -1326,9 +1326,12 @@ async def generate_advanced_prediction(steps: int = 30, confidence_level: float 
             individual_predictions = {}
         
         # Generate timestamps
-        last_timestamp = data.index[-1] if hasattr(data, 'index') else datetime.now()
-        if isinstance(last_timestamp, str):
-            last_timestamp = pd.to_datetime(last_timestamp)
+        time_col = current_model['time_col']
+        if time_col in data.columns:
+            last_timestamp = pd.to_datetime(data[time_col].iloc[-1])
+        else:
+            # Fallback to current time if no time column available
+            last_timestamp = datetime.now()
         
         timestamps = []
         for i in range(1, steps + 1):
