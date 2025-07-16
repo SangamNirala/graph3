@@ -152,15 +152,18 @@ backend:
 
   - task: "Fix advanced prediction endpoint model state management"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "FIXED: Improved model state management by checking current_advanced_model availability and fitted status. Added proper error handling and validation for model training state."
+      - working: false
+        agent: "testing"
+        comment: "❌ TESTED: Advanced prediction endpoint fails with datetime arithmetic error: 'unsupported operand type(s) for +: int and datetime.timedelta'. The issue is in timestamp generation logic where integer values are being added to timedelta objects. Model state management works but prediction generation has datetime handling bugs."
 
   - task: "Fix data preparation for advanced models"
     implemented: false
