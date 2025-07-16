@@ -334,32 +334,90 @@ def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
     return analysis
 
 def clean_and_validate_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean and validate uploaded data"""
-    # Remove completely empty rows and columns
-    df = df.dropna(how='all').dropna(axis=1, how='all')
+    """Clean and validate uploaded data with robust error handling"""
+    try:
+        # Store original shape for logging
+        original_shape = df.shape
+        
+        # Handle empty strings and whitespace-only strings
+        df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+        df.replace(['', ' ', 'nan', 'NaN', 'null', 'NULL', 'None'], np.nan, inplace=True)
+        
+        # Remove completely empty rows and columns
+        df = df.dropna(how='all').dropna(axis=1, how='all')
+        
+        # Handle mixed data types - convert to numeric where possible
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                try:
+                    # Try to convert to numeric with errors='coerce'
+                    numeric_series = pd.to_numeric(df[col], errors='coerce')
+                    
+                    # If most values can be converted to numeric, use the numeric conversion
+                    non_null_count = numeric_series.notna().sum()
+                    total_count = len(numeric_series)
+                    
+                    if non_null_count > 0 and (non_null_count / total_count) > 0.5:
+                        df[col] = numeric_series
+                except Exception as e:
+                    # If conversion fails, keep the original column
+                    logging.warning(f"Could not convert column {col} to numeric: {e}")
+                    pass
+        
+        # Handle datetime columns
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                try:
+                    # Try to parse as datetime if the column name suggests it's temporal
+                    if any(term in col.lower() for term in ['date', 'time', 'timestamp', 'day', 'hour', 'minute']):
+                        df[col] = pd.to_datetime(df[col], errors='coerce')
+                except Exception as e:
+                    # If datetime parsing fails, keep the original column
+                    logging.warning(f"Could not convert column {col} to datetime: {e}")
+                    pass
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Reset index after cleaning
+        df = df.reset_index(drop=True)
+        
+        # Basic validation
+        if df.empty:
+            raise ValueError("Dataset is empty after cleaning")
+        
+        # Log cleaning results
+        cleaned_shape = df.shape
+        logging.info(f"Data cleaning completed: {original_shape} -> {cleaned_shape}")
+        
+        return df
+        
+    except Exception as e:
+        logging.error(f"Error in data cleaning: {e}")
+        raise ValueError(f"Data cleaning failed: {str(e)}")
     
-    # Remove duplicate rows
-    df = df.drop_duplicates()
-    
-    # Reset index after cleaning
-    df = df.reset_index(drop=True)
-    
-    # Basic validation
-    if df.empty:
-        raise ValueError("Dataset is empty after cleaning")
-    
-    # Check for reasonable data types
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            # Try to convert string numbers to numeric
-            try:
-                numeric_series = pd.to_numeric(df[col], errors='coerce')
-                if not numeric_series.isna().all():
-                    df[col] = numeric_series
-            except:
-                pass
-    
-    return df
+def detect_encoding(content: bytes) -> str:
+    """Detect file encoding using chardet with fallback options"""
+    try:
+        # Use chardet to detect encoding
+        detection = chardet.detect(content)
+        encoding = detection['encoding']
+        confidence = detection['confidence']
+        
+        # If confidence is low, try common encodings
+        if confidence < 0.7:
+            common_encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+            for enc in common_encodings:
+                try:
+                    content.decode(enc)
+                    return enc
+                except UnicodeDecodeError:
+                    continue
+        
+        return encoding if encoding else 'utf-8'
+    except Exception as e:
+        logging.warning(f"Encoding detection failed: {e}, using utf-8")
+        return 'utf-8'
 
 def prepare_data_for_model(df: pd.DataFrame, time_col: str, target_col: str) -> pd.DataFrame:
     """Prepare data for time series modeling"""
