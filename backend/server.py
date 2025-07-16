@@ -116,6 +116,13 @@ continuous_predictions = []
 ph_simulation_data = []
 target_ph = 7.6  # Global target pH value
 
+# Enhanced ML variables
+current_advanced_model = None
+current_ensemble_model = None
+current_preprocessor = None
+model_evaluation_results = {}
+supported_advanced_models = ['dlinear', 'nbeats', 'lstm', 'lightgbm', 'xgboost', 'ensemble']
+
 def analyze_historical_patterns(data, time_col, target_col):
     """Analyze historical data patterns for advanced extrapolation"""
     try:
