@@ -384,7 +384,7 @@ frontend:
 
   - task: "Advanced ML models UI integration"
     implemented: true
-    working: true
+    working: "NA"
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
@@ -393,6 +393,9 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "IMPLEMENTED: Enhanced parameter configuration UI with advanced mode toggle, support for all new ML models (DLinear, N-BEATS, LSTM, Ensemble), advanced parameter controls (sequence length, epochs, learning rate, batch size), data quality reporting, and advanced actions (hyperparameter optimization, model comparison)."
+      - working: "NA"
+        agent: "testing"
+        comment: "BACKEND TESTING ONLY: Frontend UI integration not tested as per testing protocol. Backend APIs that support UI integration are working: /api/supported-models returns all advanced models, /api/train-model supports advanced model types, /api/model-performance provides metrics for UI display."
 
   - task: "Enhanced model training with performance feedback"
     implemented: true
