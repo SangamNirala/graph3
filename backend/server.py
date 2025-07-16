@@ -97,6 +97,7 @@ current_scaler = None
 prediction_task = None
 continuous_predictions = []
 ph_simulation_data = []
+target_ph = 7.6  # Global target pH value
 
 # Utility functions
 def analyze_data(df: pd.DataFrame) -> Dict[str, Any]:
