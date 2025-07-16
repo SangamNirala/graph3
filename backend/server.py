@@ -170,7 +170,10 @@ model_evaluation_results = {}
 supported_advanced_models = ['dlinear', 'nbeats', 'lstm', 'lightgbm', 'xgboost', 'ensemble']
 
 def analyze_historical_patterns(data, time_col, target_col):
-    """Analyze historical data patterns for advanced extrapolation"""
+    """
+    Analyze historical data patterns for advanced extrapolation
+    Enhanced with bias correction and trend stabilization
+    """
     try:
         # Convert time column to datetime if not already
         if time_col in data.columns:
@@ -183,37 +186,80 @@ def analyze_historical_patterns(data, time_col, target_col):
         mean_value = np.mean(target_values)
         std_value = np.std(target_values)
         
-        # Calculate trend (linear regression slope)
+        # Enhanced trend analysis with multiple timescales
         x = np.arange(len(target_values))
-        trend_slope = np.polyfit(x, target_values, 1)[0]
+        
+        # Overall trend
+        overall_trend = np.polyfit(x, target_values, 1)[0]
+        
+        # Recent trend (last 30% of data)
+        recent_portion = max(10, int(len(target_values) * 0.3))
+        recent_values = target_values[-recent_portion:]
+        recent_x = np.arange(len(recent_values))
+        recent_trend = np.polyfit(recent_x, recent_values, 1)[0]
+        
+        # Short-term trend (last 20% of data)
+        short_portion = max(5, int(len(target_values) * 0.2))
+        short_values = target_values[-short_portion:]
+        short_x = np.arange(len(short_values))
+        short_trend = np.polyfit(short_x, short_values, 1)[0]
         
         # Calculate moving averages for different windows
         ma_5 = pd.Series(target_values).rolling(window=min(5, len(target_values))).mean()
         ma_10 = pd.Series(target_values).rolling(window=min(10, len(target_values))).mean()
+        ma_20 = pd.Series(target_values).rolling(window=min(20, len(target_values))).mean()
         
-        # Calculate velocity (rate of change)
+        # Calculate velocity (rate of change) with smoothing
         velocity = np.diff(target_values)
-        avg_velocity = np.mean(velocity) if len(velocity) > 0 else 0
+        # Smooth velocity to reduce noise
+        if len(velocity) > 3:
+            velocity_smooth = pd.Series(velocity).rolling(window=3).mean().fillna(velocity).values
+        else:
+            velocity_smooth = velocity
+        
+        avg_velocity = np.mean(velocity_smooth) if len(velocity_smooth) > 0 else 0
+        recent_velocity = np.mean(velocity_smooth[-10:]) if len(velocity_smooth) >= 10 else avg_velocity
         
         # Calculate acceleration (rate of change of velocity)
-        acceleration = np.diff(velocity) if len(velocity) > 1 else [0]
+        acceleration = np.diff(velocity_smooth) if len(velocity_smooth) > 1 else [0]
         avg_acceleration = np.mean(acceleration) if len(acceleration) > 0 else 0
         
-        # Detect seasonality/periodicity
-        recent_values = target_values[-min(50, len(target_values)):]  # Last 50 points
+        # Detect cyclical patterns
+        recent_values = target_values[-min(50, len(target_values)):]
+        
+        # Calculate volatility and stability metrics
+        volatility = np.std(recent_values)
+        stability_factor = 1.0 / (1.0 + volatility)  # Higher for more stable series
+        
+        # Calculate trend consistency
+        trend_consistency = _calculate_trend_consistency(target_values)
+        
+        # Bias correction factors
+        bias_correction_factor = _calculate_bias_correction_factor(target_values)
         
         patterns = {
             'mean': mean_value,
             'std': std_value,
-            'trend_slope': trend_slope,
-            'velocity': avg_velocity,
+            'overall_trend': overall_trend,
+            'recent_trend': recent_trend,
+            'short_trend': short_trend,
+            'trend_slope': recent_trend,  # Use recent trend as main trend
+            'velocity': recent_velocity,  # Use recent velocity
             'acceleration': avg_acceleration,
             'recent_mean': np.mean(recent_values),
             'recent_std': np.std(recent_values),
             'last_value': target_values[-1],
             'last_5_values': target_values[-5:].tolist(),
+            'last_10_values': target_values[-10:].tolist(),
             'ma_5_last': ma_5.iloc[-1] if not ma_5.empty else mean_value,
             'ma_10_last': ma_10.iloc[-1] if not ma_10.empty else mean_value,
+            'ma_20_last': ma_20.iloc[-1] if not ma_20.empty else mean_value,
+            'volatility': volatility,
+            'stability_factor': stability_factor,
+            'trend_consistency': trend_consistency,
+            'bias_correction_factor': bias_correction_factor,
+            'data_length': len(target_values),
+            'trend_strength': abs(recent_trend) / (std_value + 1e-8),  # Normalized trend strength
         }
         
         return patterns
@@ -221,6 +267,47 @@ def analyze_historical_patterns(data, time_col, target_col):
     except Exception as e:
         print(f"Error analyzing patterns: {e}")
         return None
+
+def _calculate_trend_consistency(target_values):
+    """Calculate how consistent the trend is across different time windows"""
+    if len(target_values) < 10:
+        return 0.5
+    
+    # Calculate trends for different windows
+    trends = []
+    for window_size in [5, 10, 20]:
+        if len(target_values) >= window_size:
+            window_values = target_values[-window_size:]
+            x = np.arange(len(window_values))
+            trend = np.polyfit(x, window_values, 1)[0]
+            trends.append(trend)
+    
+    if len(trends) < 2:
+        return 0.5
+    
+    # Calculate consistency (lower std = more consistent)
+    trend_std = np.std(trends)
+    trend_mean = np.mean(trends)
+    
+    # Normalize consistency score
+    consistency = 1.0 / (1.0 + abs(trend_std) / (abs(trend_mean) + 1e-8))
+    return min(1.0, max(0.0, consistency))
+
+def _calculate_bias_correction_factor(target_values):
+    """Calculate bias correction factor based on historical patterns"""
+    if len(target_values) < 5:
+        return 1.0
+    
+    # Calculate how much the series deviates from its mean
+    mean_value = np.mean(target_values)
+    recent_mean = np.mean(target_values[-10:])
+    
+    # If recent values are consistently above/below historical mean
+    deviation = (recent_mean - mean_value) / (np.std(target_values) + 1e-8)
+    
+    # Return factor to correct for bias (1.0 = no correction)
+    bias_factor = 1.0 - np.tanh(deviation) * 0.1
+    return max(0.8, min(1.2, bias_factor))
 
 def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
     """Generate advanced extrapolation based on historical patterns"""
