@@ -143,9 +143,10 @@ function App() {
     }
   }, [verticalOffset]);
 
-  // Simple chart component using Canvas
-  const SimpleChart = ({ data, title, color = '#3B82F6' }) => {
+  // Simple chart component using Canvas with enhanced features
+  const SimpleChart = ({ data, title, color = '#3B82F6', showAnimation = false }) => {
     const canvasRef = React.useRef(null);
+    const [animationFrame, setAnimationFrame] = React.useState(0);
     
     React.useEffect(() => {
       if (!data || !canvasRef.current) return;
@@ -158,9 +159,34 @@ function App() {
       // Clear canvas
       ctx.clearRect(0, 0, width, height);
       
-      // Draw axes
-      ctx.strokeStyle = '#ddd';
+      // Draw gradient background
+      const gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, 'rgba(59, 130, 246, 0.1)');
+      gradient.addColorStop(1, 'rgba(59, 130, 246, 0.05)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw grid
+      ctx.strokeStyle = '#e5e7eb';
       ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      for (let i = 0; i <= 10; i++) {
+        const x = 50 + (i / 10) * (width - 100);
+        const y = 50 + (i / 10) * (height - 100);
+        ctx.beginPath();
+        ctx.moveTo(x, 50);
+        ctx.lineTo(x, height - 50);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(50, y);
+        ctx.lineTo(width - 50, y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      
+      // Draw axes
+      ctx.strokeStyle = '#374151';
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(50, height - 50);
       ctx.lineTo(width - 50, height - 50);
@@ -174,8 +200,24 @@ function App() {
         const minVal = Math.min(...data.values);
         const range = maxVal - minVal || 1;
         
+        // Draw area fill
+        ctx.fillStyle = color.replace('rgb', 'rgba').replace(')', ', 0.2)');
+        ctx.beginPath();
+        ctx.moveTo(50, height - 50);
+        
+        data.values.forEach((value, index) => {
+          const x = 50 + (index / (data.values.length - 1)) * (width - 100);
+          const y = height - 50 - ((value - minVal) / range) * (height - 100);
+          ctx.lineTo(x, y);
+        });
+        
+        ctx.lineTo(width - 50, height - 50);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Draw line
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.beginPath();
         
         data.values.forEach((value, index) => {
@@ -190,17 +232,68 @@ function App() {
         });
         
         ctx.stroke();
+        
+        // Draw data points
+        ctx.fillStyle = color;
+        data.values.forEach((value, index) => {
+          const x = 50 + (index / (data.values.length - 1)) * (width - 100);
+          const y = height - 50 - ((value - minVal) / range) * (height - 100);
+          
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, 2 * Math.PI);
+          ctx.fill();
+        });
+        
+        // Show animation effect for predictions
+        if (showAnimation && isPredicting) {
+          const pulseSize = 2 + Math.sin(animationFrame * 0.1) * 2;
+          const lastIndex = data.values.length - 1;
+          const x = 50 + (lastIndex / (data.values.length - 1)) * (width - 100);
+          const y = height - 50 - ((data.values[lastIndex] - minVal) / range) * (height - 100);
+          
+          ctx.strokeStyle = '#10B981';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(x, y, pulseSize, 0, 2 * Math.PI);
+          ctx.stroke();
+        }
       }
       
       // Draw title
-      ctx.fillStyle = '#333';
-      ctx.font = '16px Arial';
+      ctx.fillStyle = '#1f2937';
+      ctx.font = 'bold 16px Arial';
       ctx.textAlign = 'center';
       ctx.fillText(title, width / 2, 30);
       
-    }, [data, title, color]);
+      // Draw value labels
+      if (data.values && data.values.length > 0) {
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Min: ${Math.min(...data.values).toFixed(2)}`, 60, height - 20);
+        ctx.textAlign = 'right';
+        ctx.fillText(`Max: ${Math.max(...data.values).toFixed(2)}`, width - 60, height - 20);
+      }
+      
+    }, [data, title, color, showAnimation, animationFrame, isPredicting]);
     
-    return <canvas ref={canvasRef} width={400} height={300} className="border border-gray-300 rounded" />;
+    React.useEffect(() => {
+      let animationId;
+      if (showAnimation && isPredicting) {
+        const animate = () => {
+          setAnimationFrame(prev => prev + 1);
+          animationId = requestAnimationFrame(animate);
+        };
+        animationId = requestAnimationFrame(animate);
+      }
+      return () => {
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+        }
+      };
+    }, [showAnimation, isPredicting]);
+    
+    return <canvas ref={canvasRef} width={450} height={350} className="border border-gray-300 rounded-lg shadow-sm" />;
   };
 
   // Start continuous prediction
