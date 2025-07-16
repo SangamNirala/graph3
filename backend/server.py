@@ -282,8 +282,8 @@ async def train_model(data_id: str, model_type: str, parameters: Dict[str, Any])
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/generate-prediction")
-async def generate_prediction(model_id: str, steps: int = 30):
-    """Generate predictions using trained model"""
+async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
+    """Generate predictions using trained model with optional offset for continuous prediction"""
     try:
         global current_model
         
@@ -295,12 +295,12 @@ async def generate_prediction(model_id: str, steps: int = 30):
         data = current_model['data']
         
         if model_type == 'prophet':
-            # Create future dataframe
-            future = model.make_future_dataframe(periods=steps)
+            # Create future dataframe with offset
+            future = model.make_future_dataframe(periods=steps + offset)
             forecast = model.predict(future)
             
-            # Extract predictions
-            predictions = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(steps)
+            # Extract predictions (skip offset, take next 'steps' predictions)
+            predictions = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(steps + offset).head(steps)
             
             result = {
                 'timestamps': predictions['ds'].dt.strftime('%Y-%m-%d %H:%M:%S').tolist(),
@@ -312,8 +312,8 @@ async def generate_prediction(model_id: str, steps: int = 30):
             }
             
         elif model_type == 'arima':
-            # Generate ARIMA predictions
-            forecast = model.forecast(steps=steps)
+            # Generate ARIMA predictions with offset
+            forecast = model.forecast(steps=steps + offset)
             
             # Create timestamps - handle the case where data index might not be datetime
             time_col = current_model['time_col']
@@ -333,24 +333,27 @@ async def generate_prediction(model_id: str, steps: int = 30):
             if freq is None:
                 freq = 'D'
             
-            # Create future timestamps
+            # Create future timestamps with offset
             try:
                 future_timestamps = pd.date_range(
-                    start=last_timestamp + pd.Timedelta(days=1), 
+                    start=last_timestamp + pd.Timedelta(days=1 + offset), 
                     periods=steps, 
                     freq=freq
                 )
             except:
                 # Fallback to daily frequency
                 future_timestamps = pd.date_range(
-                    start=last_timestamp + pd.Timedelta(days=1), 
+                    start=last_timestamp + pd.Timedelta(days=1 + offset), 
                     periods=steps, 
                     freq='D'
                 )
             
+            # Take the forecasted values (skip offset, take next 'steps' values)
+            prediction_values = forecast.tolist()[offset:offset + steps] if offset < len(forecast) else forecast.tolist()[-steps:]
+            
             result = {
                 'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-                'predictions': forecast.tolist(),
+                'predictions': prediction_values,
                 'confidence_intervals': None
             }
         
