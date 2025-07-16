@@ -45,3 +45,4 @@ seaborn>=0.12.0
 matplotlib>=3.7.0
 # Performance optimization
 numba>=0.58.0
+threadpoolctl>=3.6.0
