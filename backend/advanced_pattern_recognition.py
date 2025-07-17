@@ -1633,6 +1633,183 @@ class PatternClassifier:
         except Exception as e:
             return 0.0
     
+    def _score_quadratic_pattern(self, features: Dict) -> float:
+        """Score quadratic (U-shaped, inverted U-shaped) pattern"""
+        try:
+            # Check for quadratic characteristics
+            score = 0.0
+            
+            # Look for polynomial features
+            polynomial_r2 = features.get('polynomial_r2', 0.0)
+            curvature = features.get('curvature', 0.0)
+            second_derivative = features.get('second_derivative', 0.0)
+            
+            # Strong polynomial fit suggests quadratic pattern
+            if polynomial_r2 > 0.7:
+                score += 0.4
+            
+            # Consistent curvature indicates quadratic shape
+            if abs(curvature) > 0.1:
+                score += 0.3
+            
+            # Second derivative consistency
+            if abs(second_derivative) > 0.01:
+                score += 0.2
+            
+            # Check for turning point characteristics
+            turning_point_strength = features.get('turning_point_strength', 0.0)
+            if turning_point_strength > 0.5:
+                score += 0.1
+            
+            return float(np.clip(score, 0, 1))
+            
+        except Exception as e:
+            return 0.0
+    
+    def _score_cubic_pattern(self, features: Dict) -> float:
+        """Score cubic pattern (S-shaped curves)"""
+        try:
+            score = 0.0
+            
+            # Look for cubic characteristics
+            cubic_r2 = features.get('cubic_r2', 0.0)
+            inflection_points = features.get('inflection_points', 0)
+            third_derivative = features.get('third_derivative', 0.0)
+            
+            # Strong cubic fit
+            if cubic_r2 > 0.8:
+                score += 0.5
+            
+            # Presence of inflection points indicates cubic behavior
+            if inflection_points >= 1:
+                score += 0.3
+            
+            # Third derivative consistency
+            if abs(third_derivative) > 0.001:
+                score += 0.2
+            
+            return float(np.clip(score, 0, 1))
+            
+        except Exception as e:
+            return 0.0
+    
+    def _score_polynomial_pattern(self, features: Dict) -> float:
+        """Score general polynomial pattern"""
+        try:
+            score = 0.0
+            
+            # Check polynomial fits of different degrees
+            polynomial_scores = []
+            for degree in range(2, 6):  # degrees 2-5
+                poly_r2 = features.get(f'poly_{degree}_r2', 0.0)
+                if poly_r2 > 0.6:
+                    polynomial_scores.append(poly_r2)
+            
+            if polynomial_scores:
+                # Best polynomial fit
+                best_poly_r2 = max(polynomial_scores)
+                score += best_poly_r2 * 0.6
+                
+                # Multiple good fits indicate complex polynomial behavior
+                if len(polynomial_scores) > 1:
+                    score += 0.2
+                
+                # Check for smooth curve characteristics
+                smoothness = features.get('smoothness', 0.0)
+                score += smoothness * 0.2
+            
+            return float(np.clip(score, 0, 1))
+            
+        except Exception as e:
+            return 0.0
+    
+    def _score_spline_pattern(self, features: Dict) -> float:
+        """Score spline pattern (smooth curves that don't fit standard polynomials)"""
+        try:
+            score = 0.0
+            
+            # Spline characteristics
+            spline_r2 = features.get('spline_r2', 0.0)
+            smoothness = features.get('smoothness', 0.0)
+            local_variations = features.get('local_variations', 0.0)
+            
+            # Good spline fit
+            if spline_r2 > 0.8:
+                score += 0.5
+            
+            # Smoothness indicates spline-like behavior
+            if smoothness > 0.7:
+                score += 0.3
+            
+            # Local variations that don't fit simple polynomials
+            if local_variations > 0.3:
+                score += 0.2
+            
+            return float(np.clip(score, 0, 1))
+            
+        except Exception as e:
+            return 0.0
+    
+    def _score_custom_shape_pattern(self, features: Dict) -> float:
+        """Score custom shape pattern learned from data"""
+        try:
+            score = 0.0
+            
+            # Custom shape characteristics
+            shape_complexity = features.get('shape_complexity', 0.0)
+            pattern_consistency = features.get('pattern_consistency', 0.0)
+            custom_fit_quality = features.get('custom_fit_quality', 0.0)
+            
+            # Complex but consistent shape
+            if shape_complexity > 0.5 and pattern_consistency > 0.7:
+                score += 0.4
+            
+            # Quality of custom fit
+            if custom_fit_quality > 0.8:
+                score += 0.4
+            
+            # Uniqueness (doesn't fit standard patterns well)
+            standard_pattern_max = max([
+                features.get('linear_score', 0.0),
+                features.get('exponential_score', 0.0),
+                features.get('sinusoidal_score', 0.0)
+            ])
+            
+            if standard_pattern_max < 0.5:
+                score += 0.2
+            
+            return float(np.clip(score, 0, 1))
+            
+        except Exception as e:
+            return 0.0
+    
+    def _score_composite_pattern(self, features: Dict) -> float:
+        """Score composite pattern (combination of multiple pattern types)"""
+        try:
+            score = 0.0
+            
+            # Look for evidence of multiple pattern components
+            pattern_components = features.get('pattern_components', 0)
+            composite_fit_quality = features.get('composite_fit_quality', 0.0)
+            trend_plus_seasonal = features.get('trend_plus_seasonal', 0.0)
+            
+            # Multiple pattern components
+            if pattern_components >= 2:
+                score += 0.4
+            
+            # Good composite fit
+            if composite_fit_quality > 0.8:
+                score += 0.3
+            
+            # Trend plus seasonal component
+            if trend_plus_seasonal > 0.7:
+                score += 0.3
+            
+            return float(np.clip(score, 0, 1))
+            
+        except Exception as e:
+            return 0.0
+    
     def _calculate_classification_confidence(self, pattern_scores: Dict) -> float:
         """Calculate confidence in classification"""
         try:
