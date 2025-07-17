@@ -1027,7 +1027,7 @@ function App() {
                   
                   // Then generate predictions
                   const predictions = await generatePredictions(0);
-                  if (predictions) {
+                  if (predictions && predictions.predictions) {
                     setPredictionData(predictions);
                     setLstmPredictions(predictions.predictions);
                   }
