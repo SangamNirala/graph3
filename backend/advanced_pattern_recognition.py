@@ -1400,7 +1400,7 @@ class PatternClassifier:
             return {'primary_pattern': 'unknown', 'confidence': 0.5}
     
     def _extract_features(self, data: np.ndarray, analysis_results: Dict) -> Dict[str, Any]:
-        """Extract features for pattern classification"""
+        """Extract features for pattern classification including advanced pattern features"""
         try:
             features = {}
             
@@ -1442,10 +1442,209 @@ class PatternClassifier:
             features['coefficient_of_variation'] = features['std'] / (features['mean'] + 1e-10)
             features['range'] = float(np.max(data) - np.min(data))
             
+            # Advanced pattern features for comprehensive pattern learning
+            features.update(self._extract_advanced_pattern_features(data))
+            
             return features
             
         except Exception as e:
             return {}
+    
+    def _extract_advanced_pattern_features(self, data: np.ndarray) -> Dict[str, Any]:
+        """Extract advanced pattern features for comprehensive pattern detection"""
+        try:
+            features = {}
+            x = np.arange(len(data))
+            
+            # Polynomial fits (degrees 2-5)
+            for degree in range(2, 6):
+                try:
+                    poly_coef = np.polyfit(x, data, degree)
+                    poly_pred = np.polyval(poly_coef, x)
+                    features[f'poly_{degree}_r2'] = self._calculate_r2(data, poly_pred)
+                    
+                    if degree == 2:
+                        # Quadratic specific features
+                        a, b, c = poly_coef
+                        features['curvature'] = float(2 * a)  # Second derivative
+                        features['second_derivative'] = float(2 * a)
+                        
+                        # Turning point analysis
+                        if a != 0:
+                            vertex_x = -b / (2 * a)
+                            if 0 <= vertex_x <= len(data):
+                                features['turning_point_strength'] = 1.0
+                            else:
+                                features['turning_point_strength'] = 0.0
+                        else:
+                            features['turning_point_strength'] = 0.0
+                    
+                    elif degree == 3:
+                        # Cubic specific features
+                        a, b, c, d = poly_coef
+                        features['third_derivative'] = float(6 * a)
+                        
+                        # Inflection points
+                        if a != 0:
+                            discriminant = b**2 - 3*a*c
+                            if discriminant >= 0:
+                                features['inflection_points'] = 1 if discriminant > 0 else 0
+                            else:
+                                features['inflection_points'] = 0
+                        else:
+                            features['inflection_points'] = 0
+                
+                except Exception as e:
+                    features[f'poly_{degree}_r2'] = 0.0
+            
+            # Spline fitting
+            try:
+                from scipy.interpolate import UnivariateSpline
+                
+                # Fit spline
+                spline = UnivariateSpline(x, data, k=3, s=len(data))
+                spline_pred = spline(x)
+                features['spline_r2'] = self._calculate_r2(data, spline_pred)
+                
+                # Smoothness measure
+                first_deriv = np.gradient(spline_pred)
+                second_deriv = np.gradient(first_deriv)
+                features['smoothness'] = float(1.0 / (1.0 + np.std(second_deriv)))
+                
+            except Exception as e:
+                features['spline_r2'] = 0.0
+                features['smoothness'] = 0.0
+            
+            # Local variations and complexity
+            try:
+                # Calculate local variations
+                window_size = max(3, len(data) // 10)
+                local_vars = []
+                for i in range(0, len(data) - window_size, window_size):
+                    window = data[i:i+window_size]
+                    local_vars.append(np.var(window))
+                
+                features['local_variations'] = float(np.std(local_vars) / (np.mean(local_vars) + 1e-10))
+                
+                # Shape complexity
+                features['shape_complexity'] = float(np.sum(np.abs(np.diff(data, n=2))) / len(data))
+                
+            except Exception as e:
+                features['local_variations'] = 0.0
+                features['shape_complexity'] = 0.0
+            
+            # Pattern consistency
+            try:
+                # Measure how consistent the pattern is across different segments
+                segment_size = max(10, len(data) // 3)
+                segments = []
+                for i in range(0, len(data) - segment_size, segment_size):
+                    segments.append(data[i:i+segment_size])
+                
+                if len(segments) >= 2:
+                    # Calculate correlation between segments
+                    correlations = []
+                    for i in range(len(segments)):
+                        for j in range(i+1, len(segments)):
+                            if len(segments[i]) == len(segments[j]):
+                                corr = np.corrcoef(segments[i], segments[j])[0, 1]
+                                if not np.isnan(corr):
+                                    correlations.append(abs(corr))
+                    
+                    features['pattern_consistency'] = float(np.mean(correlations)) if correlations else 0.0
+                else:
+                    features['pattern_consistency'] = 0.5
+                
+            except Exception as e:
+                features['pattern_consistency'] = 0.5
+            
+            # Custom fit quality (how well does a learned pattern fit)
+            try:
+                # Use a combination of different fitting methods
+                fits = []
+                
+                # Try different polynomial degrees
+                for degree in [2, 3, 4]:
+                    try:
+                        coef = np.polyfit(x, data, degree)
+                        pred = np.polyval(coef, x)
+                        fits.append(self._calculate_r2(data, pred))
+                    except:
+                        pass
+                
+                # Try spline fit
+                try:
+                    from scipy.interpolate import UnivariateSpline
+                    spline = UnivariateSpline(x, data, k=3, s=len(data)*0.1)
+                    spline_pred = spline(x)
+                    fits.append(self._calculate_r2(data, spline_pred))
+                except:
+                    pass
+                
+                features['custom_fit_quality'] = float(max(fits)) if fits else 0.0
+                
+            except Exception as e:
+                features['custom_fit_quality'] = 0.0
+            
+            # Pattern components detection
+            try:
+                # Decompose into trend + seasonal + residual
+                components = 0
+                
+                # Trend component
+                linear_coef = np.polyfit(x, data, 1)
+                linear_pred = np.polyval(linear_coef, x)
+                trend_strength = self._calculate_r2(data, linear_pred)
+                if trend_strength > 0.3:
+                    components += 1
+                
+                # Seasonal component (simplified)
+                detrended = data - linear_pred
+                if len(detrended) >= 10:
+                    # Check for periodicity
+                    autocorr = np.correlate(detrended, detrended, mode='full')
+                    autocorr = autocorr[len(autocorr)//2:]
+                    autocorr = autocorr / autocorr[0]
+                    
+                    # Look for peaks in autocorrelation
+                    peaks, _ = find_peaks(autocorr[1:20], height=0.3)
+                    if len(peaks) > 0:
+                        components += 1
+                
+                features['pattern_components'] = components
+                
+                # Composite fit quality
+                if components >= 2:
+                    features['composite_fit_quality'] = min(1.0, trend_strength + 0.3)
+                    features['trend_plus_seasonal'] = trend_strength
+                else:
+                    features['composite_fit_quality'] = 0.0
+                    features['trend_plus_seasonal'] = 0.0
+                
+            except Exception as e:
+                features['pattern_components'] = 0
+                features['composite_fit_quality'] = 0.0
+                features['trend_plus_seasonal'] = 0.0
+            
+            return features
+            
+        except Exception as e:
+            logger.error(f"Error extracting advanced pattern features: {e}")
+            return {}
+    
+    def _calculate_r2(self, actual: np.ndarray, predicted: np.ndarray) -> float:
+        """Calculate R-squared value"""
+        try:
+            ss_res = np.sum((actual - predicted) ** 2)
+            ss_tot = np.sum((actual - np.mean(actual)) ** 2)
+            
+            if ss_tot == 0:
+                return 0.0
+            
+            return 1 - (ss_res / ss_tot)
+            
+        except Exception as e:
+            return 0.0
     
     def _calculate_pattern_scores(self, features: Dict) -> Dict[str, float]:
         """Calculate scores for different pattern types including advanced pattern detection"""
