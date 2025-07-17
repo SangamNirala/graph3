@@ -131,10 +131,15 @@ class FileUploadTester:
     
     def create_csv_with_special_chars_in_filename(self):
         """Create CSV with special characters in data"""
+        # Create 15 rows to meet minimum requirement
+        special_chars = ['test@email.com', 'file#name.txt', 'path\\to\\file', 'query?param=value', 'anchor#section'] * 3
+        dates = pd.date_range(start='2023-01-01', periods=len(special_chars), freq='D')
+        values = list(range(1, len(special_chars) + 1))
+        
         df = pd.DataFrame({
-            'date': pd.date_range(start='2023-01-01', periods=5, freq='D'),
-            'special_chars': ['test@email.com', 'file#name.txt', 'path\\to\\file', 'query?param=value', 'anchor#section'],
-            'values': [1, 2, 3, 4, 5]
+            'date': dates,
+            'special_chars': special_chars,
+            'values': values
         })
         
         return df
