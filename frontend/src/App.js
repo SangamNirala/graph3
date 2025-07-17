@@ -253,6 +253,15 @@ function App() {
     if (!modelId) return null;
 
     try {
+      // Try enhanced prediction first
+      const enhancedResponse = await fetch(`${API}/generate-enhanced-continuous-prediction?model_id=${modelId}&steps=30&time_window=${timeWindow}`);
+      if (enhancedResponse.ok) {
+        const enhancedData = await enhancedResponse.json();
+        console.log('Enhanced prediction result:', enhancedData);
+        return enhancedData;
+      }
+      
+      // Fallback to standard prediction
       const response = await fetch(`${API}/generate-continuous-prediction?model_id=${modelId}&steps=30&time_window=${timeWindow}`);
       if (response.ok) {
         const data = await response.json();
