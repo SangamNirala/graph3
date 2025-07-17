@@ -1556,9 +1556,9 @@ async def generate_enhanced_continuous_prediction(model_id: str, steps: int = 30
 
 @api_router.get("/generate-continuous-prediction")
 async def generate_continuous_prediction(model_id: str, steps: int = 30, time_window: int = 100):
-    """Generate continuous predictions with advanced pattern-based extrapolation"""
+    """Generate continuous predictions with industry-level pattern-based extrapolation"""
     try:
-        global current_model, continuous_predictions
+        global current_model, continuous_predictions, use_industry_level_prediction
         
         if current_model is None:
             raise HTTPException(status_code=400, detail="No model trained")
@@ -1568,6 +1568,109 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
         data = current_model['data']
         time_col = current_model['time_col']
         target_col = current_model['target_col']
+        
+        # Use industry-level prediction system
+        if use_industry_level_prediction:
+            return await generate_industry_level_continuous_prediction(
+                model, model_type, data, time_col, target_col, steps, time_window
+            )
+        else:
+            # Fallback to original system
+            return await generate_legacy_continuous_prediction(
+                model, model_type, data, time_col, target_col, steps, time_window
+            )
+        
+    except Exception as e:
+        print(f"Error in continuous prediction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def generate_industry_level_continuous_prediction(model, model_type, data, time_col, target_col, steps, time_window):
+    """Generate continuous predictions using industry-level systems"""
+    try:
+        global adaptive_learning_system, continuous_predictions
+        
+        # Extract target values
+        target_values = data[target_col].values
+        
+        # Add current data to adaptive learning system
+        for value in target_values[-10:]:  # Add recent data points
+            adaptive_learning_system.add_data_point(float(value))
+        
+        # Generate continuous predictions
+        prediction_results = adaptive_learning_system.get_continuous_predictions(
+            steps=steps, 
+            advance_steps=min(5, steps//6)  # Advance by 5 steps or 1/6 of total steps
+        )
+        
+        # Calculate prediction offset for continuous extension
+        prediction_offset = len(continuous_predictions) * 5  # Each call advances by 5 steps
+        
+        # Create timestamps for predictions
+        if time_col in data.columns:
+            last_timestamp = pd.to_datetime(data[time_col].iloc[-1])
+            time_series = pd.to_datetime(data[time_col])
+            freq = pd.infer_freq(time_series)
+        else:
+            last_timestamp = pd.to_datetime(data.index[-1])
+            freq = pd.infer_freq(pd.to_datetime(data.index))
+        
+        # Default to daily frequency if inference fails
+        if freq is None:
+            freq = 'D'
+        
+        # Create future timestamps
+        try:
+            future_timestamps = pd.date_range(
+                start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
+                periods=steps, 
+                freq=freq
+            )
+        except:
+            # Fallback to daily frequency
+            future_timestamps = pd.date_range(
+                start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
+                periods=steps, 
+                freq='D'
+            )
+        
+        # Extract predictions from results
+        predictions = prediction_results['predictions']
+        confidence_intervals = prediction_results.get('confidence_intervals', [])
+        pattern_analysis = prediction_results.get('pattern_analysis', {})
+        quality_metrics = prediction_results.get('quality_metrics', {})
+        
+        # Create result with industry-level predictions
+        result = {
+            'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
+            'predictions': predictions[:steps],
+            'confidence_intervals': confidence_intervals[:steps],
+            'pattern_analysis': {
+                'primary_pattern': pattern_analysis.get('pattern_classification', {}).get('primary_pattern', 'unknown'),
+                'pattern_confidence': pattern_analysis.get('pattern_classification', {}).get('confidence', 0.5),
+                'pattern_strength': pattern_analysis.get('pattern_strength', 0.5),
+                'predictability_score': pattern_analysis.get('predictability', {}).get('predictability_score', 0.5),
+                'quality_score': quality_metrics.get('overall_quality_score', 0.5)
+            },
+            'system_metrics': adaptive_learning_system.get_system_metrics(),
+            'prediction_method': 'industry_level_adaptive'
+        }
+        
+        # Store prediction for continuous use
+        continuous_predictions.append(result)
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error in industry-level continuous prediction: {e}")
+        # Fallback to legacy system
+        return await generate_legacy_continuous_prediction(
+            model, model_type, data, time_col, target_col, steps, time_window
+        )
+
+async def generate_legacy_continuous_prediction(model, model_type, data, time_col, target_col, steps, time_window):
+    """Legacy continuous prediction method"""
+    try:
+        global continuous_predictions
         
         # Analyze historical patterns
         patterns = analyze_historical_patterns(data, time_col, target_col)
@@ -1614,7 +1717,7 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
                 freq='D'
             )
         
-        # Create result with advanced predictions
+        # Create result with legacy predictions
         result = {
             'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
             'predictions': smoothed_predictions[:steps],
@@ -1624,7 +1727,8 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
                 'velocity': patterns['velocity'],
                 'recent_mean': patterns['recent_mean'],
                 'last_value': patterns['last_value']
-            }
+            },
+            'prediction_method': 'legacy'
         }
         
         # Store prediction for continuous use
@@ -1633,7 +1737,7 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
         return result
         
     except Exception as e:
-        print(f"Error in advanced continuous prediction: {e}")
+        print(f"Error in legacy continuous prediction: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def generate_basic_prediction(model, model_type, data, steps):
