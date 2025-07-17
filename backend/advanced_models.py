@@ -687,15 +687,35 @@ class AdvancedTimeSeriesForecaster:
         """Calculate pattern-based correction to maintain historical characteristics"""
         # Analyze cyclical patterns in historical data
         if len(original_input) >= 4:
-            # Simple pattern detection
+            # Enhanced pattern detection with multiple timeframes
             recent_changes = np.diff(original_input[-4:])
             if len(recent_changes) > 0:
                 avg_change = np.mean(recent_changes)
                 # If prediction deviates too much from expected pattern
                 expected_next = original_input[-1] + avg_change
                 deviation = prediction - expected_next
-                pattern_correction = -deviation * 0.2  # Gentle correction
+                pattern_correction = -deviation * 0.3  # Stronger correction
                 return pattern_correction
+        
+        return 0.0
+    
+    def _calculate_momentum_correction(self, prediction, step, original_input, recent_trend):
+        """Calculate momentum correction to maintain historical directional patterns"""
+        if len(original_input) >= 3:
+            # Calculate recent momentum
+            recent_momentum = np.mean(np.diff(original_input[-3:]))
+            
+            # If prediction goes against recent momentum, apply correction
+            if recent_trend > 0.01 and prediction < original_input[-1]:
+                # Upward trend should continue
+                momentum_correction = recent_momentum * 0.4 * (1 / (1 + step * 0.1))
+            elif recent_trend < -0.01 and prediction > original_input[-1]:
+                # Downward trend should continue
+                momentum_correction = recent_momentum * 0.4 * (1 / (1 + step * 0.1))
+            else:
+                momentum_correction = 0.0
+            
+            return momentum_correction
         
         return 0.0
     
