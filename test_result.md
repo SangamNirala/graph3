@@ -384,7 +384,7 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -395,6 +395,9 @@ backend:
       - working: false
         agent: "main"
         comment: "ISSUE IDENTIFIED: Advanced model training failing with data preparation errors on small datasets (49 samples). Need to fix sequence generation logic to handle small datasets properly."
+      - working: false
+        agent: "testing"
+        comment: "❌ COMPREHENSIVE ENHANCED PATTERN-AWARE TESTING: Advanced model training fails due to SymPy/mpmath dependency error. All LSTM, DLinear, N-BEATS models return 500 error: 'SymPy now depends on mpmath as an external library'. This prevents testing of advanced pattern detection capabilities (quadratic, cubic, polynomial, custom patterns). Basic model training (Prophet/ARIMA) works with pattern data - ARIMA successfully trains and generates predictions. Core pattern-aware functionality is working at basic level but advanced ML models need dependency fixes. SUCCESS RATE: Basic pattern-aware system 100% functional, Advanced ML models 0% due to dependency issue."
 
   - task: "New advanced prediction endpoints"
     implemented: true
