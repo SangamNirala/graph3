@@ -115,6 +115,27 @@ function App() {
     }
   };
 
+  // Load enhanced pattern analysis
+  const loadEnhancedPatternAnalysis = async () => {
+    try {
+      const response = await fetch(`${API}/enhanced-pattern-analysis`);
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Enhanced pattern analysis:', result);
+        
+        // Display pattern insights in console for debugging
+        if (result.recommendations && result.recommendations.insights) {
+          console.log('Pattern Analysis Insights:', result.recommendations.insights);
+        }
+        
+        return result;
+      }
+    } catch (error) {
+      console.error('Error loading enhanced pattern analysis:', error);
+    }
+    return null;
+  };
+
   // Optimize hyperparameters
   const optimizeHyperparameters = async (modelType) => {
     setIsOptimizing(true);
