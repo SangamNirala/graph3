@@ -1448,33 +1448,27 @@ class PatternClassifier:
             return {}
     
     def _calculate_pattern_scores(self, features: Dict) -> Dict[str, float]:
-        """Calculate scores for different pattern types"""
+        """Calculate scores for different pattern types including advanced pattern detection"""
         try:
             scores = {}
             
-            # Linear pattern
+            # Basic pattern types
             scores['linear'] = self._score_linear_pattern(features)
-            
-            # Exponential pattern
             scores['exponential'] = self._score_exponential_pattern(features)
-            
-            # Sinusoidal pattern
             scores['sinusoidal'] = self._score_sinusoidal_pattern(features)
-            
-            # Seasonal pattern
             scores['seasonal'] = self._score_seasonal_pattern(features)
-            
-            # Periodic pattern
             scores['periodic'] = self._score_periodic_pattern(features)
-            
-            # Trending pattern
             scores['trending'] = self._score_trending_pattern(features)
-            
-            # Random walk pattern
             scores['random_walk'] = self._score_random_walk_pattern(features)
-            
-            # White noise pattern
             scores['white_noise'] = self._score_white_noise_pattern(features)
+            
+            # Advanced pattern types for comprehensive pattern learning
+            scores['quadratic'] = self._score_quadratic_pattern(features)
+            scores['cubic'] = self._score_cubic_pattern(features)
+            scores['polynomial'] = self._score_polynomial_pattern(features)
+            scores['spline'] = self._score_spline_pattern(features)
+            scores['custom_shape'] = self._score_custom_shape_pattern(features)
+            scores['composite'] = self._score_composite_pattern(features)
             
             return scores
             
