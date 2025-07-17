@@ -317,7 +317,7 @@ class IndustryLevelPatternRecognition:
             return 0.0
     
     def _calculate_pattern_predictability(self, pattern_class: Dict) -> float:
-        """Calculate predictability based on pattern classification"""
+        """Calculate predictability based on pattern classification including advanced patterns"""
         try:
             pattern_type = pattern_class.get('primary_pattern', 'unknown')
             pattern_strength = pattern_class.get('pattern_strength', 0.5)
@@ -335,13 +335,25 @@ class IndustryLevelPatternRecognition:
                 'trending': 0.6,
                 'random_walk': 0.2,
                 'white_noise': 0.1,
+                # Advanced patterns
+                'quadratic': 0.8,    # U-shaped patterns are quite predictable
+                'cubic': 0.7,        # S-shaped patterns are moderately predictable
+                'spline': 0.75,      # Smooth splines are predictable
+                'custom_shape': 0.65, # Custom learned patterns are moderately predictable
+                'composite': 0.6,    # Composite patterns are less predictable
                 'unknown': 0.5
             }
             
             base_predictability = predictability_map.get(pattern_type, 0.5)
             
             # Adjust based on pattern strength
-            return base_predictability * pattern_strength
+            adjusted_predictability = base_predictability * pattern_strength
+            
+            # Additional boost for complex patterns that are well-learned
+            if pattern_type in ['quadratic', 'cubic', 'spline', 'custom_shape'] and pattern_strength > 0.8:
+                adjusted_predictability = min(1.0, adjusted_predictability * 1.1)
+            
+            return adjusted_predictability
             
         except Exception as e:
             return 0.5
