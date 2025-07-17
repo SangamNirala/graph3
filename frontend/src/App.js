@@ -279,7 +279,7 @@ function App() {
 
   // Generate predictions with time window
   const generatePredictions = async (window = 0) => {
-    if (!modelId) return;
+    if (!modelId) return null;
 
     try {
       const response = await fetch(`${API}/generate-prediction?model_id=${modelId}&steps=30&offset=${window}`);
