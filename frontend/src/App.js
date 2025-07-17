@@ -297,7 +297,7 @@ function App() {
   const updatePredictionsWithWindow = async () => {
     if (isPredicting) {
       const newPredictions = await generateContinuousPredictions();
-      if (newPredictions) {
+      if (newPredictions && newPredictions.predictions) {
         setPredictionData(newPredictions);
         setLstmPredictions(prev => {
           const updated = [...prev, ...newPredictions.predictions];
