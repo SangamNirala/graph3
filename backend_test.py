@@ -1352,6 +1352,621 @@ class BackendTester:
             print(f"❌ Error handling test error: {str(e)}")
             self.test_results['error_handling'] = False
     
+    def create_pattern_test_data(self, pattern_type="quadratic"):
+        """Create test data with specific patterns for advanced ML testing"""
+        dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
+        
+        if pattern_type == "quadratic":
+            # U-shaped quadratic pattern
+            x = np.linspace(-5, 5, 100)
+            values = x**2 + np.random.normal(0, 0.5, 100) + 10
+        elif pattern_type == "cubic":
+            # S-shaped cubic pattern
+            x = np.linspace(-2, 2, 100)
+            values = x**3 - 3*x + np.random.normal(0, 0.3, 100) + 5
+        elif pattern_type == "polynomial":
+            # Complex polynomial pattern
+            x = np.linspace(0, 10, 100)
+            values = 0.1*x**4 - 2*x**3 + 10*x**2 - 20*x + np.random.normal(0, 1, 100) + 50
+        elif pattern_type == "custom":
+            # Custom pattern with multiple components
+            x = np.linspace(0, 4*np.pi, 100)
+            trend = 0.5 * x
+            seasonal = 3 * np.sin(x) + 1.5 * np.cos(2*x)
+            noise = np.random.normal(0, 0.2, 100)
+            values = trend + seasonal + noise + 20
+        else:
+            # Linear pattern (default)
+            values = np.linspace(10, 50, 100) + np.random.normal(0, 2, 100)
+        
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'value': values
+        })
+        
+        return df
+    
+    def test_advanced_ml_models_dependency_fix(self):
+        """Test advanced ML models (LSTM, DLinear, N-BEATS) for SymPy/mpmath dependency resolution"""
+        print("\n=== Testing Advanced ML Models - Dependency Fix ===")
+        
+        try:
+            # Create pattern test data
+            df = self.create_pattern_test_data("quadratic")
+            csv_content = df.to_csv(index=False)
+            
+            # Upload pattern data
+            files = {'file': ('pattern_data.csv', csv_content, 'text/csv')}
+            response = self.session.post(f"{API_BASE_URL}/upload-data", files=files)
+            
+            if response.status_code != 200:
+                print(f"❌ Pattern data upload failed: {response.status_code}")
+                self.test_results['advanced_ml_dependency_fix'] = False
+                return
+                
+            data_id = response.json().get('data_id')
+            print("✅ Pattern data uploaded successfully")
+            
+            # Test each advanced model type
+            advanced_models = ['lstm', 'dlinear', 'nbeats']
+            model_results = {}
+            
+            for model_type in advanced_models:
+                print(f"\n--- Testing {model_type.upper()} Model ---")
+                
+                try:
+                    # Train advanced model
+                    training_params = {
+                        "time_column": "timestamp",
+                        "target_column": "value",
+                        "seq_len": 20,
+                        "pred_len": 10,
+                        "epochs": 20,
+                        "batch_size": 8,
+                        "learning_rate": 0.001
+                    }
+                    
+                    response = self.session.post(
+                        f"{API_BASE_URL}/train-model",
+                        params={"data_id": data_id, "model_type": model_type},
+                        json=training_params
+                    )
+                    
+                    if response.status_code == 200:
+                        model_data = response.json()
+                        model_id = model_data.get('model_id')
+                        
+                        print(f"✅ {model_type.upper()} model training successful")
+                        print(f"   Model ID: {model_id}")
+                        print(f"   Status: {model_data.get('status')}")
+                        
+                        # Test prediction generation
+                        pred_response = self.session.get(
+                            f"{API_BASE_URL}/generate-prediction",
+                            params={"model_id": model_id, "steps": 15}
+                        )
+                        
+                        if pred_response.status_code == 200:
+                            pred_data = pred_response.json()
+                            predictions = pred_data.get('predictions', [])
+                            
+                            print(f"✅ {model_type.upper()} prediction generation successful")
+                            print(f"   Number of predictions: {len(predictions)}")
+                            print(f"   Sample predictions: {predictions[:3] if predictions else 'None'}")
+                            
+                            # Test pattern-aware prediction
+                            pattern_response = self.session.get(
+                                f"{API_BASE_URL}/advanced-prediction",
+                                params={"model_id": model_id, "steps": 20}
+                            )
+                            
+                            if pattern_response.status_code == 200:
+                                pattern_data = pattern_response.json()
+                                pattern_predictions = pattern_data.get('predictions', [])
+                                
+                                print(f"✅ {model_type.upper()} pattern-aware prediction successful")
+                                print(f"   Pattern predictions: {len(pattern_predictions)}")
+                                
+                                model_results[model_type] = {
+                                    'training': True,
+                                    'prediction': True,
+                                    'pattern_aware': True,
+                                    'dependency_resolved': True
+                                }
+                            else:
+                                print(f"⚠️ {model_type.upper()} pattern-aware prediction failed: {pattern_response.status_code}")
+                                model_results[model_type] = {
+                                    'training': True,
+                                    'prediction': True,
+                                    'pattern_aware': False,
+                                    'dependency_resolved': True
+                                }
+                        else:
+                            print(f"❌ {model_type.upper()} prediction failed: {pred_response.status_code}")
+                            error_text = pred_response.text
+                            if 'SymPy' in error_text or 'mpmath' in error_text:
+                                print(f"❌ SymPy/mpmath dependency error still present!")
+                                model_results[model_type] = {
+                                    'training': True,
+                                    'prediction': False,
+                                    'pattern_aware': False,
+                                    'dependency_resolved': False
+                                }
+                            else:
+                                model_results[model_type] = {
+                                    'training': True,
+                                    'prediction': False,
+                                    'pattern_aware': False,
+                                    'dependency_resolved': True
+                                }
+                    else:
+                        print(f"❌ {model_type.upper()} model training failed: {response.status_code}")
+                        error_text = response.text
+                        if 'SymPy' in error_text or 'mpmath' in error_text:
+                            print(f"❌ SymPy/mpmath dependency error detected!")
+                            model_results[model_type] = {
+                                'training': False,
+                                'prediction': False,
+                                'pattern_aware': False,
+                                'dependency_resolved': False
+                            }
+                        else:
+                            model_results[model_type] = {
+                                'training': False,
+                                'prediction': False,
+                                'pattern_aware': False,
+                                'dependency_resolved': True
+                            }
+                            
+                except Exception as e:
+                    print(f"❌ {model_type.upper()} model test error: {str(e)}")
+                    if 'SymPy' in str(e) or 'mpmath' in str(e):
+                        print(f"❌ SymPy/mpmath dependency error in exception!")
+                        model_results[model_type] = {
+                            'training': False,
+                            'prediction': False,
+                            'pattern_aware': False,
+                            'dependency_resolved': False
+                        }
+                    else:
+                        model_results[model_type] = {
+                            'training': False,
+                            'prediction': False,
+                            'pattern_aware': False,
+                            'dependency_resolved': True
+                        }
+            
+            # Evaluate results
+            print(f"\n📊 Advanced ML Models Test Results:")
+            dependency_resolved_count = 0
+            working_models_count = 0
+            
+            for model_type, results in model_results.items():
+                dependency_status = "✅" if results['dependency_resolved'] else "❌"
+                training_status = "✅" if results['training'] else "❌"
+                prediction_status = "✅" if results['prediction'] else "❌"
+                pattern_status = "✅" if results['pattern_aware'] else "❌"
+                
+                print(f"   {model_type.upper()}:")
+                print(f"     Dependency Resolved: {dependency_status}")
+                print(f"     Training: {training_status}")
+                print(f"     Prediction: {prediction_status}")
+                print(f"     Pattern-Aware: {pattern_status}")
+                
+                if results['dependency_resolved']:
+                    dependency_resolved_count += 1
+                if results['training'] and results['prediction']:
+                    working_models_count += 1
+            
+            # Overall assessment
+            dependency_fix_success = dependency_resolved_count == len(advanced_models)
+            models_working = working_models_count >= 2  # At least 2 out of 3 models should work
+            
+            print(f"\n🎯 Dependency Fix Assessment:")
+            print(f"   SymPy/mpmath dependency resolved: {dependency_resolved_count}/{len(advanced_models)} models")
+            print(f"   Working advanced models: {working_models_count}/{len(advanced_models)} models")
+            
+            self.test_results['advanced_ml_dependency_fix'] = dependency_fix_success and models_working
+            
+        except Exception as e:
+            print(f"❌ Advanced ML models dependency test error: {str(e)}")
+            if 'SymPy' in str(e) or 'mpmath' in str(e):
+                print(f"❌ SymPy/mpmath dependency error in main test!")
+            self.test_results['advanced_ml_dependency_fix'] = False
+    
+    def test_pattern_aware_predictions(self):
+        """Test pattern-aware prediction generation with different pattern types"""
+        print("\n=== Testing Pattern-Aware Predictions ===")
+        
+        pattern_types = ['quadratic', 'cubic', 'polynomial', 'custom']
+        pattern_results = {}
+        
+        for pattern_type in pattern_types:
+            print(f"\n--- Testing {pattern_type.upper()} Pattern ---")
+            
+            try:
+                # Create pattern-specific test data
+                df = self.create_pattern_test_data(pattern_type)
+                csv_content = df.to_csv(index=False)
+                
+                # Upload pattern data
+                files = {'file': (f'{pattern_type}_pattern.csv', csv_content, 'text/csv')}
+                response = self.session.post(f"{API_BASE_URL}/upload-data", files=files)
+                
+                if response.status_code != 200:
+                    print(f"❌ {pattern_type} pattern data upload failed")
+                    pattern_results[pattern_type] = False
+                    continue
+                    
+                data_id = response.json().get('data_id')
+                
+                # Train LSTM model (most reliable for pattern detection)
+                training_params = {
+                    "time_column": "timestamp",
+                    "target_column": "value",
+                    "seq_len": 25,
+                    "pred_len": 15,
+                    "epochs": 30,
+                    "batch_size": 8
+                }
+                
+                response = self.session.post(
+                    f"{API_BASE_URL}/train-model",
+                    params={"data_id": data_id, "model_type": "lstm"},
+                    json=training_params
+                )
+                
+                if response.status_code != 200:
+                    print(f"❌ {pattern_type} pattern LSTM training failed: {response.status_code}")
+                    pattern_results[pattern_type] = False
+                    continue
+                    
+                model_id = response.json().get('model_id')
+                print(f"✅ {pattern_type} pattern LSTM model trained")
+                
+                # Test pattern-aware prediction
+                pred_response = self.session.get(
+                    f"{API_BASE_URL}/generate-prediction",
+                    params={"model_id": model_id, "steps": 20}
+                )
+                
+                if pred_response.status_code == 200:
+                    pred_data = pred_response.json()
+                    predictions = pred_data.get('predictions', [])
+                    
+                    # Analyze prediction quality
+                    if len(predictions) >= 15:
+                        # Check for downward bias (main issue to resolve)
+                        prediction_trend = np.polyfit(range(len(predictions)), predictions, 1)[0]
+                        has_downward_bias = prediction_trend < -0.1  # Significant downward trend
+                        
+                        # Check for reasonable variability (not monotonic)
+                        prediction_std = np.std(predictions)
+                        has_variability = prediction_std > 0.01
+                        
+                        # Check for realistic value range
+                        original_mean = df['value'].mean()
+                        original_std = df['value'].std()
+                        pred_mean = np.mean(predictions)
+                        
+                        # Predictions should be within reasonable range of original data
+                        within_range = abs(pred_mean - original_mean) < 3 * original_std
+                        
+                        print(f"✅ {pattern_type} pattern predictions generated:")
+                        print(f"   Predictions count: {len(predictions)}")
+                        print(f"   Prediction trend slope: {prediction_trend:.6f}")
+                        print(f"   Has downward bias: {'❌ YES' if has_downward_bias else '✅ NO'}")
+                        print(f"   Has variability: {'✅ YES' if has_variability else '❌ NO'}")
+                        print(f"   Within realistic range: {'✅ YES' if within_range else '❌ NO'}")
+                        print(f"   Original mean: {original_mean:.2f}, Pred mean: {pred_mean:.2f}")
+                        
+                        # Pattern follows historical characteristics
+                        pattern_quality = not has_downward_bias and has_variability and within_range
+                        pattern_results[pattern_type] = pattern_quality
+                        
+                    else:
+                        print(f"❌ {pattern_type} pattern insufficient predictions: {len(predictions)}")
+                        pattern_results[pattern_type] = False
+                        
+                else:
+                    print(f"❌ {pattern_type} pattern prediction failed: {pred_response.status_code}")
+                    pattern_results[pattern_type] = False
+                    
+            except Exception as e:
+                print(f"❌ {pattern_type} pattern test error: {str(e)}")
+                pattern_results[pattern_type] = False
+        
+        # Evaluate pattern-aware prediction results
+        successful_patterns = sum(1 for success in pattern_results.values() if success)
+        total_patterns = len(pattern_types)
+        
+        print(f"\n📊 Pattern-Aware Prediction Results:")
+        for pattern_type, success in pattern_results.items():
+            status = "✅" if success else "❌"
+            print(f"   {pattern_type.upper()} pattern: {status}")
+        
+        print(f"\n🎯 Pattern-Aware Assessment:")
+        print(f"   Successful patterns: {successful_patterns}/{total_patterns}")
+        print(f"   Success rate: {(successful_patterns/total_patterns)*100:.1f}%")
+        
+        self.test_results['pattern_aware_predictions'] = successful_patterns >= total_patterns * 0.75  # 75% success rate
+    
+    def test_downward_bias_resolution(self):
+        """Test that predictions don't show persistent downward bias"""
+        print("\n=== Testing Downward Bias Resolution ===")
+        
+        try:
+            # Create stable test data (should not trend downward)
+            dates = pd.date_range(start='2023-01-01', periods=80, freq='D')
+            # Stable data around mean with small variations
+            stable_values = 25 + np.random.normal(0, 2, 80) + 5 * np.sin(np.linspace(0, 4*np.pi, 80))
+            
+            df = pd.DataFrame({
+                'timestamp': dates,
+                'value': stable_values
+            })
+            
+            csv_content = df.to_csv(index=False)
+            
+            # Upload stable data
+            files = {'file': ('stable_data.csv', csv_content, 'text/csv')}
+            response = self.session.post(f"{API_BASE_URL}/upload-data", files=files)
+            
+            if response.status_code != 200:
+                print(f"❌ Stable data upload failed: {response.status_code}")
+                self.test_results['downward_bias_resolution'] = False
+                return
+                
+            data_id = response.json().get('data_id')
+            print("✅ Stable test data uploaded")
+            
+            # Train LSTM model
+            training_params = {
+                "time_column": "timestamp",
+                "target_column": "value",
+                "seq_len": 20,
+                "pred_len": 10,
+                "epochs": 25
+            }
+            
+            response = self.session.post(
+                f"{API_BASE_URL}/train-model",
+                params={"data_id": data_id, "model_type": "lstm"},
+                json=training_params
+            )
+            
+            if response.status_code != 200:
+                print(f"❌ Stable data LSTM training failed: {response.status_code}")
+                self.test_results['downward_bias_resolution'] = False
+                return
+                
+            model_id = response.json().get('model_id')
+            print("✅ LSTM model trained on stable data")
+            
+            # Test multiple prediction calls to check for accumulated bias
+            bias_tests = []
+            
+            for i in range(5):
+                pred_response = self.session.get(
+                    f"{API_BASE_URL}/generate-prediction",
+                    params={"model_id": model_id, "steps": 30}
+                )
+                
+                if pred_response.status_code == 200:
+                    pred_data = pred_response.json()
+                    predictions = pred_data.get('predictions', [])
+                    
+                    if len(predictions) >= 20:
+                        # Calculate trend slope
+                        trend_slope = np.polyfit(range(len(predictions)), predictions, 1)[0]
+                        
+                        # Check for downward bias (slope should not be significantly negative)
+                        has_downward_bias = trend_slope < -0.05
+                        
+                        # Check prediction mean vs historical mean
+                        historical_mean = np.mean(stable_values)
+                        prediction_mean = np.mean(predictions)
+                        mean_deviation = abs(prediction_mean - historical_mean)
+                        
+                        print(f"   Call {i+1}: Trend slope: {trend_slope:.6f}, Mean dev: {mean_deviation:.2f}")
+                        
+                        bias_tests.append({
+                            'call': i+1,
+                            'trend_slope': trend_slope,
+                            'has_downward_bias': has_downward_bias,
+                            'mean_deviation': mean_deviation,
+                            'predictions': predictions[:5]  # First 5 predictions
+                        })
+                    else:
+                        print(f"❌ Call {i+1}: Insufficient predictions: {len(predictions)}")
+                        bias_tests.append({
+                            'call': i+1,
+                            'has_downward_bias': True,  # Mark as failed
+                            'trend_slope': -999,
+                            'mean_deviation': 999
+                        })
+                else:
+                    print(f"❌ Call {i+1}: Prediction failed: {pred_response.status_code}")
+                    bias_tests.append({
+                        'call': i+1,
+                        'has_downward_bias': True,  # Mark as failed
+                        'trend_slope': -999,
+                        'mean_deviation': 999
+                    })
+            
+            # Analyze bias test results
+            successful_calls = [test for test in bias_tests if not test['has_downward_bias']]
+            downward_bias_calls = [test for test in bias_tests if test['has_downward_bias']]
+            
+            print(f"\n📊 Downward Bias Test Results:")
+            print(f"   Total prediction calls: {len(bias_tests)}")
+            print(f"   Calls without downward bias: {len(successful_calls)}")
+            print(f"   Calls with downward bias: {len(downward_bias_calls)}")
+            
+            if successful_calls:
+                avg_slope = np.mean([test['trend_slope'] for test in successful_calls])
+                avg_deviation = np.mean([test['mean_deviation'] for test in successful_calls])
+                print(f"   Average trend slope (successful): {avg_slope:.6f}")
+                print(f"   Average mean deviation (successful): {avg_deviation:.2f}")
+            
+            # Success criteria: At least 80% of calls should not have downward bias
+            success_rate = len(successful_calls) / len(bias_tests)
+            bias_resolved = success_rate >= 0.8
+            
+            print(f"\n🎯 Downward Bias Resolution Assessment:")
+            print(f"   Success rate: {success_rate*100:.1f}%")
+            print(f"   Downward bias resolved: {'✅ YES' if bias_resolved else '❌ NO'}")
+            
+            self.test_results['downward_bias_resolution'] = bias_resolved
+            
+        except Exception as e:
+            print(f"❌ Downward bias resolution test error: {str(e)}")
+            self.test_results['downward_bias_resolution'] = False
+    
+    def test_continuous_pattern_prediction(self):
+        """Test continuous prediction with pattern preservation"""
+        print("\n=== Testing Continuous Pattern Prediction ===")
+        
+        try:
+            # Create cyclical pattern data
+            dates = pd.date_range(start='2023-01-01', periods=60, freq='D')
+            x = np.linspace(0, 4*np.pi, 60)
+            cyclical_values = 30 + 10 * np.sin(x) + 5 * np.cos(2*x) + np.random.normal(0, 1, 60)
+            
+            df = pd.DataFrame({
+                'timestamp': dates,
+                'value': cyclical_values
+            })
+            
+            csv_content = df.to_csv(index=False)
+            
+            # Upload cyclical data
+            files = {'file': ('cyclical_data.csv', csv_content, 'text/csv')}
+            response = self.session.post(f"{API_BASE_URL}/upload-data", files=files)
+            
+            if response.status_code != 200:
+                print(f"❌ Cyclical data upload failed: {response.status_code}")
+                self.test_results['continuous_pattern_prediction'] = False
+                return
+                
+            data_id = response.json().get('data_id')
+            print("✅ Cyclical test data uploaded")
+            
+            # Train LSTM model
+            training_params = {
+                "time_column": "timestamp",
+                "target_column": "value",
+                "seq_len": 15,
+                "pred_len": 8,
+                "epochs": 30
+            }
+            
+            response = self.session.post(
+                f"{API_BASE_URL}/train-model",
+                params={"data_id": data_id, "model_type": "lstm"},
+                json=training_params
+            )
+            
+            if response.status_code != 200:
+                print(f"❌ Cyclical data LSTM training failed: {response.status_code}")
+                self.test_results['continuous_pattern_prediction'] = False
+                return
+                
+            model_id = response.json().get('model_id')
+            print("✅ LSTM model trained on cyclical data")
+            
+            # Test continuous prediction calls
+            continuous_tests = []
+            all_predictions = []
+            all_timestamps = []
+            
+            for i in range(4):
+                pred_response = self.session.get(
+                    f"{API_BASE_URL}/generate-continuous-prediction",
+                    params={"model_id": model_id, "steps": 15, "time_window": 50}
+                )
+                
+                if pred_response.status_code == 200:
+                    pred_data = pred_response.json()
+                    predictions = pred_data.get('predictions', [])
+                    timestamps = pred_data.get('timestamps', [])
+                    
+                    if len(predictions) >= 10:
+                        all_predictions.extend(predictions)
+                        all_timestamps.extend(timestamps)
+                        
+                        # Check pattern preservation
+                        pred_std = np.std(predictions)
+                        pred_mean = np.mean(predictions)
+                        
+                        # Check for reasonable variability (cyclical pattern should have variation)
+                        has_variation = pred_std > 1.0
+                        
+                        # Check for reasonable mean (should be close to historical mean)
+                        historical_mean = np.mean(cyclical_values)
+                        mean_reasonable = abs(pred_mean - historical_mean) < 10
+                        
+                        continuous_tests.append({
+                            'call': i+1,
+                            'predictions_count': len(predictions),
+                            'std': pred_std,
+                            'mean': pred_mean,
+                            'has_variation': has_variation,
+                            'mean_reasonable': mean_reasonable,
+                            'timestamps_advance': len(set(timestamps)) == len(timestamps)  # Unique timestamps
+                        })
+                        
+                        print(f"   Call {i+1}: {len(predictions)} predictions, std: {pred_std:.2f}, mean: {pred_mean:.2f}")
+                    else:
+                        print(f"❌ Call {i+1}: Insufficient predictions: {len(predictions)}")
+                        continuous_tests.append({
+                            'call': i+1,
+                            'predictions_count': len(predictions),
+                            'has_variation': False,
+                            'mean_reasonable': False,
+                            'timestamps_advance': False
+                        })
+                else:
+                    print(f"❌ Call {i+1}: Continuous prediction failed: {pred_response.status_code}")
+                    continuous_tests.append({
+                        'call': i+1,
+                        'predictions_count': 0,
+                        'has_variation': False,
+                        'mean_reasonable': False,
+                        'timestamps_advance': False
+                    })
+                
+                time.sleep(0.5)  # Brief pause between calls
+            
+            # Analyze continuous prediction results
+            successful_calls = [test for test in continuous_tests 
+                              if test['has_variation'] and test['mean_reasonable'] and test['timestamps_advance']]
+            
+            print(f"\n📊 Continuous Pattern Prediction Results:")
+            print(f"   Total continuous calls: {len(continuous_tests)}")
+            print(f"   Successful calls: {len(successful_calls)}")
+            
+            if all_predictions:
+                overall_std = np.std(all_predictions)
+                overall_mean = np.mean(all_predictions)
+                print(f"   Overall predictions std: {overall_std:.2f}")
+                print(f"   Overall predictions mean: {overall_mean:.2f}")
+                print(f"   Total predictions generated: {len(all_predictions)}")
+            
+            # Success criteria: At least 75% of continuous calls should preserve patterns
+            success_rate = len(successful_calls) / len(continuous_tests) if continuous_tests else 0
+            pattern_preserved = success_rate >= 0.75
+            
+            print(f"\n🎯 Continuous Pattern Prediction Assessment:")
+            print(f"   Success rate: {success_rate*100:.1f}%")
+            print(f"   Pattern preservation: {'✅ YES' if pattern_preserved else '❌ NO'}")
+            
+            self.test_results['continuous_pattern_prediction'] = pattern_preserved
+            
+        except Exception as e:
+            print(f"❌ Continuous pattern prediction test error: {str(e)}")
+            self.test_results['continuous_pattern_prediction'] = False
+
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting Comprehensive Backend Testing")
@@ -1364,6 +1979,16 @@ class BackendTester:
         self.test_prediction_generation()
         self.test_historical_data()
         self.test_continuous_prediction_control()
+        
+        # ADVANCED ML MODELS TESTING (Focus of this review)
+        print("\n" + "="*60)
+        print("🎯 ADVANCED ML MODELS TESTING - DEPENDENCY FIX VERIFICATION")
+        print("="*60)
+        
+        self.test_advanced_ml_models_dependency_fix()
+        self.test_pattern_aware_predictions()
+        self.test_downward_bias_resolution()
+        self.test_continuous_pattern_prediction()
         
         # NEW FEATURE TESTS
         self.test_ph_simulation_endpoints()
