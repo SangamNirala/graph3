@@ -450,12 +450,186 @@ def _calculate_bias_correction_factor(target_values):
 def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
     """
     Generate advanced extrapolation based on historical patterns
-    Enhanced with bias correction and trend stabilization
+    Enhanced with pattern-aware prediction for better continuity
     """
     try:
         if not patterns:
             return []
         
+        predictions = []
+        current_value = patterns['last_value']
+        
+        # Get pattern information
+        pattern_type = patterns.get('pattern_type', 'complex')
+        pattern_continuation = patterns.get('pattern_continuation', {})
+        
+        # Enhanced pattern analysis
+        historical_mean = patterns['mean']
+        recent_mean = patterns['recent_mean']
+        trend_slope = patterns['trend_slope']
+        velocity = patterns['velocity']
+        acceleration = patterns['acceleration']
+        stability_factor = patterns['stability_factor']
+        trend_consistency = patterns['trend_consistency']
+        bias_correction_factor = patterns['bias_correction_factor']
+        
+        # Pattern-specific prediction
+        if pattern_type == 'u_shape':
+            return _generate_u_shape_predictions(patterns, steps)
+        elif pattern_type == 'inverted_u_shape':
+            return _generate_inverted_u_shape_predictions(patterns, steps)
+        elif pattern_type == 'linear':
+            return _generate_linear_predictions(patterns, steps)
+        elif pattern_type == 'cubic':
+            return _generate_cubic_predictions(patterns, steps)
+        else:
+            return _generate_adaptive_predictions(patterns, steps)
+        
+    except Exception as e:
+        print(f"Error in advanced extrapolation: {e}")
+        return []
+
+def _generate_u_shape_predictions(patterns, steps):
+    """Generate predictions for U-shaped patterns"""
+    try:
+        continuation = patterns['pattern_continuation']
+        coeffs = continuation['quadratic_coeffs']
+        a, b, c = coeffs
+        
+        current_x = len(patterns['original_data']) - 1
+        predictions = []
+        
+        for i in range(steps):
+            next_x = current_x + i + 1
+            
+            # Calculate quadratic prediction
+            quadratic_pred = a * next_x**2 + b * next_x + c
+            
+            # Add some smoothing and noise reduction
+            if i > 0:
+                # Smooth with previous prediction
+                smoothing_factor = 0.8
+                quadratic_pred = quadratic_pred * smoothing_factor + predictions[-1] * (1 - smoothing_factor)
+            
+            # Apply realistic bounds
+            quadratic_pred = _apply_bounds(quadratic_pred, patterns, i)
+            
+            # Add small controlled noise for realism
+            noise_std = patterns['recent_std'] * 0.05 / (1 + i * 0.1)
+            noise = np.random.normal(0, noise_std)
+            quadratic_pred += noise
+            
+            predictions.append(quadratic_pred)
+        
+        return predictions
+        
+    except Exception as e:
+        print(f"Error in U-shape prediction: {e}")
+        return _generate_adaptive_predictions(patterns, steps)
+
+def _generate_inverted_u_shape_predictions(patterns, steps):
+    """Generate predictions for inverted U-shaped patterns"""
+    try:
+        continuation = patterns['pattern_continuation']
+        coeffs = continuation['quadratic_coeffs']
+        a, b, c = coeffs
+        
+        current_x = len(patterns['original_data']) - 1
+        predictions = []
+        
+        for i in range(steps):
+            next_x = current_x + i + 1
+            
+            # Calculate quadratic prediction
+            quadratic_pred = a * next_x**2 + b * next_x + c
+            
+            # Add some smoothing and noise reduction
+            if i > 0:
+                # Smooth with previous prediction
+                smoothing_factor = 0.8
+                quadratic_pred = quadratic_pred * smoothing_factor + predictions[-1] * (1 - smoothing_factor)
+            
+            # Apply realistic bounds
+            quadratic_pred = _apply_bounds(quadratic_pred, patterns, i)
+            
+            # Add small controlled noise for realism
+            noise_std = patterns['recent_std'] * 0.05 / (1 + i * 0.1)
+            noise = np.random.normal(0, noise_std)
+            quadratic_pred += noise
+            
+            predictions.append(quadratic_pred)
+        
+        return predictions
+        
+    except Exception as e:
+        print(f"Error in inverted U-shape prediction: {e}")
+        return _generate_adaptive_predictions(patterns, steps)
+
+def _generate_linear_predictions(patterns, steps):
+    """Generate predictions for linear patterns"""
+    try:
+        continuation = patterns['pattern_continuation']
+        slope = continuation['linear_slope']
+        
+        current_value = patterns['last_value']
+        predictions = []
+        
+        for i in range(steps):
+            # Linear prediction with decay
+            decay_factor = 0.95 ** i
+            linear_pred = current_value + slope * (i + 1) * decay_factor
+            
+            # Apply mean reversion for stability
+            target_mean = patterns['recent_mean']
+            reversion_strength = 0.1 * (i + 1) / steps
+            linear_pred = linear_pred * (1 - reversion_strength) + target_mean * reversion_strength
+            
+            # Apply realistic bounds
+            linear_pred = _apply_bounds(linear_pred, patterns, i)
+            
+            predictions.append(linear_pred)
+        
+        return predictions
+        
+    except Exception as e:
+        print(f"Error in linear prediction: {e}")
+        return _generate_adaptive_predictions(patterns, steps)
+
+def _generate_cubic_predictions(patterns, steps):
+    """Generate predictions for cubic patterns"""
+    try:
+        continuation = patterns['pattern_continuation']
+        coeffs = continuation['cubic_coeffs']
+        a, b, c, d = coeffs
+        
+        current_x = len(patterns['original_data']) - 1
+        predictions = []
+        
+        for i in range(steps):
+            next_x = current_x + i + 1
+            
+            # Calculate cubic prediction
+            cubic_pred = a * next_x**3 + b * next_x**2 + c * next_x + d
+            
+            # Apply smoothing to reduce volatility
+            if i > 0:
+                smoothing_factor = 0.7
+                cubic_pred = cubic_pred * smoothing_factor + predictions[-1] * (1 - smoothing_factor)
+            
+            # Apply realistic bounds
+            cubic_pred = _apply_bounds(cubic_pred, patterns, i)
+            
+            predictions.append(cubic_pred)
+        
+        return predictions
+        
+    except Exception as e:
+        print(f"Error in cubic prediction: {e}")
+        return _generate_adaptive_predictions(patterns, steps)
+
+def _generate_adaptive_predictions(patterns, steps):
+    """Generate adaptive predictions for complex patterns"""
+    try:
         predictions = []
         current_value = patterns['last_value']
         
@@ -544,11 +718,11 @@ def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
             if i > 0:
                 new_acceleration = (predictions[i] - predictions[i-1]) - (predictions[i-1] - (predictions[i-2] if i > 1 else patterns['last_value']))
                 current_acceleration = current_acceleration * 0.7 + new_acceleration * 0.3
-            
+        
         return predictions
         
     except Exception as e:
-        print(f"Error generating extrapolation: {e}")
+        print(f"Error in adaptive prediction: {e}")
         return []
 
 def _calculate_pattern_component(patterns, step, current_value):
