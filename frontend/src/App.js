@@ -250,7 +250,7 @@ function App() {
 
   // Generate continuous predictions with proper extrapolation
   const generateContinuousPredictions = async () => {
-    if (!modelId) return;
+    if (!modelId) return null;
 
     try {
       const response = await fetch(`${API}/generate-continuous-prediction?model_id=${modelId}&steps=30&time_window=${timeWindow}`);
