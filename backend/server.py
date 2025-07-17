@@ -360,8 +360,32 @@ def _calculate_bias_correction_factor(target_values):
 
 def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
     """
-    Generate advanced extrapolation based on historical patterns
-    Enhanced with bias correction and trend stabilization
+    Generate advanced extrapolation using enhanced prediction system
+    """
+    try:
+        # If we have enhanced analysis, use it
+        if 'enhanced_analysis' in patterns:
+            from enhanced_prediction_system import EnhancedTimeSeriesPredictor
+            
+            # Initialize enhanced predictor with the existing analysis
+            enhanced_predictor = EnhancedTimeSeriesPredictor()
+            enhanced_predictor.pattern_analysis = patterns['enhanced_analysis']
+            enhanced_predictor.is_fitted = True
+            
+            # Generate enhanced predictions
+            result = enhanced_predictor.generate_enhanced_predictions(steps=steps)
+            return result['predictions']
+        
+        # Fallback to original method
+        return _original_generate_advanced_extrapolation(patterns, steps, time_step)
+        
+    except Exception as e:
+        print(f"Enhanced extrapolation failed, using fallback: {e}")
+        return _original_generate_advanced_extrapolation(patterns, steps, time_step)
+
+def _original_generate_advanced_extrapolation(patterns, steps=30, time_step=1):
+    """
+    Original generate advanced extrapolation based on historical patterns (fallback)
     """
     try:
         if not patterns:
@@ -372,10 +396,10 @@ def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
         
         # Enhanced pattern analysis
         historical_mean = patterns['mean']
-        recent_mean = patterns['recent_mean']
+        recent_mean = patterns.get('recent_mean', historical_mean)
         trend_slope = patterns['trend_slope']
         velocity = patterns['velocity']
-        acceleration = patterns['acceleration']
+        acceleration = patterns.get('acceleration', 0)
         stability_factor = patterns['stability_factor']
         trend_consistency = patterns['trend_consistency']
         bias_correction_factor = patterns['bias_correction_factor']
@@ -404,7 +428,7 @@ def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
             step_factor = 1.0 / (1.0 + i * 0.05)  # Reduce influence as we go further
             
             # 1. Trend component with adaptive strength
-            trend_strength = min(1.0, patterns['trend_strength'] * step_factor)
+            trend_strength = min(1.0, patterns.get('trend_strength', 1.0) * step_factor)
             trend_component = trend_slope * trend_strength * trend_weight
             
             # 2. Velocity component (momentum) with decay
@@ -421,7 +445,7 @@ def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
             mean_reversion_component = (target_mean - current_value) * mean_reversion_strength
             
             # 5. Controlled noise for realism
-            noise_std = patterns['recent_std'] * 0.1 * step_factor
+            noise_std = patterns.get('recent_std', patterns['std']) * 0.1 * step_factor
             noise_component = np.random.normal(0, noise_std) * noise_weight
             
             # 6. Pattern-based component to maintain historical characteristics
@@ -459,8 +483,8 @@ def generate_advanced_extrapolation(patterns, steps=30, time_step=1):
         return predictions
         
     except Exception as e:
-        print(f"Error generating extrapolation: {e}")
-        return []
+        print(f"Error in advanced extrapolation: {e}")
+        return [patterns.get('last_value', 0)] * steps
 
 def _calculate_pattern_component(patterns, step, current_value):
     """Calculate pattern-based component to maintain historical characteristics"""
