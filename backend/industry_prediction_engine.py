@@ -17,7 +17,7 @@ import warnings
 import logging
 from datetime import datetime, timedelta
 import json
-from .advanced_pattern_recognition import IndustryLevelPatternRecognition
+from advanced_pattern_recognition import IndustryLevelPatternRecognition
 
 warnings.filterwarnings('ignore')
 logger = logging.getLogger(__name__)
