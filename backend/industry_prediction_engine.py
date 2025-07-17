@@ -1662,6 +1662,441 @@ class CompositePatternPredictor:
                 autocorr = autocorr[len(autocorr)//2:]
                 
                 # Find peaks in autocorrelation
+                peaks = []
+                for i in range(1, min(len(autocorr), len(data)//2)):
+                    if autocorr[i] > 0.3 * autocorr[0]:
+                        peaks.append(i)
+                
+                if peaks:
+                    # Use the first significant peak as period
+                    period = peaks[0]
+                    periodic_component = self._extract_periodic_component(residual, period)
+                    components['periodic'] = periodic_component
+                    residual = residual - periodic_component
+            
+            # Remaining residual (noise)
+            components['noise'] = residual
+            
+            return components
+            
+        except Exception as e:
+            return {'trend': data, 'noise': np.zeros_like(data)}
+    
+    def _extract_periodic_component(self, data: np.ndarray, period: int) -> np.ndarray:
+        """Extract periodic component from data"""
+        try:
+            # Create periodic pattern by averaging over periods
+            periodic_pattern = np.zeros(period)
+            count = np.zeros(period)
+            
+            for i in range(len(data)):
+                idx = i % period
+                periodic_pattern[idx] += data[i]
+                count[idx] += 1
+            
+            # Avoid division by zero
+            count[count == 0] = 1
+            periodic_pattern = periodic_pattern / count
+            
+            # Extend pattern to match data length
+            periodic_component = np.tile(periodic_pattern, len(data) // period + 1)[:len(data)]
+            
+            return periodic_component
+            
+        except Exception as e:
+            return np.zeros_like(data)
+    
+    def _predict_component(self, component_data: np.ndarray, steps: int, 
+                          component_name: str, pattern_analysis: Dict) -> np.ndarray:
+        """Predict individual component"""
+        try:
+            if component_name == 'trend':
+                # Linear extrapolation for trend
+                x = np.arange(len(component_data))
+                trend_coeffs = np.polyfit(x, component_data, 1)
+                future_x = np.arange(len(component_data), len(component_data) + steps)
+                return np.polyval(trend_coeffs, future_x)
+            
+            elif component_name == 'periodic':
+                # Repeat the periodic pattern
+                if len(component_data) > 0:
+                    period = self._estimate_period(component_data)
+                    if period > 0:
+                        pattern = component_data[-period:]
+                        return np.tile(pattern, steps // period + 1)[:steps]
+                return np.zeros(steps)
+            
+            elif component_name == 'noise':
+                # For noise, use mean (best predictor)
+                return np.full(steps, np.mean(component_data))
+            
+            else:
+                # Default: use last value
+                return np.full(steps, component_data[-1] if len(component_data) > 0 else 0)
+                
+        except Exception as e:
+            return np.zeros(steps)
+    
+    def _estimate_period(self, data: np.ndarray) -> int:
+        """Estimate period of periodic data"""
+        try:
+            # Use autocorrelation to find period
+            autocorr = np.correlate(data, data, mode='full')
+            autocorr = autocorr[len(autocorr)//2:]
+            
+            # Find first significant peak
+            for i in range(1, min(len(autocorr), len(data)//2)):
+                if autocorr[i] > 0.5 * autocorr[0]:
+                    return i
+            
+            return len(data) // 4  # Default fallback
+            
+        except Exception as e:
+            return 10  # Default fallback
+
+
+class PatternLearningEngine:
+    """Engine for learning and adapting to patterns dynamically"""
+    
+    def __init__(self):
+        self.learned_patterns = {}
+        self.pattern_performance = {}
+        self.learning_history = []
+        
+    def learn_pattern(self, data: np.ndarray, pattern_type: str, 
+                     performance_metrics: Dict) -> None:
+        """Learn from a pattern instance"""
+        try:
+            pattern_signature = self._extract_pattern_signature(data)
+            
+            if pattern_type not in self.learned_patterns:
+                self.learned_patterns[pattern_type] = []
+                self.pattern_performance[pattern_type] = []
+            
+            self.learned_patterns[pattern_type].append(pattern_signature)
+            self.pattern_performance[pattern_type].append(performance_metrics)
+            
+            # Keep only recent patterns (last 50)
+            if len(self.learned_patterns[pattern_type]) > 50:
+                self.learned_patterns[pattern_type] = self.learned_patterns[pattern_type][-50:]
+                self.pattern_performance[pattern_type] = self.pattern_performance[pattern_type][-50:]
+            
+            self.learning_history.append({
+                'timestamp': datetime.now(),
+                'pattern_type': pattern_type,
+                'performance': performance_metrics
+            })
+            
+        except Exception as e:
+            logger.error(f"Error learning pattern: {e}")
+    
+    def _extract_pattern_signature(self, data: np.ndarray) -> Dict[str, float]:
+        """Extract key characteristics of a pattern"""
+        try:
+            signature = {
+                'mean': float(np.mean(data)),
+                'std': float(np.std(data)),
+                'trend': float(np.polyfit(np.arange(len(data)), data, 1)[0]),
+                'autocorr_1': float(np.corrcoef(data[:-1], data[1:])[0, 1]) if len(data) > 1 else 0.0,
+                'skewness': float(np.mean(((data - np.mean(data)) / np.std(data)) ** 3)),
+                'kurtosis': float(np.mean(((data - np.mean(data)) / np.std(data)) ** 4)) - 3
+            }
+            
+            return signature
+            
+        except Exception as e:
+            return {'mean': 0.0, 'std': 1.0, 'trend': 0.0, 
+                   'autocorr_1': 0.0, 'skewness': 0.0, 'kurtosis': 0.0}
+    
+    def get_pattern_adaptation_suggestions(self, data: np.ndarray, 
+                                         pattern_type: str) -> Dict[str, Any]:
+        """Get suggestions for adapting to a specific pattern"""
+        try:
+            if pattern_type not in self.learned_patterns:
+                return {'smoothing_factor': 0.5, 'prediction_horizon': 30, 
+                       'confidence_level': 0.8}
+            
+            # Analyze performance of similar patterns
+            patterns = self.learned_patterns[pattern_type]
+            performances = self.pattern_performance[pattern_type]
+            
+            # Find patterns most similar to current data
+            current_signature = self._extract_pattern_signature(data)
+            similarities = []
+            
+            for i, pattern in enumerate(patterns):
+                similarity = self._calculate_signature_similarity(current_signature, pattern)
+                similarities.append((similarity, performances[i]))
+            
+            # Sort by similarity and use top performers
+            similarities.sort(key=lambda x: x[0], reverse=True)
+            top_similarities = similarities[:5]
+            
+            # Extract adaptation suggestions
+            suggestions = {
+                'smoothing_factor': np.mean([s[1].get('smoothing_factor', 0.5) 
+                                           for s in top_similarities]),
+                'prediction_horizon': int(np.mean([s[1].get('prediction_horizon', 30) 
+                                                 for s in top_similarities])),
+                'confidence_level': np.mean([s[1].get('confidence_level', 0.8) 
+                                           for s in top_similarities])
+            }
+            
+            return suggestions
+            
+        except Exception as e:
+            return {'smoothing_factor': 0.5, 'prediction_horizon': 30, 
+                   'confidence_level': 0.8}
+    
+    def _calculate_signature_similarity(self, sig1: Dict, sig2: Dict) -> float:
+        """Calculate similarity between two pattern signatures"""
+        try:
+            # Normalize and calculate weighted similarity
+            weights = {
+                'mean': 0.2,
+                'std': 0.2,
+                'trend': 0.3,
+                'autocorr_1': 0.2,
+                'skewness': 0.05,
+                'kurtosis': 0.05
+            }
+            
+            similarity = 0.0
+            total_weight = 0.0
+            
+            for key in weights:
+                if key in sig1 and key in sig2:
+                    # Calculate normalized difference
+                    diff = abs(sig1[key] - sig2[key])
+                    max_val = max(abs(sig1[key]), abs(sig2[key]), 1.0)
+                    norm_diff = diff / max_val
+                    
+                    # Convert to similarity (0-1)
+                    key_similarity = 1.0 / (1.0 + norm_diff)
+                    
+                    similarity += weights[key] * key_similarity
+                    total_weight += weights[key]
+            
+            return similarity / total_weight if total_weight > 0 else 0.0
+            
+        except Exception as e:
+            return 0.0
+
+
+class QuadraticPatternPredictor:
+    """Specialized predictor for quadratic patterns"""
+    
+    def predict(self, data: np.ndarray, steps: int, pattern_analysis: Dict) -> np.ndarray:
+        """Generate quadratic predictions"""
+        try:
+            # Fit quadratic model
+            x = np.arange(len(data))
+            coeffs = np.polyfit(x, data, 2)
+            
+            # Generate predictions
+            future_x = np.arange(len(data), len(data) + steps)
+            predictions = np.polyval(coeffs, future_x)
+            
+            # Apply stabilization for long-term predictions
+            if steps > 10:
+                # Reduce quadratic effect for distant predictions
+                stabilization_factor = np.exp(-0.05 * np.arange(steps))
+                linear_trend = coeffs[1] * future_x + coeffs[2]
+                predictions = linear_trend + (predictions - linear_trend) * stabilization_factor
+            
+            return predictions
+            
+        except Exception as e:
+            return np.full(steps, data[-1] if len(data) > 0 else 0)
+
+
+class CubicPatternPredictor:
+    """Specialized predictor for cubic patterns"""
+    
+    def predict(self, data: np.ndarray, steps: int, pattern_analysis: Dict) -> np.ndarray:
+        """Generate cubic predictions"""
+        try:
+            # Fit cubic model
+            x = np.arange(len(data))
+            coeffs = np.polyfit(x, data, 3)
+            
+            # Generate predictions
+            future_x = np.arange(len(data), len(data) + steps)
+            predictions = np.polyval(coeffs, future_x)
+            
+            # Apply strong stabilization for cubic patterns
+            if steps > 5:
+                # Reduce cubic effect significantly for distant predictions
+                stabilization_factor = np.exp(-0.1 * np.arange(steps))
+                linear_trend = coeffs[2] * future_x + coeffs[3]
+                predictions = linear_trend + (predictions - linear_trend) * stabilization_factor
+            
+            return predictions
+            
+        except Exception as e:
+            return np.full(steps, data[-1] if len(data) > 0 else 0)
+
+
+class PolynomialPatternPredictor:
+    """Specialized predictor for general polynomial patterns"""
+    
+    def predict(self, data: np.ndarray, steps: int, pattern_analysis: Dict) -> np.ndarray:
+        """Generate polynomial predictions"""
+        try:
+            # Determine optimal polynomial degree
+            max_degree = min(5, len(data) - 1)
+            best_degree = 1
+            best_score = float('inf')
+            
+            for degree in range(1, max_degree + 1):
+                try:
+                    coeffs = np.polyfit(np.arange(len(data)), data, degree)
+                    fitted = np.polyval(coeffs, np.arange(len(data)))
+                    score = np.mean((data - fitted) ** 2)
+                    
+                    if score < best_score:
+                        best_score = score
+                        best_degree = degree
+                except:
+                    continue
+            
+            # Fit with best degree
+            x = np.arange(len(data))
+            coeffs = np.polyfit(x, data, best_degree)
+            
+            # Generate predictions
+            future_x = np.arange(len(data), len(data) + steps)
+            predictions = np.polyval(coeffs, future_x)
+            
+            # Apply degree-dependent stabilization
+            if best_degree > 2:
+                stabilization_factor = np.exp(-0.05 * best_degree * np.arange(steps))
+                linear_trend = coeffs[-2] * future_x + coeffs[-1]
+                predictions = linear_trend + (predictions - linear_trend) * stabilization_factor
+            
+            return predictions
+            
+        except Exception as e:
+            return np.full(steps, data[-1] if len(data) > 0 else 0)
+
+
+class SplinePatternPredictor:
+    """Specialized predictor for spline-based patterns"""
+    
+    def predict(self, data: np.ndarray, steps: int, pattern_analysis: Dict) -> np.ndarray:
+        """Generate spline-based predictions"""
+        try:
+            x = np.arange(len(data))
+            
+            # Use cubic spline for smooth interpolation
+            spline = CubicSpline(x, data)
+            
+            # Extrapolate using spline derivative at the end
+            last_derivative = spline.derivative()(x[-1])
+            last_value = data[-1]
+            
+            # Generate predictions using linear extrapolation with spline derivative
+            predictions = []
+            for i in range(steps):
+                prediction = last_value + last_derivative * (i + 1)
+                predictions.append(prediction)
+            
+            # Apply smoothing to reduce derivative discontinuities
+            predictions = np.array(predictions)
+            if len(predictions) > 3:
+                predictions = savgol_filter(predictions, min(5, len(predictions)), 2)
+            
+            return predictions
+            
+        except Exception as e:
+            return np.full(steps, data[-1] if len(data) > 0 else 0)
+
+
+class CustomShapePredictor:
+    """Specialized predictor for custom shape patterns"""
+    
+    def predict(self, data: np.ndarray, steps: int, pattern_analysis: Dict) -> np.ndarray:
+        """Generate custom shape predictions"""
+        try:
+            # Analyze local patterns in the data
+            window_size = min(10, len(data) // 3)
+            if window_size < 3:
+                return np.full(steps, data[-1])
+            
+            # Extract recent pattern
+            recent_pattern = data[-window_size:]
+            
+            # Calculate pattern characteristics
+            pattern_mean = np.mean(recent_pattern)
+            pattern_trend = np.polyfit(np.arange(window_size), recent_pattern, 1)[0]
+            pattern_volatility = np.std(recent_pattern)
+            
+            # Generate predictions based on pattern repetition
+            predictions = []
+            for i in range(steps):
+                # Base prediction from trend
+                base_pred = data[-1] + pattern_trend * (i + 1)
+                
+                # Add pattern-based variation
+                pattern_index = i % window_size
+                pattern_variation = recent_pattern[pattern_index] - pattern_mean
+                
+                # Combine with diminishing pattern influence
+                pattern_weight = np.exp(-0.1 * i)
+                prediction = base_pred + pattern_variation * pattern_weight
+                
+                predictions.append(prediction)
+            
+            return np.array(predictions)
+            
+        except Exception as e:
+            return np.full(steps, data[-1] if len(data) > 0 else 0)
+
+
+class CompositePatternPredictor:
+    """Specialized predictor for composite patterns"""
+    
+    def predict(self, data: np.ndarray, steps: int, pattern_analysis: Dict) -> np.ndarray:
+        """Generate composite pattern predictions"""
+        try:
+            # Decompose into multiple components
+            components = self._decompose_pattern(data)
+            
+            # Predict each component separately
+            predictions = np.zeros(steps)
+            
+            for component_name, component_data in components.items():
+                component_pred = self._predict_component(
+                    component_data, steps, component_name, pattern_analysis
+                )
+                predictions += component_pred
+            
+            return predictions
+            
+        except Exception as e:
+            return np.full(steps, data[-1] if len(data) > 0 else 0)
+    
+    def _decompose_pattern(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+        """Decompose data into multiple components"""
+        try:
+            components = {}
+            
+            # Trend component
+            x = np.arange(len(data))
+            trend_coeffs = np.polyfit(x, data, 1)
+            trend_component = np.polyval(trend_coeffs, x)
+            components['trend'] = trend_component
+            
+            # Residual after trend removal
+            residual = data - trend_component
+            
+            # Periodic component (if detectable)
+            if len(data) > 10:
+                # Simple periodic detection using autocorrelation
+                autocorr = np.correlate(residual, residual, mode='full')
+                autocorr = autocorr[len(autocorr)//2:]
+                
+                # Find peaks in autocorrelation
                 if len(autocorr) > 3:
                     peaks = []
                     for i in range(1, len(autocorr)-1):
