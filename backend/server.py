@@ -2143,7 +2143,7 @@ async def get_enhanced_pattern_analysis():
             'data_length': len(target_values),
             'data_range': [float(np.min(target_values)), float(np.max(target_values))],
             'last_values': target_values[-10:].tolist() if len(target_values) >= 10 else target_values.tolist(),
-            'sample_timestamps': timestamps[-10:].strftime('%Y-%m-%d %H:%M:%S').tolist() if timestamps is not None else []
+            'sample_timestamps': [ts.strftime('%Y-%m-%d %H:%M:%S') for ts in timestamps[-10:]] if timestamps is not None else []
         }
         
         return {
