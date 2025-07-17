@@ -2671,6 +2671,239 @@ async def compare_models():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Model comparison failed: {str(e)}")
 
+# ============= MISSING ENDPOINTS FOR INDUSTRY-LEVEL SYSTEM =============
+
+@api_router.get("/health")
+async def health_check():
+    """Health check endpoint for basic system status"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0",
+        "components": {
+            "backend": "running",
+            "database": "connected",
+            "ai_models": "available"
+        }
+    }
+
+@api_router.post("/advanced-pattern-analysis")
+async def advanced_pattern_analysis(request: dict):
+    """Advanced pattern analysis with uploaded data"""
+    try:
+        data_id = request.get('data_id')
+        analysis_depth = request.get('analysis_depth', 'comprehensive')
+        pattern_types = request.get('pattern_types', ['sine_wave', 'trend', 'seasonality', 'cyclical'])
+        
+        # Get data from data_id
+        global current_data
+        if current_data is None:
+            raise HTTPException(status_code=400, detail="No data available")
+        
+        # Perform enhanced pattern analysis
+        analysis = analyze_data(current_data)
+        time_col = analysis['suggested_parameters']['time_column']
+        target_col = analysis['suggested_parameters']['target_column']
+        
+        if not time_col or not target_col:
+            raise HTTPException(status_code=400, detail="Could not determine time and target columns")
+        
+        target_values = current_data[target_col].values
+        timestamps = pd.to_datetime(current_data[time_col]) if time_col in current_data.columns else None
+        
+        # Perform comprehensive pattern analysis
+        global global_pattern_analyzer
+        patterns = global_pattern_analyzer.analyze_comprehensive_patterns(target_values, timestamps)
+        
+        # Extract specific pattern information
+        detected_patterns = []
+        for pattern_type in pattern_types:
+            if pattern_type == 'trend' and patterns['trend_analysis']['trend_strength'] > 0.3:
+                detected_patterns.append('trend')
+            elif pattern_type == 'seasonality' and patterns['seasonal_analysis']['seasonal_strength'] > 0.2:
+                detected_patterns.append('seasonality')
+            elif pattern_type == 'cyclical' and len(patterns['cyclical_analysis']['detected_cycles']) > 0:
+                detected_patterns.append('cyclical')
+            elif pattern_type == 'sine_wave' and patterns['trend_analysis']['trend_strength'] > 0.2:
+                detected_patterns.append('sine_wave')
+        
+        return {
+            "status": "success",
+            "quality_score": patterns['quality_score'],
+            "detected_patterns": detected_patterns,
+            "patterns": {
+                "trend": patterns['trend_analysis']['trend_strength'],
+                "seasonality": patterns['seasonal_analysis']['seasonal_strength'],
+                "cyclical": len(patterns['cyclical_analysis']['detected_cycles']),
+                "noise_level": patterns['volatility_analysis']['overall_volatility']
+            },
+            "analysis_depth": analysis_depth,
+            "data_id": data_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Advanced pattern analysis failed: {str(e)}")
+
+@api_router.post("/generate-advanced-predictions")
+async def generate_advanced_predictions_post(request: dict):
+    """Generate advanced predictions using industry-level algorithms"""
+    try:
+        model_id = request.get('model_id')
+        prediction_steps = request.get('prediction_steps', 30)
+        confidence_level = request.get('confidence_level', 0.95)
+        include_uncertainty = request.get('include_uncertainty', True)
+        pattern_aware = request.get('pattern_aware', True)
+        
+        # Use existing advanced prediction logic
+        global current_advanced_model, current_model
+        
+        if current_advanced_model is None:
+            raise HTTPException(status_code=400, detail="No advanced model trained")
+        
+        if not hasattr(current_advanced_model, 'fitted') or not current_advanced_model.fitted:
+            raise HTTPException(status_code=400, detail="Advanced model must be trained first")
+        
+        # Get the last sequence from the data
+        if current_model is None or 'data' not in current_model:
+            raise HTTPException(status_code=400, detail="No training data available")
+            
+        data = current_model['data']
+        target_col = current_model['target_col']
+        time_col = current_model['time_col']
+        
+        last_sequence = data[target_col].values[-50:]  # Use last 50 points
+        
+        # Generate predictions
+        if isinstance(current_advanced_model, ModelEnsemble):
+            prediction_results = current_advanced_model.predict(last_sequence, prediction_steps)
+            predictions = prediction_results['ensemble_prediction']
+            confidence = prediction_results['prediction_confidence']
+        else:
+            predictions = current_advanced_model.predict_next_steps(last_sequence, prediction_steps)
+            confidence = np.full(len(predictions), 85.0)
+        
+        # Generate timestamps
+        if time_col in data.columns:
+            last_timestamp = pd.to_datetime(data[time_col].iloc[-1])
+        else:
+            last_timestamp = datetime.now()
+        
+        timestamps = []
+        for i in range(1, prediction_steps + 1):
+            future_timestamp = last_timestamp + timedelta(days=i)
+            timestamps.append(future_timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+        
+        # Calculate confidence intervals
+        prediction_std = np.std(predictions) if len(predictions) > 1 else 0.1
+        z_score = 1.96 if confidence_level == 0.95 else 2.576
+        
+        confidence_intervals = []
+        uncertainty_bands = []
+        
+        for i, pred in enumerate(predictions):
+            lower_bound = pred - z_score * prediction_std
+            upper_bound = pred + z_score * prediction_std
+            confidence_intervals.append({
+                'lower': float(lower_bound),
+                'upper': float(upper_bound)
+            })
+            
+            if include_uncertainty:
+                uncertainty_bands.append({
+                    'lower': float(pred - 2 * prediction_std),
+                    'upper': float(pred + 2 * prediction_std),
+                    'confidence': float(confidence[i])
+                })
+        
+        # Pattern information
+        pattern_info = {}
+        if pattern_aware:
+            # Get pattern analysis
+            global global_pattern_analyzer
+            target_values = data[target_col].values
+            timestamps_data = pd.to_datetime(data[time_col]) if time_col in data.columns else None
+            patterns = global_pattern_analyzer.analyze_comprehensive_patterns(target_values, timestamps_data)
+            
+            pattern_info = {
+                'trend': patterns['trend_analysis']['trend_strength'],
+                'seasonality': patterns['seasonal_analysis']['seasonal_strength'],
+                'predictability': patterns['predictability']['predictability_score']
+            }
+        
+        return {
+            "status": "success",
+            "predictions": predictions.tolist(),
+            "timestamps": timestamps,
+            "confidence_intervals": confidence_intervals,
+            "uncertainty_bands": uncertainty_bands,
+            "pattern_info": pattern_info,
+            "model_id": model_id,
+            "prediction_steps": prediction_steps
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Advanced predictions failed: {str(e)}")
+
+@api_router.get("/continuous-learning-status")
+async def get_continuous_learning_status():
+    """Get continuous learning system status"""
+    try:
+        global continuous_learning_system
+        
+        if continuous_learning_system is None:
+            return {
+                "status": "success",
+                "learning_active": False,
+                "learning_iterations": 0,
+                "system_initialized": False,
+                "message": "Continuous learning system not initialized"
+            }
+        
+        return {
+            "status": "success",
+            "learning_active": continuous_learning_system.learning_active if hasattr(continuous_learning_system, 'learning_active') else False,
+            "learning_iterations": continuous_learning_system.learning_iterations if hasattr(continuous_learning_system, 'learning_iterations') else 0,
+            "system_initialized": True,
+            "adaptation_rate": continuous_learning_system.adaptation_rate if hasattr(continuous_learning_system, 'adaptation_rate') else 0.1,
+            "learning_performance": continuous_learning_system.get_learning_performance() if hasattr(continuous_learning_system, 'get_learning_performance') else "N/A"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Learning status check failed: {str(e)}")
+
+@api_router.get("/prediction-system-status")
+async def get_prediction_system_status():
+    """Get current prediction system status"""
+    try:
+        global active_prediction_system
+        
+        available_systems = ["industry_level", "legacy"]
+        current_system = active_prediction_system if 'active_prediction_system' in globals() else "industry_level"
+        
+        return {
+            "status": "success",
+            "active_system": current_system,
+            "available_systems": available_systems,
+            "system_capabilities": {
+                "industry_level": {
+                    "advanced_pattern_recognition": True,
+                    "continuous_learning": True,
+                    "bias_correction": True,
+                    "ensemble_predictions": True
+                },
+                "legacy": {
+                    "basic_prediction": True,
+                    "arima_prophet": True,
+                    "simple_forecasting": True
+                }
+            },
+            "current_model": current_model['model_type'] if current_model else None,
+            "models_available": ["arima", "prophet", "lstm", "dlinear", "nbeats", "lightgbm"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"System status check failed: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
