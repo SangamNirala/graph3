@@ -46,15 +46,16 @@ class FileUploadTester:
     
     def create_utf8_csv_data(self):
         """Create CSV data with UTF-8 special characters"""
-        cities = ['São Paulo', 'München', 'Zürich', 'Montréal', 'Kraków', 'Москва', '北京', 'العربية']
+        cities = ['São Paulo', 'München', 'Zürich', 'Montréal', 'Kraków', 'Москва', '北京', 'العربية'] * 3  # Repeat to get 24 rows
         dates = pd.date_range(start='2023-01-01', periods=len(cities), freq='D')
         values = np.random.normal(100, 10, len(cities))
+        descriptions = ['Sunny ☀️', 'Cloudy ☁️', 'Rainy 🌧️', 'Snowy ❄️', 'Windy 💨', 'Foggy 🌫️', 'Hot 🔥', 'Cold 🥶'] * 3
         
         df = pd.DataFrame({
             'date': dates,
             'city': cities,
             'temperature': values,
-            'description': ['Sunny ☀️', 'Cloudy ☁️', 'Rainy 🌧️', 'Snowy ❄️', 'Windy 💨', 'Foggy 🌫️', 'Hot 🔥', 'Cold 🥶']
+            'description': descriptions
         })
         
         return df
