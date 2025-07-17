@@ -195,7 +195,7 @@ use_industry_level_prediction = True  # Enable industry-level predictions
 def analyze_historical_patterns(data, time_col, target_col):
     """
     Analyze historical data patterns for advanced extrapolation
-    Enhanced with bias correction and trend stabilization
+    Enhanced with curve fitting and shape pattern detection
     """
     try:
         # Convert time column to datetime if not already
@@ -209,10 +209,29 @@ def analyze_historical_patterns(data, time_col, target_col):
         mean_value = np.mean(target_values)
         std_value = np.std(target_values)
         
-        # Enhanced trend analysis with multiple timescales
+        # Enhanced pattern detection: fit polynomial curves to detect shapes
         x = np.arange(len(target_values))
         
-        # Overall trend
+        # Try different polynomial fits to understand the shape
+        poly_fits = {}
+        for degree in [1, 2, 3]:
+            try:
+                coeffs = np.polyfit(x, target_values, degree)
+                poly_fits[degree] = {
+                    'coefficients': coeffs,
+                    'r_squared': _calculate_r_squared(target_values, np.polyval(coeffs, x))
+                }
+            except:
+                poly_fits[degree] = {'coefficients': [0], 'r_squared': 0}
+        
+        # Find best polynomial fit
+        best_fit = max(poly_fits.keys(), key=lambda k: poly_fits[k]['r_squared'])
+        best_coeffs = poly_fits[best_fit]['coefficients']
+        
+        # Detect specific patterns
+        pattern_type = _detect_pattern_type(target_values, poly_fits)
+        
+        # Enhanced trend analysis with multiple timescales
         overall_trend = np.polyfit(x, target_values, 1)[0]
         
         # Recent trend (last 30% of data)
@@ -226,6 +245,9 @@ def analyze_historical_patterns(data, time_col, target_col):
         short_values = target_values[-short_portion:]
         short_x = np.arange(len(short_values))
         short_trend = np.polyfit(short_x, short_values, 1)[0]
+        
+        # Calculate curvature and rate of change
+        curvature = _calculate_curvature(target_values)
         
         # Calculate moving averages for different windows
         ma_5 = pd.Series(target_values).rolling(window=min(5, len(target_values))).mean()
@@ -247,9 +269,6 @@ def analyze_historical_patterns(data, time_col, target_col):
         acceleration = np.diff(velocity_smooth) if len(velocity_smooth) > 1 else [0]
         avg_acceleration = np.mean(acceleration) if len(acceleration) > 0 else 0
         
-        # Detect cyclical patterns
-        recent_values = target_values[-min(50, len(target_values)):]
-        
         # Calculate volatility and stability metrics
         volatility = np.std(recent_values)
         stability_factor = 1.0 / (1.0 + volatility)  # Higher for more stable series
@@ -259,6 +278,9 @@ def analyze_historical_patterns(data, time_col, target_col):
         
         # Bias correction factors
         bias_correction_factor = _calculate_bias_correction_factor(target_values)
+        
+        # Calculate pattern continuation parameters
+        pattern_continuation = _calculate_pattern_continuation(target_values, pattern_type)
         
         patterns = {
             'mean': mean_value,
@@ -283,6 +305,12 @@ def analyze_historical_patterns(data, time_col, target_col):
             'bias_correction_factor': bias_correction_factor,
             'data_length': len(target_values),
             'trend_strength': abs(recent_trend) / (std_value + 1e-8),  # Normalized trend strength
+            'pattern_type': pattern_type,
+            'polynomial_fit': poly_fits[best_fit],
+            'best_fit_degree': best_fit,
+            'curvature': curvature,
+            'pattern_continuation': pattern_continuation,
+            'original_data': target_values,  # Store original for pattern analysis
         }
         
         return patterns
@@ -290,6 +318,93 @@ def analyze_historical_patterns(data, time_col, target_col):
     except Exception as e:
         print(f"Error analyzing patterns: {e}")
         return None
+
+def _calculate_r_squared(y_true, y_pred):
+    """Calculate R-squared value"""
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+    return 1 - (ss_res / (ss_tot + 1e-8))
+
+def _detect_pattern_type(target_values, poly_fits):
+    """Detect the type of pattern (linear, quadratic, cubic, etc.)"""
+    # Check which polynomial fit is best
+    best_degree = max(poly_fits.keys(), key=lambda k: poly_fits[k]['r_squared'])
+    best_r_squared = poly_fits[best_degree]['r_squared']
+    
+    # If quadratic fits significantly better than linear, it's a curve
+    if best_degree == 2 and best_r_squared > 0.7:
+        coeffs = poly_fits[2]['coefficients']
+        a, b, c = coeffs
+        
+        # Check if it's a U-shape or inverted U-shape
+        if a > 0:
+            return 'u_shape'  # U-shaped (parabola opening upward)
+        else:
+            return 'inverted_u_shape'  # Inverted U-shaped (parabola opening downward)
+    
+    elif best_degree == 1 and best_r_squared > 0.6:
+        return 'linear'
+    
+    elif best_degree == 3 and best_r_squared > 0.7:
+        return 'cubic'
+    
+    else:
+        return 'complex'
+
+def _calculate_curvature(target_values):
+    """Calculate curvature of the data"""
+    if len(target_values) < 3:
+        return 0
+    
+    # Calculate second derivative approximation
+    second_derivative = np.diff(np.diff(target_values))
+    return np.mean(second_derivative)
+
+def _calculate_pattern_continuation(target_values, pattern_type):
+    """Calculate parameters for pattern continuation"""
+    x = np.arange(len(target_values))
+    
+    if pattern_type in ['u_shape', 'inverted_u_shape']:
+        # For U-shaped patterns, fit a quadratic and calculate continuation
+        coeffs = np.polyfit(x, target_values, 2)
+        a, b, c = coeffs
+        
+        # Calculate the vertex (turning point)
+        vertex_x = -b / (2 * a) if a != 0 else len(target_values) / 2
+        vertex_y = a * vertex_x**2 + b * vertex_x + c
+        
+        # Calculate where we are relative to the vertex
+        current_x = len(target_values) - 1
+        distance_from_vertex = current_x - vertex_x
+        
+        return {
+            'quadratic_coeffs': coeffs,
+            'vertex_x': vertex_x,
+            'vertex_y': vertex_y,
+            'distance_from_vertex': distance_from_vertex,
+            'pattern_phase': 'ascending' if (a > 0 and distance_from_vertex > 0) or (a < 0 and distance_from_vertex < 0) else 'descending'
+        }
+    
+    elif pattern_type == 'linear':
+        # For linear patterns, just use the slope
+        slope = np.polyfit(x, target_values, 1)[0]
+        return {
+            'linear_slope': slope,
+            'pattern_phase': 'ascending' if slope > 0 else 'descending'
+        }
+    
+    else:
+        # For complex patterns, use cubic fit
+        try:
+            coeffs = np.polyfit(x, target_values, 3)
+            return {
+                'cubic_coeffs': coeffs,
+                'pattern_phase': 'complex'
+            }
+        except:
+            return {
+                'pattern_phase': 'unknown'
+            }
 
 def _calculate_trend_consistency(target_values):
     """Calculate how consistent the trend is across different time windows"""
