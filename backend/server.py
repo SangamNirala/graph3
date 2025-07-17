@@ -1882,7 +1882,9 @@ async def generate_industry_level_continuous_prediction(model, model_type, data,
         target_values = data[target_col].values
         
         # Add current data to adaptive learning system
-        for value in target_values[-10:]:  # Add recent data points
+        # Use more data points for better pattern detection (at least 50 or all if less)
+        data_points_to_use = min(len(target_values), max(50, len(target_values)))
+        for value in target_values[-data_points_to_use:]:  # Add sufficient data points for pattern detection
             adaptive_learning_system.add_data_point(float(value))
         
         # Generate continuous predictions
