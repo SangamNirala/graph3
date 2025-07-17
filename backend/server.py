@@ -28,6 +28,10 @@ from datetime import datetime, timedelta
 import chardet
 import warnings
 
+# Import enhanced pattern analysis and prediction modules
+from enhanced_pattern_analysis import AdvancedPatternAnalyzer
+from enhanced_prediction_engine import EnhancedPredictionEngine
+
 # Import new advanced models
 from advanced_models import (
     AdvancedTimeSeriesForecaster, 
