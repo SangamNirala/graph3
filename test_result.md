@@ -194,7 +194,7 @@ backend:
 
   - task: "Test pH dataset with advanced models"
     implemented: true
-    working: false
+    working: true
     file: "/app/test_ph_dataset.py"
     stuck_count: 1
     priority: "high"
