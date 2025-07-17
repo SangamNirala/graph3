@@ -78,12 +78,13 @@ class FileUploadTester:
     
     def create_mixed_data_types_csv(self):
         """Create CSV with mixed data types and NaN values"""
+        # Create 15 rows to meet minimum requirement
         data = {
-            'date': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'],
-            'numeric_col': [1.5, 2.0, np.nan, 4.5, 'invalid'],
-            'text_col': ['hello', '', 'world', None, 'test'],
-            'mixed_col': [1, 'two', 3.0, np.nan, '5'],
-            'boolean_col': [True, False, 'yes', 'no', np.nan]
+            'date': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'] * 3,
+            'numeric_col': [1.5, 2.0, np.nan, 4.5, 'invalid'] * 3,
+            'text_col': ['hello', '', 'world', None, 'test'] * 3,
+            'mixed_col': [1, 'two', 3.0, np.nan, '5'] * 3,
+            'boolean_col': [True, False, 'yes', 'no', np.nan] * 3
         }
         
         df = pd.DataFrame(data)
