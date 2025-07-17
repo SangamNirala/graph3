@@ -2118,6 +2118,96 @@ async def get_data_quality_report():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Data quality report generation failed: {str(e)}")
 
+@api_router.get("/enhanced-pattern-analysis")
+async def get_enhanced_pattern_analysis():
+    """Get comprehensive pattern analysis of the current dataset"""
+    try:
+        global current_model, global_pattern_analyzer
+        
+        if current_model is None:
+            raise HTTPException(status_code=400, detail="No model trained")
+        
+        data = current_model['data']
+        target_col = current_model['target_col']
+        time_col = current_model['time_col']
+        
+        # Extract target values and timestamps
+        target_values = data[target_col].values
+        timestamps = pd.to_datetime(data[time_col]) if time_col in data.columns else None
+        
+        # Perform comprehensive pattern analysis
+        patterns = global_pattern_analyzer.analyze_comprehensive_patterns(target_values, timestamps)
+        
+        # Add data preview
+        data_preview = {
+            'data_length': len(target_values),
+            'data_range': [float(np.min(target_values)), float(np.max(target_values))],
+            'last_values': target_values[-10:].tolist() if len(target_values) >= 10 else target_values.tolist(),
+            'sample_timestamps': timestamps[-10:].strftime('%Y-%m-%d %H:%M:%S').tolist() if timestamps is not None else []
+        }
+        
+        return {
+            'status': 'success',
+            'data_preview': data_preview,
+            'pattern_analysis': patterns,
+            'recommendations': generate_prediction_recommendations(patterns)
+        }
+        
+    except Exception as e:
+        print(f"Error in enhanced pattern analysis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def generate_prediction_recommendations(patterns: Dict) -> Dict[str, Any]:
+    """Generate recommendations based on pattern analysis"""
+    recommendations = {
+        'optimal_prediction_method': 'adaptive_hybrid',
+        'recommended_steps': 30,
+        'confidence_level': 0.95,
+        'update_frequency': 'every_few_seconds',
+        'insights': []
+    }
+    
+    # Analyze pattern characteristics for recommendations
+    trend_strength = patterns['trend_analysis']['trend_strength']
+    seasonal_strength = patterns['seasonal_analysis']['seasonal_strength']
+    predictability = patterns['predictability']['predictability_score']
+    volatility = patterns['volatility_analysis']['overall_volatility']
+    
+    # Generate insights
+    if trend_strength > 0.3:
+        recommendations['insights'].append(f"Strong trend detected (strength: {trend_strength:.3f}). Predictions will follow the trend accurately.")
+        recommendations['optimal_prediction_method'] = 'trend_following'
+    
+    if seasonal_strength > 0.2:
+        recommendations['insights'].append(f"Seasonal patterns detected (strength: {seasonal_strength:.3f}). Using seasonal-aware prediction.")
+        recommendations['optimal_prediction_method'] = 'seasonal_aware'
+    
+    if predictability > 0.7:
+        recommendations['insights'].append(f"High predictability detected (score: {predictability:.3f}). Predictions will be highly accurate.")
+        recommendations['confidence_level'] = 0.99
+    elif predictability < 0.3:
+        recommendations['insights'].append(f"Low predictability detected (score: {predictability:.3f}). Predictions may be less reliable.")
+        recommendations['confidence_level'] = 0.90
+    
+    if volatility > 0.5:
+        recommendations['insights'].append(f"High volatility detected (score: {volatility:.3f}). Using enhanced smoothing.")
+        recommendations['update_frequency'] = 'every_second'
+    
+    if len(patterns['cyclical_analysis']['detected_cycles']) > 0:
+        dominant_cycle = patterns['cyclical_analysis']['dominant_cycle']
+        if dominant_cycle:
+            recommendations['insights'].append(f"Cyclical patterns detected (length: {dominant_cycle['length']}). Using cycle-aware prediction.")
+            recommendations['optimal_prediction_method'] = 'cyclical_aware'
+    
+    # Pattern quality assessment
+    quality_score = patterns['quality_score']
+    if quality_score > 0.8:
+        recommendations['insights'].append(f"Excellent pattern quality (score: {quality_score:.3f}). Predictions will be highly accurate.")
+    elif quality_score < 0.4:
+        recommendations['insights'].append(f"Poor pattern quality (score: {quality_score:.3f}). Consider using more data or different approach.")
+    
+    return recommendations
+
 @api_router.post("/advanced-prediction")
 async def generate_advanced_prediction(steps: int = 30, confidence_level: float = 0.95):
     """Generate predictions using advanced models with confidence intervals"""
