@@ -570,8 +570,139 @@ class AdvancedTimeSeriesForecaster:
     
     def predict_next_steps(self, last_sequence: np.ndarray, steps: int = 30) -> np.ndarray:
         """
-        Predict next steps using the model with improved pattern-based prediction
-        and bias correction to prevent downward drift
+        Predict next steps using enhanced prediction system for better continuity and pattern following
+        """
+        if not self.fitted:
+            raise ValueError("Model must be trained first")
+        
+        # Import enhanced prediction system
+        from enhanced_prediction_system import EnhancedTimeSeriesPredictor
+        
+        # Initialize enhanced predictor
+        enhanced_predictor = EnhancedTimeSeriesPredictor(
+            smoothing_factor=0.3,
+            trend_weight=0.4,
+            seasonality_weight=0.3,
+            noise_weight=0.0  # Minimal noise for smooth predictions
+        )
+        
+        # Analyze patterns in the historical data
+        try:
+            pattern_analysis = enhanced_predictor.analyze_comprehensive_patterns(last_sequence)
+            
+            if pattern_analysis is not None:
+                # Generate enhanced predictions
+                result = enhanced_predictor.generate_enhanced_predictions(steps=steps)
+                enhanced_predictions = result['predictions']
+                
+                # Combine enhanced predictions with model-based predictions
+                return self._combine_enhanced_with_model_predictions(
+                    last_sequence, enhanced_predictions, steps
+                )
+                
+        except Exception as e:
+            print(f"Enhanced prediction failed, using fallback: {e}")
+        
+        # Fallback to original prediction method with improvements
+        return self._fallback_predict_next_steps(last_sequence, steps)
+    
+    def _combine_enhanced_with_model_predictions(self, last_sequence, enhanced_predictions, steps):
+        """Combine enhanced predictions with model-based predictions"""
+        # Get model-based predictions
+        model_predictions = self._get_model_predictions(last_sequence, steps)
+        
+        # Combine using weighted average
+        # Weight more towards enhanced predictions for better continuity
+        enhanced_weight = 0.7
+        model_weight = 0.3
+        
+        combined_predictions = (enhanced_weight * enhanced_predictions + 
+                              model_weight * model_predictions)
+        
+        # Apply additional smoothing
+        return self._apply_continuity_smoothing(last_sequence, combined_predictions)
+    
+    def _get_model_predictions(self, last_sequence, steps):
+        """Get predictions from the trained model"""
+        # Ensure we have enough data
+        if len(last_sequence) < self.seq_len:
+            # Pad with the last value
+            padding = np.full(self.seq_len - len(last_sequence), last_sequence[-1])
+            last_sequence = np.concatenate([padding, last_sequence])
+        
+        # Take the last seq_len points
+        input_sequence = last_sequence[-self.seq_len:]
+        
+        # Scale input
+        input_scaled = self.scaler.transform(input_sequence.reshape(-1, 1)).flatten()
+        
+        predictions = []
+        current_input = input_scaled.copy()
+        
+        # Multi-step prediction
+        for step in range(steps):
+            # Prepare input for prediction
+            if isinstance(self.model, dict):  # Gradient boosting
+                pred_input = current_input.reshape(1, -1)
+                pred = self.model['lightgbm'].predict(pred_input)[0]
+                if len(pred) > 0:
+                    next_pred = pred[0] if hasattr(pred, '__len__') else pred
+                else:
+                    next_pred = current_input[-1]
+            else:  # PyTorch model
+                self.model.eval()
+                with torch.no_grad():
+                    if self.model_type == 'lstm':
+                        pred_input = torch.FloatTensor(current_input.reshape(1, -1, 1))
+                    else:
+                        pred_input = torch.FloatTensor(current_input.reshape(1, -1))
+                    
+                    pred = self.model(pred_input).numpy()
+                    next_pred = pred[0, 0] if pred.shape[1] > 0 else current_input[-1]
+            
+            predictions.append(next_pred)
+            
+            # Update input sequence for next prediction
+            current_input = np.append(current_input[1:], next_pred)
+        
+        # Inverse transform predictions
+        predictions_array = np.array(predictions)
+        predictions_unscaled = self.scaler.inverse_transform(predictions_array.reshape(-1, 1)).flatten()
+        
+        return predictions_unscaled
+    
+    def _apply_continuity_smoothing(self, last_sequence, predictions):
+        """Apply smoothing to ensure continuity with historical data"""
+        if len(last_sequence) == 0 or len(predictions) == 0:
+            return predictions
+        
+        # Calculate the expected next value based on recent trend
+        if len(last_sequence) >= 3:
+            recent_trend = np.polyfit(np.arange(3), last_sequence[-3:], 1)[0]
+            expected_next = last_sequence[-1] + recent_trend
+        else:
+            expected_next = last_sequence[-1]
+        
+        # Apply transition smoothing for first few predictions
+        smoothed_predictions = predictions.copy()
+        transition_length = min(5, len(predictions))
+        
+        for i in range(transition_length):
+            # Gradually transition from expected value to predicted value
+            weight = (i + 1) / transition_length
+            smoothed_predictions[i] = (1 - weight) * expected_next + weight * predictions[i]
+        
+        # Apply moving average smoothing
+        window_size = min(3, len(smoothed_predictions))
+        if window_size > 1:
+            for i in range(window_size, len(smoothed_predictions)):
+                smoothed_predictions[i] = np.mean(smoothed_predictions[i-window_size:i+1])
+        
+        return smoothed_predictions
+    
+    def _fallback_predict_next_steps(self, last_sequence: np.ndarray, steps: int = 30) -> np.ndarray:
+        """
+        Fallback prediction method with basic improvements
         """
         if not self.fitted:
             raise ValueError("Model must be trained first")
