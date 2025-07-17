@@ -184,6 +184,14 @@ global_prediction_engine = EnhancedPredictionEngine()
 # Connect the pattern analyzer to the prediction engine
 global_prediction_engine.set_pattern_analyzer(global_pattern_analyzer)
 
+# Industry-level advanced systems
+industry_pattern_recognizer = IndustryLevelPatternRecognition()
+industry_prediction_engine = IndustryPredictionEngine()
+adaptive_learning_system = AdaptiveContinuousLearningSystem()
+
+# Global flag to control which system to use
+use_industry_level_prediction = True  # Enable industry-level predictions
+
 def analyze_historical_patterns(data, time_col, target_col):
     """
     Analyze historical data patterns for advanced extrapolation
