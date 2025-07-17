@@ -2168,7 +2168,7 @@ async def get_enhanced_pattern_analysis():
             'status': 'success',
             'data_preview': data_preview,
             'pattern_analysis': patterns,
-            'recommendations': generate_prediction_recommendations(patterns)
+            'recommendations': safe_json_serialization(generate_prediction_recommendations(patterns))
         }
         
     except Exception as e:
