@@ -721,15 +721,23 @@ class AdvancedTimeSeriesForecaster:
     
     def _estimate_pattern_based_value(self, original_input, step, recent_trend, local_mean):
         """Estimate next value based on historical patterns rather than pure autoregression"""
-        # Simple pattern-based estimation
+        # Enhanced pattern-based estimation
         if len(original_input) >= 3:
-            # Use trend + local patterns
-            trend_component = recent_trend * (step + 1)
-            cyclical_component = np.sin(step * 0.3) * np.std(original_input) * 0.1
+            # Use trend + local patterns with better continuity
+            trend_component = recent_trend * (step + 1) * 0.8  # Maintain trend momentum
+            
+            # Enhanced cyclical component based on actual historical patterns
+            if len(original_input) >= 6:
+                # Analyze actual cyclical patterns
+                diffs = np.diff(original_input[-6:])
+                cyclical_component = np.mean(diffs) * 0.2 * np.sin(step * 0.5)
+            else:
+                cyclical_component = np.sin(step * 0.3) * np.std(original_input) * 0.1
+            
             base_value = original_input[-1] + trend_component + cyclical_component
             
-            # Mean reversion
-            mean_reversion = (local_mean - base_value) * 0.1
+            # Gentle mean reversion to maintain historical characteristics
+            mean_reversion = (local_mean - base_value) * 0.05
             
             return base_value + mean_reversion
         
