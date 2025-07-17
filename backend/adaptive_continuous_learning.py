@@ -16,8 +16,8 @@ from datetime import datetime, timedelta
 import json
 import threading
 import time
-from .advanced_pattern_recognition import IndustryLevelPatternRecognition
-from .industry_prediction_engine import AdvancedPredictionEngine
+from advanced_pattern_recognition import IndustryLevelPatternRecognition
+from industry_prediction_engine import AdvancedPredictionEngine
 
 warnings.filterwarnings('ignore')
 logger = logging.getLogger(__name__)
