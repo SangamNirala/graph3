@@ -40,9 +40,17 @@ class AdvancedPredictionEngine:
             'periodic': PeriodicPatternPredictor(),
             'trending': TrendingPatternPredictor(),
             'random_walk': RandomWalkPredictor(),
-            'white_noise': WhiteNoisePredictor()
+            'white_noise': WhiteNoisePredictor(),
+            # Advanced pattern predictors
+            'quadratic': QuadraticPatternPredictor(),
+            'cubic': CubicPatternPredictor(),
+            'polynomial': PolynomialPatternPredictor(),
+            'spline': SplinePatternPredictor(),
+            'custom_shape': CustomShapePredictor(),
+            'composite': CompositePatternPredictor()
         }
         self.ensemble_predictor = EnsemblePredictor(self.pattern_specific_predictors)
+        self.pattern_learning_engine = PatternLearningEngine()
         
     def generate_advanced_predictions(self, data: np.ndarray, 
                                     steps: int = 30,
