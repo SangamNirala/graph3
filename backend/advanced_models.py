@@ -657,24 +657,29 @@ class AdvancedTimeSeriesForecaster:
     def _apply_bias_correction(self, prediction, step, historical_mean, historical_std, 
                               recent_trend, local_mean, local_std, original_input):
         """Apply bias correction to prevent accumulated drift"""
-        # Mean reversion component - pull predictions back to historical mean
-        mean_reversion = (historical_mean - prediction) * 0.05 * (1 + step * 0.01)
+        # Enhanced mean reversion component - stronger pull to historical mean
+        mean_reversion = (historical_mean - prediction) * 0.03 * (1 + step * 0.005)
         
-        # Trend continuation with decay
-        trend_component = recent_trend * (0.8 ** step)
+        # Enhanced trend continuation with slower decay to maintain historical patterns
+        trend_component = recent_trend * (0.95 ** step)  # Slower decay for better pattern following
         
         # Volatility constraint - limit extreme movements
-        if abs(prediction - local_mean) > 3 * local_std:
-            volatility_correction = np.sign(local_mean - prediction) * local_std * 0.5
+        if abs(prediction - local_mean) > 2.5 * local_std:
+            volatility_correction = np.sign(local_mean - prediction) * local_std * 0.3
         else:
             volatility_correction = 0
         
-        # Pattern-based correction
+        # Enhanced pattern-based correction
         pattern_correction = self._calculate_pattern_correction(
             prediction, step, original_input, local_mean
         )
         
-        corrected_prediction = prediction + mean_reversion + trend_component + volatility_correction + pattern_correction
+        # Apply momentum from recent values to maintain pattern continuity
+        momentum_correction = self._calculate_momentum_correction(
+            prediction, step, original_input, recent_trend
+        )
+        
+        corrected_prediction = prediction + mean_reversion + trend_component + volatility_correction + pattern_correction + momentum_correction
         
         return corrected_prediction
     
