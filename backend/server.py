@@ -173,6 +173,12 @@ current_preprocessor = None
 model_evaluation_results = {}
 supported_advanced_models = ['dlinear', 'nbeats', 'lstm', 'lightgbm', 'xgboost', 'ensemble']
 
+# Enhanced pattern analysis and prediction components
+global_pattern_analyzer = AdvancedPatternAnalyzer()
+global_prediction_engine = EnhancedPredictionEngine()
+# Connect the pattern analyzer to the prediction engine
+global_prediction_engine.set_pattern_analyzer(global_pattern_analyzer)
+
 def analyze_historical_patterns(data, time_col, target_col):
     """
     Analyze historical data patterns for advanced extrapolation
