@@ -62,15 +62,16 @@ class FileUploadTester:
     
     def create_latin1_csv_data(self):
         """Create CSV data with Latin-1 encoding characters"""
-        symbols = ['©', '®', '°', '±', '§', '¶', '½', '¼']
+        symbols = ['©', '®', '°', '±', '§', '¶', '½', '¼'] * 3  # Repeat to get 24 rows
         dates = pd.date_range(start='2023-01-01', periods=len(symbols), freq='D')
         values = np.random.normal(50, 5, len(symbols))
+        units = ['°C', '±5%', '©2023', '®Brand', '§1.1', '¶Note', '½Cup', '¼Tsp'] * 3
         
         df = pd.DataFrame({
             'date': dates,
             'symbol': symbols,
             'measurement': values,
-            'unit': ['°C', '±5%', '©2023', '®Brand', '§1.1', '¶Note', '½Cup', '¼Tsp']
+            'unit': units
         })
         
         return df
