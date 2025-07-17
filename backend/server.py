@@ -1740,6 +1740,180 @@ async def generate_legacy_continuous_prediction(model, model_type, data, time_co
         print(f"Error in legacy continuous prediction: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.post("/start-continuous-learning")
+async def start_continuous_learning():
+    """Start the adaptive continuous learning system"""
+    try:
+        global adaptive_learning_system
+        
+        adaptive_learning_system.start_continuous_learning(update_interval=1.0)
+        
+        return {
+            'status': 'success',
+            'message': 'Continuous learning system started',
+            'system_metrics': adaptive_learning_system.get_system_metrics()
+        }
+        
+    except Exception as e:
+        print(f"Error starting continuous learning: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/stop-continuous-learning")
+async def stop_continuous_learning():
+    """Stop the adaptive continuous learning system"""
+    try:
+        global adaptive_learning_system
+        
+        adaptive_learning_system.stop_continuous_learning()
+        
+        return {
+            'status': 'success',
+            'message': 'Continuous learning system stopped',
+            'system_metrics': adaptive_learning_system.get_system_metrics()
+        }
+        
+    except Exception as e:
+        print(f"Error stopping continuous learning: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/system-metrics")
+async def get_system_metrics():
+    """Get metrics from the adaptive learning system"""
+    try:
+        global adaptive_learning_system
+        
+        return adaptive_learning_system.get_system_metrics()
+        
+    except Exception as e:
+        print(f"Error getting system metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/reset-learning-system")
+async def reset_learning_system():
+    """Reset the adaptive learning system"""
+    try:
+        global adaptive_learning_system
+        
+        adaptive_learning_system.reset_system()
+        
+        return {
+            'status': 'success',
+            'message': 'Learning system reset successfully'
+        }
+        
+    except Exception as e:
+        print(f"Error resetting learning system: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/toggle-prediction-system")
+async def toggle_prediction_system(use_industry_level: bool = True):
+    """Toggle between industry-level and legacy prediction systems"""
+    try:
+        global use_industry_level_prediction
+        
+        use_industry_level_prediction = use_industry_level
+        
+        return {
+            'status': 'success',
+            'message': f'Switched to {"industry-level" if use_industry_level else "legacy"} prediction system',
+            'current_system': 'industry_level' if use_industry_level else 'legacy'
+        }
+        
+    except Exception as e:
+        print(f"Error toggling prediction system: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/advanced-pattern-analysis")
+async def get_advanced_pattern_analysis():
+    """Get advanced pattern analysis for current data"""
+    try:
+        global current_model, industry_pattern_recognizer
+        
+        if current_model is None:
+            raise HTTPException(status_code=400, detail="No model trained")
+        
+        data = current_model['data']
+        target_col = current_model['target_col']
+        target_values = data[target_col].values
+        
+        # Perform comprehensive pattern analysis
+        pattern_analysis = industry_pattern_recognizer.analyze_comprehensive_patterns(
+            target_values, 
+            timestamps=pd.to_datetime(data[current_model['time_col']]) if current_model['time_col'] in data.columns else None
+        )
+        
+        return {
+            'status': 'success',
+            'pattern_analysis': pattern_analysis
+        }
+        
+    except Exception as e:
+        print(f"Error in advanced pattern analysis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/generate-advanced-predictions")
+async def generate_advanced_predictions(steps: int = 30, confidence_level: float = 0.95):
+    """Generate advanced predictions using industry-level algorithms"""
+    try:
+        global current_model, industry_prediction_engine
+        
+        if current_model is None:
+            raise HTTPException(status_code=400, detail="No model trained")
+        
+        data = current_model['data']
+        target_col = current_model['target_col']
+        time_col = current_model['time_col']
+        target_values = data[target_col].values
+        
+        # Generate advanced predictions
+        prediction_results = industry_prediction_engine.generate_advanced_predictions(
+            target_values,
+            steps=steps,
+            timestamps=pd.to_datetime(data[time_col]) if time_col in data.columns else None,
+            confidence_level=confidence_level,
+            adaptive_learning=True
+        )
+        
+        # Create timestamps for predictions
+        if time_col in data.columns:
+            last_timestamp = pd.to_datetime(data[time_col].iloc[-1])
+            time_series = pd.to_datetime(data[time_col])
+            freq = pd.infer_freq(time_series)
+        else:
+            last_timestamp = pd.to_datetime(data.index[-1])
+            freq = pd.infer_freq(pd.to_datetime(data.index))
+        
+        # Default to daily frequency if inference fails
+        if freq is None:
+            freq = 'D'
+        
+        # Create future timestamps
+        try:
+            future_timestamps = pd.date_range(
+                start=last_timestamp + pd.Timedelta(days=1), 
+                periods=steps, 
+                freq=freq
+            )
+        except:
+            # Fallback to daily frequency
+            future_timestamps = pd.date_range(
+                start=last_timestamp + pd.Timedelta(days=1), 
+                periods=steps, 
+                freq='D'
+            )
+        
+        # Add timestamps to results
+        prediction_results['timestamps'] = future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist()
+        
+        return {
+            'status': 'success',
+            'prediction_results': prediction_results
+        }
+        
+    except Exception as e:
+        print(f"Error in advanced predictions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def generate_basic_prediction(model, model_type, data, steps):
     """Fallback basic prediction method"""
     try:
