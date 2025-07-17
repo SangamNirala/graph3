@@ -1439,6 +1439,93 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.get("/generate-enhanced-continuous-prediction")
+async def generate_enhanced_continuous_prediction(model_id: str, steps: int = 30, time_window: int = 100):
+    """Generate continuous predictions with enhanced pattern analysis and accurate trend preservation"""
+    try:
+        global current_model, continuous_predictions, global_pattern_analyzer, global_prediction_engine
+        
+        if current_model is None:
+            raise HTTPException(status_code=400, detail="No model trained")
+        
+        model = current_model['model']
+        model_type = current_model['model_type']
+        data = current_model['data']
+        time_col = current_model['time_col']
+        target_col = current_model['target_col']
+        
+        # Extract target values for pattern analysis
+        target_values = data[target_col].values
+        
+        # Perform comprehensive pattern analysis
+        patterns = global_pattern_analyzer.analyze_comprehensive_patterns(target_values)
+        
+        # Generate enhanced predictions
+        prediction_result = global_prediction_engine.generate_pattern_aware_predictions(
+            data=target_values,
+            steps=steps,
+            patterns=patterns,
+            confidence_level=0.95
+        )
+        
+        # Calculate prediction offset for continuous extension
+        prediction_offset = len(continuous_predictions) * 5  # Each call advances by 5 steps
+        
+        # Create timestamps for predictions
+        if time_col in data.columns:
+            last_timestamp = pd.to_datetime(data[time_col].iloc[-1])
+            time_series = pd.to_datetime(data[time_col])
+            freq = pd.infer_freq(time_series)
+        else:
+            last_timestamp = pd.to_datetime(data.index[-1])
+            freq = pd.infer_freq(pd.to_datetime(data.index))
+        
+        # Generate future timestamps
+        if freq:
+            future_timestamps = pd.date_range(
+                start=last_timestamp + pd.Timedelta(freq) * (prediction_offset + 1),
+                periods=steps, 
+                freq=freq
+            )
+        else:
+            # Fallback to daily frequency
+            future_timestamps = pd.date_range(
+                start=last_timestamp + pd.Timedelta(days=prediction_offset + 1),
+                periods=steps, 
+                freq='D'
+            )
+        
+        # Format result
+        result = {
+            'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
+            'predictions': prediction_result['predictions'],
+            'confidence_intervals': prediction_result['confidence_intervals'],
+            'model_type': model_type,
+            'is_enhanced': True,
+            'pattern_analysis': {
+                'prediction_method': prediction_result['prediction_method'],
+                'pattern_preservation_score': prediction_result['pattern_preservation_score'],
+                'quality_metrics': prediction_result['quality_metrics'],
+                'pattern_characteristics': prediction_result['pattern_characteristics']
+            },
+            'enhancement_info': {
+                'trend_strength': patterns['trend_analysis']['trend_strength'],
+                'seasonal_strength': patterns['seasonal_analysis']['seasonal_strength'],
+                'predictability_score': patterns['predictability']['predictability_score'],
+                'pattern_quality': patterns['quality_score'],
+                'volatility_score': patterns['volatility_analysis']['overall_volatility']
+            }
+        }
+        
+        # Store prediction for continuous use
+        continuous_predictions.append(result)
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error in enhanced continuous prediction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @api_router.get("/generate-continuous-prediction")
 async def generate_continuous_prediction(model_id: str, steps: int = 30, time_window: int = 100):
     """Generate continuous predictions with advanced pattern-based extrapolation"""
