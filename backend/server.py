@@ -1482,11 +1482,26 @@ async def generate_enhanced_continuous_prediction(model_id: str, steps: int = 30
         
         # Generate future timestamps
         if freq:
-            future_timestamps = pd.date_range(
-                start=last_timestamp + pd.Timedelta(freq) * (prediction_offset + 1),
-                periods=steps, 
-                freq=freq
-            )
+            try:
+                # Handle frequency string properly
+                if isinstance(freq, str):
+                    # For simple frequencies like 'H', 'D', etc., add '1' prefix
+                    if freq.isalpha():
+                        freq = '1' + freq
+                
+                future_timestamps = pd.date_range(
+                    start=last_timestamp + pd.Timedelta(freq) * (prediction_offset + 1),
+                    periods=steps, 
+                    freq=freq
+                )
+            except Exception as freq_error:
+                print(f"Frequency parsing error: {freq_error}, using daily fallback")
+                # Fallback to daily frequency
+                future_timestamps = pd.date_range(
+                    start=last_timestamp + pd.Timedelta(days=prediction_offset + 1),
+                    periods=steps, 
+                    freq='D'
+                )
         else:
             # Fallback to daily frequency
             future_timestamps = pd.date_range(
