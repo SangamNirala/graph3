@@ -32,6 +32,11 @@ import warnings
 from enhanced_pattern_analysis import AdvancedPatternAnalyzer
 from enhanced_prediction_engine import EnhancedPredictionEngine
 
+# Import new industry-level systems
+from advanced_pattern_recognition import IndustryLevelPatternRecognition
+from industry_prediction_engine import AdvancedPredictionEngine as IndustryPredictionEngine
+from adaptive_continuous_learning import AdaptiveContinuousLearningSystem
+
 # Import new advanced models
 from advanced_models import (
     AdvancedTimeSeriesForecaster, 
