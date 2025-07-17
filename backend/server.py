@@ -171,8 +171,57 @@ supported_advanced_models = ['dlinear', 'nbeats', 'lstm', 'lightgbm', 'xgboost',
 
 def analyze_historical_patterns(data, time_col, target_col):
     """
-    Analyze historical data patterns for advanced extrapolation
-    Enhanced with bias correction and trend stabilization
+    Enhanced analyze historical data patterns using the new enhanced prediction system
+    """
+    try:
+        # Import enhanced prediction system
+        from enhanced_prediction_system import EnhancedTimeSeriesPredictor
+        
+        # Initialize enhanced predictor
+        enhanced_predictor = EnhancedTimeSeriesPredictor()
+        
+        # Analyze patterns using enhanced system
+        pattern_analysis = enhanced_predictor.analyze_comprehensive_patterns(
+            data, time_col, target_col
+        )
+        
+        if pattern_analysis is not None:
+            # Convert to format expected by existing code
+            stats = pattern_analysis['statistics']
+            trend = pattern_analysis['trend']
+            seasonality = pattern_analysis['seasonality']
+            volatility = pattern_analysis['volatility']
+            stability = pattern_analysis['stability']
+            
+            return {
+                'mean': stats['mean'],
+                'std': stats['std'],
+                'last_value': pattern_analysis['raw_values'][-1],
+                'trend_slope': trend['linear_slope'],
+                'recent_trend': trend['recent_trend'],
+                'velocity': volatility['return_mean'],
+                'acceleration': trend.get('trend_acceleration', 0),
+                'stability_factor': stability['stability_score'],
+                'trend_consistency': trend['direction_consistency'],
+                'bias_correction_factor': 1.0,  # Enhanced system handles this internally
+                'quality_score': stability['predictability'] * 100,
+                'seasonal_period': seasonality.get('seasonal_period'),
+                'seasonal_strength': seasonality.get('seasonal_strength', 0),
+                'has_seasonality': seasonality.get('has_seasonality', False),
+                'volatility': volatility['volatility'],
+                'persistence': pattern_analysis['autocorrelation']['persistence'],
+                'enhanced_analysis': pattern_analysis  # Store full analysis for later use
+            }
+        
+    except Exception as e:
+        print(f"Enhanced pattern analysis failed, using fallback: {e}")
+        
+    # Fallback to original analysis
+    return _original_analyze_historical_patterns(data, time_col, target_col)
+
+def _original_analyze_historical_patterns(data, time_col, target_col):
+    """
+    Original analyze historical data patterns (fallback)
     """
     try:
         # Convert time column to datetime if not already
