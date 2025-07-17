@@ -2153,6 +2153,9 @@ async def get_enhanced_pattern_analysis():
         # Perform comprehensive pattern analysis
         patterns = global_pattern_analyzer.analyze_comprehensive_patterns(target_values, timestamps)
         
+        # Convert patterns to JSON-serializable format
+        patterns = safe_json_serialization(patterns)
+        
         # Add data preview
         data_preview = {
             'data_length': len(target_values),
