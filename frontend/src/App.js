@@ -1052,7 +1052,10 @@ function App() {
             <div className="space-y-3">
               <button
                 onClick={async () => {
-                  // Load historical data first
+                  // Load enhanced pattern analysis first
+                  await loadEnhancedPatternAnalysis();
+                  
+                  // Load historical data
                   await loadHistoricalData();
                   
                   // Then generate predictions
@@ -1069,7 +1072,11 @@ function App() {
               
               {!isPredicting ? (
                 <button
-                  onClick={startContinuousPrediction}
+                  onClick={async () => {
+                    // Load pattern analysis before starting continuous prediction
+                    await loadEnhancedPatternAnalysis();
+                    startContinuousPrediction();
+                  }}
                   className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   ▶️ Start Continuous Prediction
