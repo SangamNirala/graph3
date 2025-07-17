@@ -527,7 +527,110 @@ def _apply_bounds(value, patterns, step):
 def create_smooth_transition(historical_data, predicted_data, transition_points=5):
     """
     Create smooth transition between historical and predicted data
-    Enhanced with pattern preservation and bias correction
+    Enhanced with pattern preservation and enhanced prediction system
+    """
+    try:
+        if len(historical_data) < transition_points:
+            return predicted_data
+        
+        if len(predicted_data) == 0:
+            return []
+        
+        # Try to use enhanced prediction system for better transition
+        try:
+            from enhanced_prediction_system import EnhancedTimeSeriesPredictor
+            
+            # Initialize enhanced predictor
+            enhanced_predictor = EnhancedTimeSeriesPredictor()
+            
+            # Analyze historical data patterns
+            pattern_analysis = enhanced_predictor.analyze_comprehensive_patterns(historical_data)
+            
+            if pattern_analysis is not None:
+                # Use enhanced smoothing
+                return _enhanced_smooth_transition(historical_data, predicted_data, pattern_analysis)
+            
+        except Exception as e:
+            print(f"Enhanced transition failed, using fallback: {e}")
+        
+        # Fallback to original method
+        return _original_create_smooth_transition(historical_data, predicted_data, transition_points)
+        
+    except Exception as e:
+        print(f"Error in smooth transition: {e}")
+        return predicted_data
+
+def _enhanced_smooth_transition(historical_data, predicted_data, pattern_analysis):
+    """Enhanced smooth transition using pattern analysis"""
+    try:
+        # Get pattern characteristics
+        stats = pattern_analysis['statistics']
+        trend_info = pattern_analysis['trend']
+        
+        # Calculate expected next value based on historical patterns
+        if len(historical_data) >= 3:
+            recent_trend = trend_info['recent_trend']
+            expected_next = historical_data[-1] + recent_trend
+        else:
+            expected_next = historical_data[-1]
+        
+        # Create smooth transition
+        transition_length = min(10, len(predicted_data))
+        smoothed_predictions = predicted_data.copy()
+        
+        # Apply enhanced transition weights
+        for i in range(transition_length):
+            # Exponential transition weight
+            weight = 1 - np.exp(-i / 3)  # Smooth exponential transition
+            
+            # Blend expected value with predicted value
+            smoothed_predictions[i] = (1 - weight) * expected_next + weight * predicted_data[i]
+        
+        # Apply additional smoothing based on historical volatility
+        volatility = pattern_analysis['volatility']['noise_level']
+        smoothed_predictions = _apply_volatility_constrained_smoothing(
+            smoothed_predictions, volatility, stats['mean']
+        )
+        
+        return smoothed_predictions
+        
+    except Exception as e:
+        print(f"Error in enhanced transition: {e}")
+        return predicted_data
+
+def _apply_volatility_constrained_smoothing(predictions, volatility, mean_value):
+    """Apply smoothing that respects historical volatility patterns"""
+    try:
+        if len(predictions) < 2:
+            return predictions
+        
+        smoothed = predictions.copy()
+        
+        # Apply moving average with volatility constraints
+        for i in range(1, len(smoothed)):
+            # Calculate change from previous value
+            change = smoothed[i] - smoothed[i-1]
+            
+            # Limit change to reasonable bounds based on volatility
+            max_change = volatility * 2
+            if abs(change) > max_change:
+                # Smooth excessive changes
+                smoothed[i] = smoothed[i-1] + np.sign(change) * max_change
+        
+        # Apply gentle mean reversion
+        for i in range(len(smoothed)):
+            reversion_factor = 0.05  # Gentle reversion
+            smoothed[i] = smoothed[i] * (1 - reversion_factor) + mean_value * reversion_factor
+        
+        return smoothed
+        
+    except Exception as e:
+        print(f"Error in volatility smoothing: {e}")
+        return predictions
+
+def _original_create_smooth_transition(historical_data, predicted_data, transition_points=5):
+    """
+    Original create smooth transition between historical and predicted data (fallback)
     """
     try:
         if len(historical_data) < transition_points:
@@ -596,7 +699,7 @@ def create_smooth_transition(historical_data, predicted_data, transition_points=
         return smoothed_predictions
         
     except Exception as e:
-        print(f"Error creating smooth transition: {e}")
+        print(f"Error in original smooth transition: {e}")
         return predicted_data
 
 def safe_json_serialization(obj):
