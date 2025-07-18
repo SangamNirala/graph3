@@ -510,6 +510,18 @@ agent_communication:
         agent: "main"
         comment: "✅ DOWNWARD TREND ISSUE RESOLVED: User confirmed that the issue where the graph was continuously going downwards has been resolved. The comprehensive pattern-learning improvements have successfully addressed the downward bias problem. Current focus is now on improving the real-time continuous predicted graph (right side of slider) to follow historical data patterns properly for better prediction accuracy."
 
+  - task: "Improve real-time continuous prediction pattern following for right-side graph"
+    implemented: false
+    working: false
+    file: "/app/backend/server.py, /app/backend/advanced_pattern_following.py, /app/backend/adaptive_continuous_learning.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW TASK: User confirmed downward trend issue is resolved, but identified that the prediction on the right side of slider (real-time continuous predicted graph) is not following the historical data pattern properly. Need to improve code so that the new real-time continuous predicted graph follows the historical data pattern properly for proper prediction. This involves enhancing the continuous prediction system to maintain better pattern following, improved variability preservation, and better integration between pattern following engine and continuous prediction system."
+
 backend:
   - task: "Enhanced upload endpoint with encoding support and data cleaning fixes"
     implemented: true
