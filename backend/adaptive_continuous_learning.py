@@ -316,28 +316,65 @@ class AdaptiveContinuousLearningSystem:
     
     def _apply_continuous_corrections(self, predictions: Dict[str, Any], 
                                    data: np.ndarray) -> Dict[str, Any]:
-        """Apply continuous learning corrections to predictions"""
+        """Apply enhanced continuous learning corrections to predictions"""
         try:
             pred_values = np.array(predictions['predictions'])
             
-            # Apply learning rate corrections
-            if self.prediction_history:
-                # Calculate recent prediction errors
-                recent_errors = self._calculate_recent_prediction_errors(data)
-                
-                # Apply error-based corrections
-                if recent_errors:
-                    error_correction = np.mean(recent_errors) * self.learning_rate
-                    
-                    # Apply diminishing correction
-                    correction_weights = np.exp(-0.1 * np.arange(len(pred_values)))
-                    corrections = error_correction * correction_weights
-                    
-                    pred_values += corrections
+            # Calculate historical statistics for pattern preservation
+            historical_mean = np.mean(data)
+            historical_std = np.std(data)
+            historical_min = np.min(data)
+            historical_max = np.max(data)
             
-            # Apply pattern-based corrections
+            # Calculate prediction statistics
+            pred_mean = np.mean(pred_values)
+            pred_std = np.std(pred_values)
+            
+            # 1. Enhanced mean reversion with pattern preservation
+            mean_bias = pred_mean - historical_mean
+            if abs(mean_bias) > 0.1 * historical_std:
+                # Apply adaptive mean reversion
+                mean_reversion_strength = min(0.3, abs(mean_bias) / historical_std)
+                mean_correction = -mean_bias * mean_reversion_strength
+                
+                # Apply correction with gradual decay
+                correction_weights = np.exp(-0.05 * np.arange(len(pred_values)))
+                pred_values += mean_correction * correction_weights
+            
+            # 2. Variability preservation
+            if pred_std < 0.3 * historical_std:
+                # Predictions too flat - enhance variability
+                variability_enhancement = historical_std / (pred_std + 1e-10) * 0.7
+                pred_center = np.mean(pred_values)
+                pred_values = pred_center + (pred_values - pred_center) * variability_enhancement
+            elif pred_std > 2.0 * historical_std:
+                # Predictions too volatile - reduce variability
+                variability_reduction = historical_std / pred_std * 1.2
+                pred_center = np.mean(pred_values)
+                pred_values = pred_center + (pred_values - pred_center) * variability_reduction
+            
+            # 3. Pattern-based corrections
             if self.current_pattern:
-                pred_values = self._apply_pattern_corrections(pred_values, data)
+                pred_values = self._apply_enhanced_pattern_corrections(pred_values, data)
+            
+            # 4. Boundary preservation
+            range_buffer = 0.15 * (historical_max - historical_min)
+            pred_values = np.clip(pred_values, 
+                                historical_min - range_buffer, 
+                                historical_max + range_buffer)
+            
+            # 5. Continuity preservation
+            if len(data) > 0:
+                # Ensure smooth transition from last historical value
+                last_historical = data[-1]
+                first_prediction = pred_values[0]
+                
+                # If first prediction is too far from last historical value
+                if abs(first_prediction - last_historical) > 2 * historical_std:
+                    # Apply smooth transition
+                    transition_correction = (last_historical - first_prediction) * 0.5
+                    transition_weights = np.exp(-0.2 * np.arange(len(pred_values)))
+                    pred_values += transition_correction * transition_weights
             
             # Update predictions
             predictions['predictions'] = pred_values.tolist()
