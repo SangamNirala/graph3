@@ -728,7 +728,30 @@ class AdvancedPatternMemory:
             logger.error(f"Error generating fallback patterns: {e}")
             return {}
     
-    def _generate_fallback_predictions(self, data: np.ndarray, steps: int) -> Dict[str, Any]:
+    def generate_memory_based_predictions(self, data: np.ndarray, steps: int = 30, 
+                                        time_window: int = 100) -> Dict[str, Any]:
+        """
+        Generate predictions using advanced pattern memory
+        """
+        try:
+            # Initialize with historical data if not already done
+            if not self.prediction_history:
+                self.learn_patterns(data)
+            
+            # Generate pattern-aware predictions
+            prediction_result = self.generate_pattern_aware_predictions(
+                data, steps, None
+            )
+            
+            # Add memory-specific metrics
+            prediction_result['pattern_strength'] = prediction_result.get('pattern_preservation_score', 0.8)
+            prediction_result['memory_utilization'] = len(self.prediction_history) / self.memory_size
+            
+            return prediction_result
+            
+        except Exception as e:
+            logger.error(f"Error in memory-based predictions: {e}")
+            return self._generate_fallback_predictions(data, steps)
         """Generate fallback predictions when main system fails"""
         try:
             # Simple trend extrapolation
