@@ -65,26 +65,36 @@ class PatternAnalyzer:
             if window >= len(data):
                 window = len(data)
             
-            # Linear trend
+            # Linear trend with error handling
             x = np.arange(window)
             if window <= len(data):
                 segment = data[-window:]
-                trend_coef = np.polyfit(x, segment, 1)[0]
-                trends[f'trend_{window}'] = trend_coef
+                try:
+                    trend_coef = np.polyfit(x, segment, 1)[0]
+                    trends[f'trend_{window}'] = float(trend_coef)
+                except np.linalg.LinAlgError:
+                    # If SVD doesn't converge, use simple difference
+                    if len(segment) > 1:
+                        trends[f'trend_{window}'] = float((segment[-1] - segment[0]) / (len(segment) - 1))
+                    else:
+                        trends[f'trend_{window}'] = 0.0
+                except Exception:
+                    trends[f'trend_{window}'] = 0.0
             
         # Trend direction consistency
         short_trend = trends.get('trend_5', 0)
         medium_trend = trends.get('trend_10', 0)
         long_trend = trends.get('trend_20', 0)
         
-        trends['consistency'] = np.mean([
+        trends['consistency'] = float(np.mean([
             np.sign(short_trend) == np.sign(medium_trend),
             np.sign(medium_trend) == np.sign(long_trend),
             np.sign(short_trend) == np.sign(long_trend)
-        ])
+        ]))
         
         # Trend strength
-        trends['strength'] = np.std([abs(t) for t in trends.values() if isinstance(t, (int, float))])
+        trend_values = [abs(t) for t in trends.values() if isinstance(t, (int, float))]
+        trends['strength'] = float(np.std(trend_values)) if trend_values else 0.0
         
         return trends
     
