@@ -43,14 +43,14 @@ class AdvancedPhPredictionEngine:
         self.scaler = MinMaxScaler()
         self.fitted = False
         
-        # Prediction parameters
+        # Prediction parameters - smaller values for stability
         self.prediction_params = {
-            'seq_len': 20,
-            'hidden_size': 64,
-            'num_layers': 2,
-            'batch_size': 32,
-            'epochs': 100,
-            'learning_rate': 0.001
+            'seq_len': 10,  # Reduced from 20
+            'hidden_size': 32,  # Reduced from 64
+            'num_layers': 1,  # Reduced from 2
+            'batch_size': 16,  # Reduced from 32
+            'epochs': 50,  # Reduced from 100
+            'learning_rate': 0.01  # Increased for faster convergence
         }
         
         # Pattern preservation settings
