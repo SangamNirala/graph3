@@ -355,9 +355,9 @@ class ContinuousPredictionBiasTester:
             for i in range(num_extensions):
                 print(f"   Extension call {i+1}/{num_extensions}...")
                 
-                response = self.session.post(
+                response = self.session.get(
                     f"{API_BASE_URL}/extend-prediction",
-                    params={"model_id": self.model_id, "steps": 10}
+                    params={"steps": 10}
                 )
                 
                 if response.status_code == 200:
