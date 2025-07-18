@@ -852,28 +852,151 @@ class AdvancedTimeSeriesForecaster:
         return 0.0
     
     def _estimate_pattern_based_value(self, original_input, step, recent_trend, local_mean):
-        """Estimate next value based on historical patterns rather than pure autoregression"""
-        # Enhanced pattern-based estimation
+        """Estimate next value based on advanced historical pattern analysis"""
         if len(original_input) >= 3:
-            # Use trend + local patterns with better continuity
-            trend_component = recent_trend * (step + 1) * 0.8  # Maintain trend momentum
+            # Multi-scale pattern analysis
             
-            # Enhanced cyclical component based on actual historical patterns
-            if len(original_input) >= 6:
-                # Analyze actual cyclical patterns
-                diffs = np.diff(original_input[-6:])
-                cyclical_component = np.mean(diffs) * 0.2 * np.sin(step * 0.5)
-            else:
-                cyclical_component = np.sin(step * 0.3) * np.std(original_input) * 0.1
+            # 1. Short-term pattern (last 3-5 values)
+            short_window = min(5, len(original_input))
+            short_pattern = original_input[-short_window:]
+            short_changes = np.diff(short_pattern)
+            short_trend = np.mean(short_changes) if len(short_changes) > 0 else 0
             
-            base_value = original_input[-1] + trend_component + cyclical_component
+            # 2. Medium-term pattern (last 6-10 values)
+            medium_window = min(10, len(original_input))
+            medium_pattern = original_input[-medium_window:]
+            medium_changes = np.diff(medium_pattern)
+            medium_trend = np.mean(medium_changes) if len(medium_changes) > 0 else 0
             
-            # Gentle mean reversion to maintain historical characteristics
-            mean_reversion = (local_mean - base_value) * 0.05
+            # 3. Adaptive trend component with pattern-aware decay
+            trend_consistency = self._calculate_pattern_trend_consistency(original_input)
             
-            return base_value + mean_reversion
+            # Use trend consistency to determine decay rate
+            if trend_consistency > 0.7:  # Strong consistent trend
+                trend_decay = 0.98 ** step
+            elif trend_consistency > 0.4:  # Moderate trend
+                trend_decay = 0.95 ** step
+            else:  # Weak or inconsistent trend
+                trend_decay = 0.90 ** step
+            
+            # Weighted combination of trends
+            weighted_trend = (short_trend * 0.5 + medium_trend * 0.3 + recent_trend * 0.2) * trend_decay
+            
+            # 4. Enhanced cyclical component with pattern learning
+            cyclical_component = self._calculate_adaptive_cyclical_component(
+                original_input, step, short_pattern
+            )
+            
+            # 5. Pattern-based base value calculation
+            base_value = original_input[-1] + weighted_trend + cyclical_component
+            
+            # 6. Adaptive mean reversion with historical context
+            # Use recent mean for short-term, historical mean for long-term
+            short_mean = np.mean(short_pattern)
+            historical_mean = np.mean(original_input)
+            
+            # Adaptive weighting based on step distance
+            recent_weight = 1.0 / (1.0 + step * 0.05)
+            historical_weight = 1.0 - recent_weight
+            
+            target_mean = recent_weight * short_mean + historical_weight * historical_mean
+            mean_reversion = (target_mean - base_value) * 0.03 * (1 + step * 0.002)
+            
+            # 7. Volatility-aware adjustment
+            volatility_adjustment = self._calculate_volatility_aware_adjustment(
+                original_input, base_value, step
+            )
+            
+            final_value = base_value + mean_reversion + volatility_adjustment
+            
+            # 8. Ensure value is within reasonable bounds
+            historical_std = np.std(original_input)
+            final_value = np.clip(final_value, 
+                                 historical_mean - 3 * historical_std, 
+                                 historical_mean + 3 * historical_std)
+            
+            return final_value
         
         return original_input[-1]
+    
+    def _calculate_pattern_trend_consistency(self, original_input):
+        """Calculate how consistent the trend is across different segments"""
+        if len(original_input) < 8:
+            return 0.5
+        
+        # Split into segments and calculate trends
+        segment_size = len(original_input) // 3
+        trends = []
+        
+        for i in range(0, len(original_input) - segment_size, segment_size):
+            segment = original_input[i:i + segment_size]
+            if len(segment) >= 3:
+                trend = np.polyfit(np.arange(len(segment)), segment, 1)[0]
+                trends.append(trend)
+        
+        if len(trends) > 1:
+            # Calculate consistency as inverse of standard deviation
+            trend_std = np.std(trends)
+            trend_mean = np.mean(np.abs(trends))
+            consistency = 1.0 / (1.0 + trend_std / (trend_mean + 1e-8))
+            return max(0.0, min(1.0, consistency))
+        
+        return 0.5
+    
+    def _calculate_adaptive_cyclical_component(self, original_input, step, short_pattern):
+        """Calculate adaptive cyclical component based on detected patterns"""
+        if len(original_input) >= 8:
+            # Look for cyclical patterns in the data
+            autocorr_values = []
+            for lag in range(1, min(6, len(original_input) // 2)):
+                if len(original_input) >= lag * 2:
+                    x1 = original_input[:-lag]
+                    x2 = original_input[lag:]
+                    if len(x1) > 0 and len(x2) > 0:
+                        corr = np.corrcoef(x1, x2)[0, 1]
+                        if not np.isnan(corr):
+                            autocorr_values.append((lag, corr))
+            
+            # Find the strongest cyclical pattern
+            if autocorr_values:
+                best_lag, best_corr = max(autocorr_values, key=lambda x: abs(x[1]))
+                
+                if abs(best_corr) > 0.3:  # Significant correlation
+                    # Calculate cyclical component based on the pattern
+                    cycle_phase = (step % best_lag) / best_lag * 2 * np.pi
+                    cycle_amplitude = np.std(short_pattern) * 0.3 * abs(best_corr)
+                    cyclical_component = cycle_amplitude * np.sin(cycle_phase)
+                    
+                    # Decay the cyclical component over time
+                    decay_factor = 0.97 ** step
+                    return cyclical_component * decay_factor
+        
+        return 0.0
+    
+    def _calculate_volatility_aware_adjustment(self, original_input, base_value, step):
+        """Calculate volatility-aware adjustment to maintain realistic variability"""
+        if len(original_input) >= 5:
+            # Calculate historical volatility
+            historical_changes = np.diff(original_input)
+            historical_volatility = np.std(historical_changes)
+            
+            # Calculate recent volatility
+            recent_changes = np.diff(original_input[-5:])
+            recent_volatility = np.std(recent_changes) if len(recent_changes) > 0 else historical_volatility
+            
+            # Target volatility (blend of historical and recent)
+            target_volatility = 0.7 * recent_volatility + 0.3 * historical_volatility
+            
+            # Add controlled variability to maintain realistic patterns
+            variability_factor = target_volatility * 0.1 * (1 / (1 + step * 0.05))
+            
+            # Random component with appropriate scale
+            import random
+            random_component = random.gauss(0, variability_factor)
+            
+            return random_component
+        
+        return 0.0
     
     def _apply_final_smoothing(self, predictions, last_sequence, historical_mean, recent_trend):
         """Apply final smoothing to maintain consistency with historical patterns"""
