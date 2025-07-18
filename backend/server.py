@@ -198,6 +198,7 @@ advanced_pattern_follower = AdvancedPatternFollowingEngine()
 
 # Global flag to control which system to use
 use_industry_level_prediction = True  # Enable industry-level predictions
+use_advanced_pattern_following = True  # Enable advanced pattern following
 
 def analyze_historical_patterns(data, time_col, target_col):
     """
