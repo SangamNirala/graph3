@@ -1129,6 +1129,36 @@ class EnhancedContinuousPredictionSystem:
                 'predictions': predictions,
                 'quality_metrics': {'overall_quality_score': 0.3},
                 'pattern_analysis': {},
+                'pattern_following_score': 0.3,
+                'variability_preservation': 0.3,
+                'bias_prevention_score': 0.3
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in fallback predictions: {e}")
+            return {
+                'predictions': [0.0] * steps,
+                'quality_metrics': {'overall_quality_score': 0.1},
+                'pattern_analysis': {},
+                'pattern_following_score': 0.1,
+                'variability_preservation': 0.1,
+                'bias_prevention_score': 0.1
+            }
+
+    def _generate_fallback_predictions(self, data: np.ndarray, steps: int) -> Dict[str, Any]:
+        """Generate fallback predictions when main algorithm fails"""
+        try:
+            # Simple trend continuation
+            if len(data) >= 2:
+                trend = (data[-1] - data[-2])
+                predictions = [data[-1] + trend * (i + 1) for i in range(steps)]
+            else:
+                predictions = [data[-1]] * steps if len(data) > 0 else [0.0] * steps
+            
+            return {
+                'predictions': predictions,
+                'quality_metrics': {'overall_quality_score': 0.3},
+                'pattern_analysis': {},
                 'pattern_following_score': 0.3
             }
             
