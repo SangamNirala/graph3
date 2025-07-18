@@ -3558,6 +3558,136 @@ async def get_continuous_learning_status():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Learning status check failed: {str(e)}")
 
+@api_router.get("/generate-advanced-ph-prediction")
+async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bool = True):
+    """Generate advanced pH predictions using enhanced pattern learning"""
+    try:
+        global advanced_ph_engine, current_model, uploaded_data_for_analysis
+        
+        # Check if we have data to work with
+        if uploaded_data_for_analysis is None:
+            raise HTTPException(status_code=400, detail="No data available for prediction")
+        
+        # Get the target data
+        target_col = uploaded_data_for_analysis.get('target_column', 'pH')
+        data_df = uploaded_data_for_analysis.get('data')
+        
+        if data_df is None:
+            raise HTTPException(status_code=400, detail="No data available")
+        
+        # Get the target values
+        if target_col not in data_df.columns:
+            # Try to find a suitable column
+            numeric_columns = data_df.select_dtypes(include=[np.number]).columns
+            if len(numeric_columns) == 0:
+                raise HTTPException(status_code=400, detail="No numeric columns available")
+            target_col = numeric_columns[0]
+        
+        target_values = data_df[target_col].values
+        
+        # Initialize advanced pH engine if not already done
+        if advanced_ph_engine is None:
+            advanced_ph_engine = AdvancedPhPredictionEngine()
+            
+            # Fit the model with historical data
+            logger.info(f"Training advanced pH prediction model with {len(target_values)} data points")
+            training_results = advanced_ph_engine.fit(target_values)
+            logger.info(f"Training completed with final loss: {training_results.get('training_results', {}).get('final_loss', 'N/A')}")
+        
+        # Generate predictions
+        prediction_results = advanced_ph_engine.predict_continuous(
+            steps=steps,
+            maintain_patterns=maintain_patterns
+        )
+        
+        # Analyze prediction quality
+        predictions_array = np.array(prediction_results['predictions'])
+        quality_analysis = advanced_ph_engine.analyze_prediction_quality(predictions_array)
+        
+        # Generate additional metadata
+        result = {
+            'predictions': prediction_results['predictions'],
+            'timestamps': prediction_results['timestamps'],
+            'metrics': prediction_results['metrics'],
+            'quality_analysis': quality_analysis,
+            'pattern_analysis': prediction_results['pattern_analysis'],
+            'historical_continuity': prediction_results['historical_continuity'],
+            'prediction_info': {
+                'model_type': 'advanced_pattern_aware_lstm',
+                'steps': steps,
+                'maintain_patterns': maintain_patterns,
+                'data_points_used': len(target_values)
+            }
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in advanced pH prediction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/extend-advanced-ph-prediction")
+async def extend_advanced_ph_prediction(additional_steps: int = 5):
+    """Extend advanced pH predictions with additional steps"""
+    try:
+        global advanced_ph_engine
+        
+        if advanced_ph_engine is None:
+            raise HTTPException(status_code=400, detail="Advanced pH engine not initialized. Generate predictions first.")
+        
+        # Extend predictions
+        extension_results = advanced_ph_engine.extend_predictions(additional_steps)
+        
+        return {
+            'predictions': extension_results['predictions'],
+            'timestamps': extension_results['timestamps'],
+            'extension_info': extension_results['extension_info'],
+            'prediction_info': {
+                'model_type': 'advanced_pattern_aware_lstm',
+                'additional_steps': additional_steps
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error extending advanced pH prediction: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/reset-advanced-ph-engine")
+async def reset_advanced_ph_engine():
+    """Reset the advanced pH prediction engine"""
+    try:
+        global advanced_ph_engine
+        advanced_ph_engine = None
+        
+        return {
+            'status': 'success',
+            'message': 'Advanced pH prediction engine reset successfully'
+        }
+        
+    except Exception as e:
+        logger.error(f"Error resetting advanced pH engine: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/prediction-system-status")
+async def get_prediction_system_status():
+    """Get current prediction system status"""
+    try:
+        global active_prediction_system, advanced_ph_engine
+        
+        return {
+            'active_system': active_prediction_system,
+            'advanced_ph_engine_status': 'initialized' if advanced_ph_engine is not None else 'not_initialized',
+            'systems_available': [
+                'legacy_prediction',
+                'enhanced_pattern_analysis',
+                'industry_level_prediction',
+                'advanced_ph_prediction'
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+
 @api_router.get("/prediction-system-status")
 async def get_prediction_system_status():
     """Get current prediction system status"""
