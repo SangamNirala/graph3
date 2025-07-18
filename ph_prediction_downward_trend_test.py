@@ -428,7 +428,153 @@ class PhPredictionTester:
             print(f"❌ Continuous prediction test error: {str(e)}")
             self.test_results['continuous_bias'] = False
     
-    def test_advanced_prediction_endpoints(self):
+    def test_pattern_following_capabilities(self):
+        """Test 7: Pattern following capabilities with different data patterns"""
+        print("\n=== Testing Pattern Following Capabilities ===")
+        
+        try:
+            # Test with different pattern types
+            pattern_tests = []
+            
+            # 1. Test with U-shaped pattern
+            u_shaped_data = self.create_u_shaped_ph_data()
+            pattern_tests.append(("U-shaped", u_shaped_data))
+            
+            # 2. Test with trending pattern
+            trending_data = self.create_trending_ph_data()
+            pattern_tests.append(("Trending", trending_data))
+            
+            # 3. Test with cyclical pattern
+            cyclical_data = self.create_cyclical_ph_data()
+            pattern_tests.append(("Cyclical", cyclical_data))
+            
+            pattern_results = []
+            
+            for pattern_name, test_data in pattern_tests:
+                print(f"\n   Testing {pattern_name} pattern:")
+                
+                # Upload pattern data
+                csv_content = test_data.to_csv(index=False)
+                files = {'file': (f'{pattern_name.lower()}_ph_data.csv', csv_content, 'text/csv')}
+                
+                upload_response = self.session.post(f"{API_BASE_URL}/upload-data", files=files)
+                
+                if upload_response.status_code == 200:
+                    upload_data = upload_response.json()
+                    pattern_data_id = upload_data.get('data_id')
+                    
+                    # Test advanced prediction with this pattern
+                    adv_response = self.session.post(
+                        f"{API_BASE_URL}/advanced-prediction",
+                        params={"data_id": pattern_data_id, "steps": 20}
+                    )
+                    
+                    if adv_response.status_code == 200:
+                        adv_data = adv_response.json()
+                        predictions = adv_data.get('predictions', [])
+                        
+                        if predictions:
+                            # Analyze how well predictions follow the pattern
+                            historical_values = test_data['ph_value'].values
+                            
+                            # Calculate pattern characteristics
+                            hist_mean = np.mean(historical_values)
+                            hist_std = np.std(historical_values)
+                            hist_trend = np.polyfit(range(len(historical_values)), historical_values, 1)[0]
+                            
+                            pred_mean = np.mean(predictions)
+                            pred_std = np.std(predictions)
+                            pred_trend = np.polyfit(range(len(predictions)), predictions, 1)[0]
+                            
+                            # Check pattern preservation
+                            mean_preservation = abs(pred_mean - hist_mean) / hist_mean
+                            std_preservation = abs(pred_std - hist_std) / hist_std if hist_std > 0 else 0
+                            trend_preservation = abs(pred_trend - hist_trend) / abs(hist_trend) if abs(hist_trend) > 0.001 else 0
+                            
+                            pattern_score = 1.0 - (mean_preservation + std_preservation + trend_preservation) / 3
+                            pattern_score = max(0, min(1, pattern_score))
+                            
+                            print(f"     Pattern preservation score: {pattern_score:.3f}")
+                            print(f"     Historical: mean={hist_mean:.3f}, std={hist_std:.3f}, trend={hist_trend:.6f}")
+                            print(f"     Predicted:  mean={pred_mean:.3f}, std={pred_std:.3f}, trend={pred_trend:.6f}")
+                            
+                            pattern_results.append({
+                                'pattern': pattern_name,
+                                'score': pattern_score,
+                                'predictions_count': len(predictions),
+                                'in_range': all(5.5 <= p <= 8.5 for p in predictions)
+                            })
+                            
+                        else:
+                            print(f"     ❌ No predictions generated for {pattern_name}")
+                    else:
+                        print(f"     ❌ Advanced prediction failed for {pattern_name}: {adv_response.status_code}")
+                else:
+                    print(f"     ❌ Upload failed for {pattern_name}: {upload_response.status_code}")
+            
+            # Evaluate overall pattern following capability
+            if pattern_results:
+                avg_score = np.mean([r['score'] for r in pattern_results])
+                all_in_range = all(r['in_range'] for r in pattern_results)
+                
+                print(f"\n   Overall pattern following score: {avg_score:.3f}")
+                
+                if avg_score >= 0.7 and all_in_range:
+                    print("✅ Excellent pattern following capabilities")
+                    self.test_results['pattern_following'] = True
+                elif avg_score >= 0.5:
+                    print("⚠️  Moderate pattern following capabilities")
+                    self.test_results['pattern_following'] = True
+                else:
+                    print("❌ Poor pattern following capabilities")
+                    self.test_results['pattern_following'] = False
+            else:
+                print("❌ No pattern tests completed")
+                self.test_results['pattern_following'] = False
+                
+        except Exception as e:
+            print(f"❌ Pattern following test error: {str(e)}")
+            self.test_results['pattern_following'] = False
+    
+    def create_u_shaped_ph_data(self, num_points=40):
+        """Create U-shaped pH data pattern"""
+        timestamps = [datetime.now() - timedelta(hours=num_points-i) for i in range(num_points)]
+        
+        # Create U-shaped pattern
+        x = np.linspace(-2, 2, num_points)
+        ph_values = 7.0 + 0.3 * x**2 + np.random.normal(0, 0.05, num_points)
+        
+        # Ensure realistic bounds
+        ph_values = np.clip(ph_values, 6.0, 8.0)
+        
+        return pd.DataFrame({'timestamp': timestamps, 'ph_value': ph_values})
+    
+    def create_trending_ph_data(self, num_points=40):
+        """Create trending pH data pattern"""
+        timestamps = [datetime.now() - timedelta(hours=num_points-i) for i in range(num_points)]
+        
+        # Create trending pattern
+        trend = np.linspace(6.8, 7.4, num_points)
+        noise = np.random.normal(0, 0.08, num_points)
+        ph_values = trend + noise
+        
+        # Ensure realistic bounds
+        ph_values = np.clip(ph_values, 6.0, 8.0)
+        
+        return pd.DataFrame({'timestamp': timestamps, 'ph_value': ph_values})
+    
+    def create_cyclical_ph_data(self, num_points=40):
+        """Create cyclical pH data pattern"""
+        timestamps = [datetime.now() - timedelta(hours=num_points-i) for i in range(num_points)]
+        
+        # Create cyclical pattern
+        x = np.linspace(0, 4*np.pi, num_points)
+        ph_values = 7.2 + 0.2 * np.sin(x) + np.random.normal(0, 0.05, num_points)
+        
+        # Ensure realistic bounds
+        ph_values = np.clip(ph_values, 6.0, 8.0)
+        
+        return pd.DataFrame({'timestamp': timestamps, 'ph_value': ph_values})
         """Test 6: Advanced prediction endpoints for pattern following"""
         print("\n=== Testing Advanced Prediction Endpoints ===")
         
