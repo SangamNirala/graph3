@@ -239,12 +239,12 @@ function App() {
   // Train model
   const handleTrainModel = async () => {
     if (!uploadedData || !parameters.time_column || !parameters.target_column) {
-      alert('Please select time and target columns');
+      alert('❌ Missing required fields: Please select both time and target columns');
       return;
     }
 
     if (parameters.time_column === parameters.target_column) {
-      alert('Time column and target column cannot be the same. Please select different columns.');
+      alert('❌ Invalid column selection: Time column and target column cannot be the same. Please select different columns.');
       return;
     }
 
@@ -266,18 +266,54 @@ function App() {
         // Show performance metrics for advanced models
         if (result.performance_metrics) {
           const metrics = result.performance_metrics;
-          alert(`Model trained successfully!\nPerformance Grade: ${result.evaluation_grade}\nRMSE: ${metrics.rmse?.toFixed(4) || 'N/A'}\nMAE: ${metrics.mae?.toFixed(4) || 'N/A'}\nR²: ${metrics.r2?.toFixed(4) || 'N/A'}`);
+          alert(`✅ Model trained successfully!\nPerformance Grade: ${result.evaluation_grade}\nRMSE: ${metrics.rmse?.toFixed(4) || 'N/A'}\nMAE: ${metrics.mae?.toFixed(4) || 'N/A'}\nR²: ${metrics.r2?.toFixed(4) || 'N/A'}`);
         }
         
         // Load historical data
         await loadHistoricalData();
       } else {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        alert(`Error training model: ${errorData.detail || 'Unknown error'}`);
+        // Get detailed error message from response
+        let errorMessage = 'Training failed';
+        try {
+          const errorData = await response.json();
+          if (errorData.detail) {
+            errorMessage = `❌ Training failed: ${errorData.detail}`;
+          } else if (errorData.error) {
+            errorMessage = `❌ Training failed: ${errorData.error}`;
+          } else if (errorData.message) {
+            errorMessage = `❌ Training failed: ${errorData.message}`;
+          }
+        } catch (e) {
+          errorMessage = `❌ Training failed: HTTP ${response.status} - ${response.statusText}`;
+        }
+        
+        alert(errorMessage);
+        console.error('Training failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          modelType: parameters.model_type,
+          dataId: uploadedData.data_id
+        });
       }
     } catch (error) {
       console.error('Training error:', error);
-      alert(`Error training model: ${error.message || 'Network error'}`);
+      
+      // Provide specific error messages based on error type
+      let errorMessage = 'Training failed';
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = '❌ Network error: Unable to connect to server. Please check your internet connection.';
+      } else if (error.name === 'TypeError' && error.message.includes('JSON')) {
+        errorMessage = '❌ Server response error: Invalid response format.';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = '❌ Training timeout: Model training took too long. Please try with a smaller dataset.';
+      } else if (error.message.includes('abort')) {
+        errorMessage = '❌ Training cancelled: Model training was interrupted.';
+      } else {
+        errorMessage = `❌ Training failed: ${error.message}`;
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsTraining(false);
     }
