@@ -222,7 +222,7 @@ class PhPredictionTester:
             
         try:
             # Generate single prediction
-            pred_response = self.session.post(
+            pred_response = self.session.get(
                 f"{API_BASE_URL}/generate-prediction",
                 params={"model_id": self.model_id, "steps": 10}
             )
