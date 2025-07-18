@@ -186,6 +186,7 @@ global_pattern_analyzer = AdvancedPatternAnalyzer()
 global_prediction_engine = EnhancedPredictionEngine()
 # Connect the pattern analyzer to the prediction engine
 global_prediction_engine.set_pattern_analyzer(global_pattern_analyzer)
+advanced_ph_engine = None  # New advanced pH prediction engine
 
 # Industry-level advanced systems
 industry_pattern_recognizer = IndustryLevelPatternRecognition()
