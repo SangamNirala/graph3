@@ -999,22 +999,98 @@ class AdvancedTimeSeriesForecaster:
         return 0.0
     
     def _apply_final_smoothing(self, predictions, last_sequence, historical_mean, recent_trend):
-        """Apply final smoothing to maintain consistency with historical patterns"""
-        # Smooth transitions between predictions
+        """Apply enhanced final smoothing to maintain consistency with historical patterns"""
         smoothed_predictions = predictions.copy()
         
-        # Apply moving average smoothing
-        window_size = min(3, len(predictions))
-        if window_size > 1:
-            for i in range(window_size, len(smoothed_predictions)):
-                smoothed_predictions[i] = np.mean(smoothed_predictions[i-window_size:i+1])
+        # 1. Adaptive smoothing based on trend consistency
+        trend_consistency = self._calculate_pattern_trend_consistency(last_sequence)
         
-        # Ensure predictions don't drift too far from historical characteristics
+        # Determine smoothing strength based on trend consistency
+        if trend_consistency > 0.7:
+            # Strong trend - use minimal smoothing to preserve pattern
+            smoothing_strength = 0.1
+        elif trend_consistency > 0.4:
+            # Moderate trend - use moderate smoothing
+            smoothing_strength = 0.3
+        else:
+            # Weak trend - use stronger smoothing
+            smoothing_strength = 0.5
+        
+        # 2. Pattern-preserving moving average
+        window_size = max(2, min(4, len(predictions) // 5))
+        
+        for i in range(window_size, len(smoothed_predictions)):
+            if smoothing_strength > 0:
+                # Calculate weighted moving average
+                weights = np.exp(np.linspace(-1, 0, window_size + 1))
+                weights = weights / np.sum(weights)
+                
+                window_values = smoothed_predictions[i-window_size:i+1]
+                weighted_avg = np.sum(window_values * weights)
+                
+                # Apply smoothing with adaptive strength
+                smoothed_predictions[i] = (1 - smoothing_strength) * smoothed_predictions[i] + smoothing_strength * weighted_avg
+        
+        # 3. Enhanced global consistency check
         prediction_mean = np.mean(smoothed_predictions)
-        if abs(prediction_mean - historical_mean) > 2 * np.std(last_sequence):
-            # Apply global correction
-            correction = (historical_mean - prediction_mean) * 0.3
-            smoothed_predictions += correction
+        historical_std = np.std(last_sequence)
+        
+        # Check if predictions drift too far from historical characteristics
+        if abs(prediction_mean - historical_mean) > 1.5 * historical_std:
+            # Apply progressive correction
+            correction_factor = (historical_mean - prediction_mean) * 0.2
+            
+            # Apply correction with increasing strength towards the end
+            for i in range(len(smoothed_predictions)):
+                correction_weight = (i + 1) / len(smoothed_predictions)
+                smoothed_predictions[i] += correction_factor * correction_weight
+        
+        # 4. Trend consistency enforcement
+        if len(smoothed_predictions) >= 3:
+            # Calculate prediction trend
+            prediction_trend = np.polyfit(np.arange(len(smoothed_predictions)), smoothed_predictions, 1)[0]
+            
+            # If prediction trend deviates significantly from recent trend, apply correction
+            if abs(prediction_trend - recent_trend) > 2 * abs(recent_trend):
+                # Apply trend correction
+                trend_correction = (recent_trend - prediction_trend) * 0.3
+                
+                # Apply correction progressively
+                for i in range(len(smoothed_predictions)):
+                    correction_weight = (i + 1) / len(smoothed_predictions)
+                    smoothed_predictions[i] += trend_correction * correction_weight * (i + 1)
+        
+        # 5. Volatility preservation
+        # Ensure predictions maintain appropriate volatility
+        prediction_volatility = np.std(np.diff(smoothed_predictions)) if len(smoothed_predictions) > 1 else 0
+        historical_volatility = np.std(np.diff(last_sequence)) if len(last_sequence) > 1 else 0
+        
+        if prediction_volatility > 0 and historical_volatility > 0:
+            # If volatility is too low, add controlled variation
+            if prediction_volatility < 0.5 * historical_volatility:
+                volatility_adjustment = 0.3 * historical_volatility
+                
+                # Add variation while preserving trend
+                for i in range(1, len(smoothed_predictions)):
+                    variation = np.random.normal(0, volatility_adjustment * 0.1)
+                    smoothed_predictions[i] += variation
+        
+        # 6. Final bounds checking
+        # Ensure predictions stay within reasonable historical bounds
+        historical_min = np.min(last_sequence)
+        historical_max = np.max(last_sequence)
+        historical_range = historical_max - historical_min
+        
+        # Allow some expansion but keep it reasonable
+        expanded_min = historical_min - 0.3 * historical_range
+        expanded_max = historical_max + 0.3 * historical_range
+        
+        # Soft clipping to avoid sharp boundaries
+        for i in range(len(smoothed_predictions)):
+            if smoothed_predictions[i] < expanded_min:
+                smoothed_predictions[i] = expanded_min + 0.1 * (smoothed_predictions[i] - expanded_min)
+            elif smoothed_predictions[i] > expanded_max:
+                smoothed_predictions[i] = expanded_max + 0.1 * (smoothed_predictions[i] - expanded_max)
         
         return smoothed_predictions
     
