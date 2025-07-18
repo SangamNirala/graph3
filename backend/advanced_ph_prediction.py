@@ -416,17 +416,17 @@ class AdvancedPhPredictionEngine:
         if self.historical_data is None or len(self.historical_data) == 0:
             return {}
         
-        last_historical = self.historical_data[-1]
-        first_prediction = predictions[0]
+        last_historical = float(self.historical_data[-1])
+        first_prediction = float(predictions[0])
         
         # Continuity gap
-        continuity_gap = abs(first_prediction - last_historical)
+        continuity_gap = float(abs(first_prediction - last_historical))
         
         # Expected reasonable gap (based on historical changes)
         if len(self.historical_data) > 1:
             historical_changes = np.diff(self.historical_data)
-            typical_change = np.mean(np.abs(historical_changes))
-            continuity_score = max(0, 1 - (continuity_gap / (typical_change * 2)))
+            typical_change = float(np.mean(np.abs(historical_changes)))
+            continuity_score = float(max(0, 1 - (continuity_gap / (typical_change * 2))))
         else:
             continuity_score = 1.0
         
