@@ -3581,11 +3581,11 @@ async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bo
         # Initialize advanced pH engine if not already done
         if advanced_ph_engine is None:
             advanced_ph_engine = AdvancedPhPredictionEngine()
-            
-            # Fit the model with historical data
-            logger.info(f"Training advanced pH prediction model with {len(target_values)} data points")
-            training_results = advanced_ph_engine.fit(target_values)
-            logger.info(f"Training completed with final loss: {training_results.get('training_results', {}).get('final_loss', 'N/A')}")
+        
+        # Always fit the model with current data
+        logger.info(f"Training advanced pH prediction model with {len(target_values)} data points")
+        training_results = advanced_ph_engine.fit(target_values)
+        logger.info(f"Training completed with final loss: {training_results.get('training_results', {}).get('final_loss', 'N/A')}")
         
         # Generate predictions
         prediction_results = advanced_ph_engine.predict_continuous(
