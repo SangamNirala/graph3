@@ -1044,24 +1044,53 @@ def _generate_simple_fallback(patterns, steps):
 
 def _calculate_pattern_component(patterns, step, current_value):
     """Calculate pattern-based component to maintain historical characteristics"""
-    # Cyclical component based on historical patterns
-    if len(patterns['last_10_values']) >= 5:
-        # Simple cyclical pattern detection
-        recent_changes = np.diff(patterns['last_10_values'])
-        if len(recent_changes) > 0:
-            avg_change = np.mean(recent_changes)
-            cycle_period = 5  # Simple 5-step cycle
-            cycle_phase = step % cycle_period
-            cycle_amplitude = patterns['recent_std'] * 0.1
-            
-            # Combine trend with cyclical component
-            cyclical_value = avg_change + cycle_amplitude * np.sin(2 * np.pi * cycle_phase / cycle_period)
-            
-            # Weight by pattern strength
-            pattern_strength = min(1.0, patterns['stability_factor'] * 2)
-            return cyclical_value * pattern_strength * 0.1
-    
-    return 0.0
+    try:
+        original_data = patterns.get('original_data', [])
+        if len(original_data) < 5:
+            return 0.0
+        
+        # Detect and analyze patterns
+        cyclical_patterns = _detect_cyclical_patterns(original_data)
+        local_patterns = _analyze_local_patterns(original_data)
+        
+        # Calculate different pattern components
+        cyclical_component = _calculate_enhanced_cyclical_component(step, cyclical_patterns, original_data, current_value)
+        local_component = _calculate_local_pattern_component(step, local_patterns, original_data, current_value)
+        volatility_component = _calculate_volatility_aware_adjustment(step, original_data, patterns['recent_std'], patterns['stability_factor'])
+        
+        # Combine components with adaptive weights
+        pattern_strength = _calculate_pattern_strength(original_data)
+        
+        # Weight components based on pattern strength and step
+        decay_factor = _calculate_adaptive_trend_decay(step, patterns['trend_consistency'], patterns['stability_factor'])
+        
+        total_component = (
+            cyclical_component * 0.4 * pattern_strength * decay_factor +
+            local_component * 0.4 * pattern_strength * decay_factor +
+            volatility_component * 0.2 * decay_factor
+        )
+        
+        # Apply enhanced bias correction
+        bias_correction = _apply_enhanced_bias_correction(current_value + total_component, step, patterns, original_data)
+        total_component += bias_correction
+        
+        return total_component
+        
+    except Exception as e:
+        # Fallback to simple pattern component
+        if len(patterns['last_10_values']) >= 5:
+            recent_changes = np.diff(patterns['last_10_values'])
+            if len(recent_changes) > 0:
+                avg_change = np.mean(recent_changes)
+                cycle_period = 5
+                cycle_phase = step % cycle_period
+                cycle_amplitude = patterns['recent_std'] * 0.1
+                
+                cyclical_value = avg_change + cycle_amplitude * np.sin(2 * np.pi * cycle_phase / cycle_period)
+                pattern_strength = min(1.0, patterns['stability_factor'] * 2)
+                return cyclical_value * pattern_strength * 0.1
+        
+        return 0.0
 
 def _apply_bounds(value, patterns, step):
     """Apply reasonable bounds to prevent extreme values"""
