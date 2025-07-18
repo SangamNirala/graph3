@@ -672,23 +672,50 @@ class AdvancedPredictionEngine:
     
     def _apply_bias_correction(self, predictions: np.ndarray, data: np.ndarray,
                              pattern_analysis: Dict) -> np.ndarray:
-        """Apply bias correction to predictions"""
+        """Apply enhanced bias correction to predictions"""
         try:
-            # Calculate historical bias
+            # Calculate comprehensive historical statistics
             historical_mean = np.mean(data)
+            historical_std = np.std(data)
+            historical_min = np.min(data)
+            historical_max = np.max(data)
+            
+            # Calculate prediction statistics
             prediction_mean = np.mean(predictions)
+            prediction_std = np.std(predictions)
             
-            # Mean reversion factor
-            mean_reversion_strength = 0.1
-            bias_correction = (historical_mean - prediction_mean) * mean_reversion_strength
+            # Enhanced mean reversion with adaptive strength
+            data_variability = historical_std / (historical_max - historical_min + 1e-10)
+            mean_reversion_strength = 0.3 + 0.4 * data_variability  # Adaptive: 0.3 to 0.7
             
-            # Apply gradual bias correction
-            correction_weights = np.exp(-0.1 * np.arange(len(predictions)))
-            bias_corrections = bias_correction * correction_weights
+            # Primary bias correction
+            primary_bias_correction = (historical_mean - prediction_mean) * mean_reversion_strength
             
-            return predictions + bias_corrections
+            # Variability correction - ensure predictions maintain historical variability
+            variability_ratio = historical_std / (prediction_std + 1e-10)
+            if variability_ratio > 1.5:  # Predictions too flat
+                variability_correction = (predictions - prediction_mean) * (variability_ratio - 1.0) * 0.5
+            else:
+                variability_correction = 0
+            
+            # Apply corrections with adaptive decay
+            # Use slower decay for longer-term pattern preservation
+            correction_weights = np.exp(-0.05 * np.arange(len(predictions)))  # Slower decay
+            bias_corrections = primary_bias_correction * correction_weights
+            
+            # Combine corrections
+            final_predictions = predictions + bias_corrections + variability_correction
+            
+            # Ensure predictions stay within reasonable bounds
+            range_expansion = 0.1 * (historical_max - historical_min)
+            final_predictions = np.clip(final_predictions, 
+                                      historical_min - range_expansion, 
+                                      historical_max + range_expansion)
+            
+            return final_predictions
             
         except Exception as e:
+            logger.warning(f"Bias correction failed: {e}")
             return predictions
     
     def _apply_volatility_correction(self, predictions: np.ndarray, data: np.ndarray,
