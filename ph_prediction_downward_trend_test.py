@@ -300,7 +300,7 @@ class PhPredictionTester:
             
             # Generate 5 sequential predictions
             for i in range(5):
-                pred_response = self.session.post(
+                pred_response = self.session.get(
                     f"{API_BASE_URL}/generate-prediction",
                     params={"model_id": self.model_id, "steps": 10}
                 )
