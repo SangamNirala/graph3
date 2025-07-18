@@ -33,6 +33,15 @@ function App() {
   const [isAdvancedMode, setIsAdvancedMode] = useState(false);
   const [modelComparison, setModelComparison] = useState(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  
+  // Toast notification state
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+  
+  // Toast notification function
+  const showToast = (message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 5000);
+  };
 
   // File upload handler
   const onDrop = useCallback(async (acceptedFiles) => {
