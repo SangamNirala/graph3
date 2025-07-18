@@ -13,6 +13,10 @@ from datetime import datetime, timedelta
 import os
 from pathlib import Path
 import statistics
+import urllib3
+
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Load environment variables
 from dotenv import load_dotenv
