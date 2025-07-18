@@ -244,7 +244,7 @@ class ContinuousPredictionBiasTester:
             for i in range(num_calls):
                 print(f"   Generating prediction batch {i+1}/{num_calls}...")
                 
-                response = self.session.post(
+                response = self.session.get(
                     f"{API_BASE_URL}/generate-continuous-prediction",
                     params={"steps": 5}  # 5 steps per call
                 )
