@@ -51,14 +51,14 @@ function App() {
     // Validate file type
     const supportedTypes = ['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
     if (!supportedTypes.includes(file.type) && !file.name.match(/\.(csv|xlsx|xls)$/i)) {
-      alert('❌ Unsupported file type. Please upload CSV (.csv) or Excel (.xlsx, .xls) files only.');
+      showToast('Unsupported file type. Please upload CSV (.csv) or Excel (.xlsx, .xls) files only.', 'error');
       return;
     }
 
     // Validate file size (limit to 50MB)
     const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
-      alert('❌ File too large. Please upload files smaller than 50MB.');
+      showToast('File too large. Please upload files smaller than 50MB.', 'error');
       return;
     }
 
@@ -77,24 +77,25 @@ function App() {
         setAnalysis(result.analysis);
         setParameters(result.analysis.suggested_parameters);
         setCurrentStep('parameters');
+        showToast('File uploaded successfully!', 'success');
       } else {
         // Get detailed error message from response
         let errorMessage = 'Error uploading file';
         try {
           const errorData = await response.json();
           if (errorData.detail) {
-            errorMessage = `❌ Upload failed: ${errorData.detail}`;
+            errorMessage = `Upload failed: ${errorData.detail}`;
           } else if (errorData.error) {
-            errorMessage = `❌ Upload failed: ${errorData.error}`;
+            errorMessage = `Upload failed: ${errorData.error}`;
           } else if (errorData.message) {
-            errorMessage = `❌ Upload failed: ${errorData.message}`;
+            errorMessage = `Upload failed: ${errorData.message}`;
           }
         } catch (e) {
           // If we can't parse JSON, show HTTP status
-          errorMessage = `❌ Upload failed: HTTP ${response.status} - ${response.statusText}`;
+          errorMessage = `Upload failed: HTTP ${response.status} - ${response.statusText}`;
         }
         
-        alert(errorMessage);
+        showToast(errorMessage, 'error');
         console.error('Upload failed:', {
           status: response.status,
           statusText: response.statusText,
@@ -110,20 +111,20 @@ function App() {
       let errorMessage = 'Error uploading file';
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        errorMessage = '❌ Network error: Unable to connect to server. Please check your internet connection.';
+        errorMessage = 'Network error: Unable to connect to server. Please check your internet connection.';
       } else if (error.name === 'TypeError' && error.message.includes('JSON')) {
-        errorMessage = '❌ Server response error: Invalid response format.';
+        errorMessage = 'Server response error: Invalid response format.';
       } else if (error.message.includes('timeout')) {
-        errorMessage = '❌ Upload timeout: File upload took too long. Please try with a smaller file.';
+        errorMessage = 'Upload timeout: File upload took too long. Please try with a smaller file.';
       } else if (error.message.includes('abort')) {
-        errorMessage = '❌ Upload cancelled: File upload was interrupted.';
+        errorMessage = 'Upload cancelled: File upload was interrupted.';
       } else {
-        errorMessage = `❌ Upload failed: ${error.message}`;
+        errorMessage = `Upload failed: ${error.message}`;
       }
       
-      alert(errorMessage);
+      showToast(errorMessage, 'error');
     }
-  }, []);
+  }, [showToast]);
 
   // Load supported models
   const loadSupportedModels = async () => {
