@@ -513,7 +513,7 @@ class ContinuousPredictionBiasTester:
             
         try:
             # Generate a longer prediction to test pattern following
-            response = self.session.post(
+            response = self.session.get(
                 f"{API_BASE_URL}/generate-prediction",
                 params={"model_id": self.model_id, "steps": 25}
             )
