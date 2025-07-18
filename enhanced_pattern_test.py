@@ -34,7 +34,7 @@ class EnhancedPatternTester:
         
     def create_pattern_data(self, pattern_type="linear", size=100):
         """Create different types of sensor data patterns for testing"""
-        dates = pd.date_range(start='2024-01-01', periods=size, freq='H')
+        dates = pd.date_range(start='2024-01-01', periods=size, freq='h')
         
         if pattern_type == "linear":
             # Linear upward trend with noise
