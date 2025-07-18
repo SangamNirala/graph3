@@ -184,14 +184,23 @@ class PatternAnalyzer:
         """Analyze structural patterns using multiple window sizes"""
         structural = {}
         
-        # Pattern templates
+        # Pattern templates with error handling
+        def safe_linear_check(x):
+            try:
+                if len(x) < 2:
+                    return False
+                corr = np.corrcoef(np.arange(len(x)), x)[0, 1]
+                return abs(corr) > 0.8 if not np.isnan(corr) else False
+            except:
+                return False
+        
         patterns = {
-            'increasing': lambda x: np.all(np.diff(x) > 0),
-            'decreasing': lambda x: np.all(np.diff(x) < 0),
-            'u_shaped': lambda x: np.argmin(x) == len(x) // 2,
-            'inverted_u': lambda x: np.argmax(x) == len(x) // 2,
-            'linear': lambda x: abs(np.corrcoef(np.arange(len(x)), x)[0, 1]) > 0.8,
-            'stable': lambda x: np.std(x) < 0.1 * np.mean(np.abs(x))
+            'increasing': lambda x: np.all(np.diff(x) > 0) if len(x) > 1 else False,
+            'decreasing': lambda x: np.all(np.diff(x) < 0) if len(x) > 1 else False,
+            'u_shaped': lambda x: np.argmin(x) == len(x) // 2 if len(x) > 2 else False,
+            'inverted_u': lambda x: np.argmax(x) == len(x) // 2 if len(x) > 2 else False,
+            'linear': safe_linear_check,
+            'stable': lambda x: np.std(x) < 0.1 * np.mean(np.abs(x)) if len(x) > 0 and np.mean(np.abs(x)) > 0 else False
         }
         
         # Analyze patterns at different scales
@@ -207,14 +216,14 @@ class PatternAnalyzer:
                     try:
                         if pattern_func(segment):
                             pattern_counts[pattern_name] += 1
-                    except:
+                    except Exception:
                         pass
             
             # Normalize counts
             total_windows = len(data) - window_size + 1
             if total_windows > 0:
                 for pattern_name in pattern_counts:
-                    pattern_counts[pattern_name] /= total_windows
+                    pattern_counts[pattern_name] = float(pattern_counts[pattern_name] / total_windows)
             
             structural[f'window_{window_size}'] = pattern_counts
         
