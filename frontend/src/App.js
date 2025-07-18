@@ -378,7 +378,17 @@ function App() {
     }
 
     try {
-      // Try new advanced pH prediction first
+      // Try new enhanced real-time prediction first (highest priority)
+      const enhancedRealtimeResponse = await fetch(`${API}/generate-enhanced-realtime-prediction?steps=30&time_window=${timeWindow}&maintain_patterns=true`);
+      if (enhancedRealtimeResponse.ok) {
+        const enhancedRealtimeData = await enhancedRealtimeResponse.json();
+        console.log('Enhanced real-time prediction result:', enhancedRealtimeData);
+        console.log('Pattern following score:', enhancedRealtimeData.metadata?.pattern_following_score);
+        console.log('Continuity score:', enhancedRealtimeData.metadata?.continuity_score);
+        return enhancedRealtimeData;
+      }
+      
+      // Try advanced pH prediction as fallback
       const advancedResponse = await fetch(`${API}/generate-advanced-ph-prediction?steps=30&maintain_patterns=true`);
       if (advancedResponse.ok) {
         const advancedData = await advancedResponse.json();
