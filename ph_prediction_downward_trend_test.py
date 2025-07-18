@@ -645,6 +645,7 @@ class PhPredictionTester:
         self.test_multiple_sequential_predictions()
         self.test_continuous_prediction_system()
         self.test_advanced_prediction_endpoints()
+        self.test_pattern_following_capabilities()
         
         # Summary
         print("\n" + "=" * 70)
