@@ -220,16 +220,25 @@ class FocusedPatternTester:
                 
                 print("✅ Quality metrics retrieved")
                 print(f"   Pattern Following Score: {pattern_score:.3f}")
-                print(f"   Characteristic Preservation: {char_preservation:.3f}")
+                
+                # Handle characteristic preservation (could be dict or number)
+                if isinstance(char_preservation, dict):
+                    overall_preservation = char_preservation.get('overall_preservation', 0)
+                    print(f"   Characteristic Preservation: {overall_preservation:.3f}")
+                    print(f"   Preservation Details: {char_preservation}")
+                else:
+                    print(f"   Characteristic Preservation: {char_preservation:.3f}")
+                    overall_preservation = char_preservation
+                
                 print(f"   Quality Metrics Keys: {list(quality_metrics.keys())}")
                 print(f"   Historical Chars Keys: {list(historical_chars.keys())}")
                 
                 # Validate ranges
-                if 0 <= pattern_score <= 1 and 0 <= char_preservation <= 1:
+                if 0 <= pattern_score <= 1 and 0 <= overall_preservation <= 1:
                     print("✅ Metrics in valid ranges")
                     self.test_results['quality_metrics'] = True
                 else:
-                    print(f"❌ Metrics out of range: pattern={pattern_score}, char={char_preservation}")
+                    print(f"❌ Metrics out of range: pattern={pattern_score}, char={overall_preservation}")
                     self.test_results['quality_metrics'] = False
                     
             else:
