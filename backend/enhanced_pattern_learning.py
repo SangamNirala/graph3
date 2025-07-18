@@ -248,26 +248,26 @@ class PatternAnalyzer:
         stats = {}
         
         # Basic statistics
-        stats['mean'] = np.mean(data)
-        stats['std'] = np.std(data)
-        stats['min'] = np.min(data)
-        stats['max'] = np.max(data)
-        stats['range'] = stats['max'] - stats['min']
-        stats['median'] = np.median(data)
+        stats['mean'] = float(np.mean(data))
+        stats['std'] = float(np.std(data))
+        stats['min'] = float(np.min(data))
+        stats['max'] = float(np.max(data))
+        stats['range'] = float(stats['max'] - stats['min'])
+        stats['median'] = float(np.median(data))
         
         # Distribution properties
-        stats['skewness'] = self._calculate_skewness(data)
-        stats['kurtosis'] = self._calculate_kurtosis(data)
+        stats['skewness'] = float(self._calculate_skewness(data))
+        stats['kurtosis'] = float(self._calculate_kurtosis(data))
         
         # Variability measures
-        stats['coefficient_of_variation'] = stats['std'] / stats['mean'] if stats['mean'] != 0 else 0
-        stats['iqr'] = np.percentile(data, 75) - np.percentile(data, 25)
+        stats['coefficient_of_variation'] = float(stats['std'] / stats['mean'] if stats['mean'] != 0 else 0)
+        stats['iqr'] = float(np.percentile(data, 75) - np.percentile(data, 25))
         
         # Change characteristics
         changes = np.diff(data)
-        stats['change_mean'] = np.mean(changes)
-        stats['change_std'] = np.std(changes)
-        stats['change_magnitude'] = np.mean(np.abs(changes))
+        stats['change_mean'] = float(np.mean(changes))
+        stats['change_std'] = float(np.std(changes))
+        stats['change_magnitude'] = float(np.mean(np.abs(changes)))
         
         return stats
     
