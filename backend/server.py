@@ -206,9 +206,14 @@ advanced_pattern_follower = AdvancedPatternFollowingEngine()
 # Enhanced continuous prediction system
 enhanced_continuous_predictor = EnhancedContinuousPredictionSystem()
 
+# Latest advanced pattern memory and real-time prediction systems
+advanced_pattern_memory = AdvancedPatternMemory()
+enhanced_realtime_predictor = EnhancedRealTimeContinuousPrediction()
+
 # Global flag to control which system to use
 use_industry_level_prediction = True  # Enable industry-level predictions
 use_advanced_pattern_following = True  # Enable advanced pattern following
+use_advanced_pattern_memory = True  # Enable advanced pattern memory system
 
 def analyze_historical_patterns(data, time_col, target_col):
     """
