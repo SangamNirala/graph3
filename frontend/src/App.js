@@ -320,6 +320,15 @@ function App() {
     if (!modelId) return null;
 
     try {
+      // Try new advanced pH prediction first
+      const advancedResponse = await fetch(`${API}/generate-advanced-ph-prediction?steps=30&maintain_patterns=true`);
+      if (advancedResponse.ok) {
+        const advancedData = await advancedResponse.json();
+        console.log('Advanced pH prediction result:', advancedData);
+        return advancedData;
+      }
+      
+      // Fallback to standard prediction
       const response = await fetch(`${API}/generate-prediction?model_id=${modelId}&steps=30&offset=${window}`);
       if (response.ok) {
         const data = await response.json();
