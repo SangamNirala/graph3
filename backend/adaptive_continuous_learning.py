@@ -42,11 +42,20 @@ class AdaptiveContinuousLearningSystem:
         self.current_model_state = None
         self.adaptation_metrics = {}
         
-        # Learning parameters
-        self.learning_rate = 0.1
-        self.adaptation_threshold = 0.15
-        self.pattern_change_threshold = 0.2
+        # Enhanced learning parameters for better pattern following
+        self.learning_rate = 0.05  # Reduced from 0.1 for more stable learning
+        self.adaptation_threshold = 0.1  # Reduced from 0.15 for more responsive adaptation
+        self.pattern_change_threshold = 0.15  # Reduced from 0.2 for better pattern tracking
         self.min_data_points = 10
+        
+        # Pattern preservation parameters
+        self.pattern_preservation_strength = 0.7  # How strongly to preserve patterns
+        self.variability_preservation_factor = 0.8  # How much to preserve historical variability
+        self.continuity_preservation_factor = 0.5  # How much to preserve continuity
+        
+        # Bias correction parameters
+        self.bias_correction_strength = 0.3  # Stronger bias correction
+        self.mean_reversion_strength = 0.4  # Stronger mean reversion
         
         # Performance tracking
         self.prediction_accuracy = deque(maxlen=100)
