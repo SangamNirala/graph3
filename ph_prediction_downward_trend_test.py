@@ -27,6 +27,7 @@ print(f"Testing pH prediction system at: {API_BASE_URL}")
 class PhPredictionTester:
     def __init__(self):
         self.session = requests.Session()
+        self.session.verify = False  # Disable SSL verification for testing
         self.data_id = None
         self.model_id = None
         self.test_results = {}
