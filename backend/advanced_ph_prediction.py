@@ -385,27 +385,27 @@ class AdvancedPhPredictionEngine:
         metrics = {}
         
         # Basic statistics
-        metrics['mean'] = np.mean(predictions)
-        metrics['std'] = np.std(predictions)
-        metrics['min'] = np.min(predictions)
-        metrics['max'] = np.max(predictions)
-        metrics['range'] = metrics['max'] - metrics['min']
+        metrics['mean'] = float(np.mean(predictions))
+        metrics['std'] = float(np.std(predictions))
+        metrics['min'] = float(np.min(predictions))
+        metrics['max'] = float(np.max(predictions))
+        metrics['range'] = float(metrics['max'] - metrics['min'])
         
         # Variability
-        metrics['coefficient_of_variation'] = metrics['std'] / metrics['mean'] if metrics['mean'] != 0 else 0
+        metrics['coefficient_of_variation'] = float(metrics['std'] / metrics['mean'] if metrics['mean'] != 0 else 0)
         
         # Trend analysis
         if len(predictions) > 1:
-            trend = np.polyfit(range(len(predictions)), predictions, 1)[0]
+            trend = float(np.polyfit(range(len(predictions)), predictions, 1)[0])
             metrics['trend_slope'] = trend
             metrics['trend_direction'] = 'increasing' if trend > 0 else 'decreasing' if trend < 0 else 'stable'
         
         # Change characteristics
         if len(predictions) > 1:
             changes = np.diff(predictions)
-            metrics['avg_change'] = np.mean(changes)
-            metrics['change_volatility'] = np.std(changes)
-            metrics['max_change'] = np.max(np.abs(changes))
+            metrics['avg_change'] = float(np.mean(changes))
+            metrics['change_volatility'] = float(np.std(changes))
+            metrics['max_change'] = float(np.max(np.abs(changes)))
         
         return metrics
     
