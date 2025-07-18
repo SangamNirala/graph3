@@ -2712,7 +2712,7 @@ async def get_historical_data():
 
 @api_router.get("/extend-prediction")
 async def extend_prediction(steps: int = 5):
-    """Extend current predictions with new points that follow the trend"""
+    """Extend current predictions with enhanced bias correction and pattern preservation"""
     try:
         global current_model, continuous_predictions
         
@@ -2727,27 +2727,67 @@ async def extend_prediction(steps: int = 5):
         last_prediction = continuous_predictions[-1]
         last_values = last_prediction['predictions']
         
-        # Analyze trend of recent predictions
+        # Get historical data for bias correction
+        data = current_model['data']
+        target_col = current_model['target_col']
+        historical_values = data[target_col].values
+        
+        # Calculate historical statistics for bias correction
+        historical_mean = np.mean(historical_values)
+        historical_std = np.std(historical_values)
+        historical_range = np.max(historical_values) - np.min(historical_values)
+        
+        # Calculate recent trend but with bias correction
         if len(last_values) >= 3:
             # Calculate trend from last few points
             x = np.arange(len(last_values))
-            trend = np.polyfit(x[-3:], last_values[-3:], 1)[0]  # Linear trend from last 3 points
+            raw_trend = np.polyfit(x[-3:], last_values[-3:], 1)[0]  # Linear trend from last 3 points
             velocity = np.mean(np.diff(last_values[-3:]))  # Average velocity
         else:
-            trend = 0
+            raw_trend = 0
             velocity = 0
         
-        # Generate new predictions that follow the trend
+        # Apply bias correction to the trend
+        # If trend is too negative, reduce it to prevent downward spiral
+        if raw_trend < -0.05:  # Strong downward trend
+            corrected_trend = raw_trend * 0.3  # Reduce by 70%
+        elif raw_trend < -0.01:  # Moderate downward trend
+            corrected_trend = raw_trend * 0.6  # Reduce by 40%
+        else:
+            corrected_trend = raw_trend
+        
+        # Generate new predictions with enhanced bias correction
         new_predictions = []
         last_value = last_values[-1]
         
         for i in range(steps):
-            # Apply trend with some decay and noise
-            trend_component = trend * (1 - i * 0.1)  # Decay trend over time
-            velocity_component = velocity * (1 - i * 0.05)  # Decay velocity
-            noise = np.random.normal(0, 0.1)  # Small noise
+            # Apply corrected trend with decay
+            trend_component = corrected_trend * (0.9 ** i)  # Exponential decay
+            velocity_component = velocity * (0.85 ** i)  # Exponential decay
             
-            next_value = last_value + trend_component + velocity_component + noise
+            # Mean reversion component - pull toward historical mean
+            mean_reversion = (historical_mean - last_value) * 0.02 * (1 + i * 0.001)
+            
+            # Volatility constraint - prevent extreme moves
+            volatility_bound = 2.0 * historical_std / (1 + i * 0.1)
+            
+            # Pattern-based noise with realistic variability
+            noise = np.random.normal(0, 0.02 * historical_std)
+            
+            # Combine all components
+            next_value = last_value + trend_component + velocity_component + mean_reversion + noise
+            
+            # Apply volatility constraint
+            max_change = volatility_bound
+            if abs(next_value - last_value) > max_change:
+                next_value = last_value + np.sign(next_value - last_value) * max_change
+            
+            # Range preservation - keep within realistic bounds
+            if len(historical_values) > 10:  # Only if we have enough data
+                min_bound = np.min(historical_values) - 0.1 * historical_range
+                max_bound = np.max(historical_values) + 0.1 * historical_range
+                next_value = np.clip(next_value, min_bound, max_bound)
+            
             new_predictions.append(next_value)
             last_value = next_value
         
@@ -2778,7 +2818,7 @@ async def extend_prediction(steps: int = 5):
             'predictions': new_predictions,
             'confidence_intervals': None,
             'extension_info': {
-                'trend': trend,
+                'trend': corrected_trend,  # Use corrected trend
                 'velocity': velocity,
                 'base_value': last_values[-1]
             }
