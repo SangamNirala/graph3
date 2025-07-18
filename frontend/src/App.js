@@ -569,8 +569,8 @@ function App() {
       const interval = setInterval(async () => {
         try {
           if (isPredictingRef.current) {
-            // Use the new extend-prediction endpoint for smoother continuous prediction
-            const extensionResponse = await fetch(`${API}/extend-prediction?steps=5`);
+            // Use the new advanced pH prediction extension endpoint for smoother continuous prediction
+            const extensionResponse = await fetch(`${API}/extend-advanced-ph-prediction?additional_steps=5`);
             if (extensionResponse.ok) {
               const extensionData = await extensionResponse.json();
               
@@ -582,6 +582,19 @@ function App() {
               
               // Update prediction data for display
               setPredictionData(extensionData);
+            } else {
+              // Fallback to standard extension
+              const fallbackResponse = await fetch(`${API}/extend-prediction?steps=5`);
+              if (fallbackResponse.ok) {
+                const fallbackData = await fallbackResponse.json();
+                
+                setLstmPredictions(prev => {
+                  const updated = [...prev, ...fallbackData.predictions];
+                  return updated.slice(-timeWindow);
+                });
+                
+                setPredictionData(fallbackData);
+              }
             }
             
             // Update pH simulation
