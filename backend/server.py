@@ -2308,24 +2308,72 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
         raise HTTPException(status_code=500, detail=str(e))
 
 async def generate_industry_level_continuous_prediction(model, model_type, data, time_col, target_col, steps, time_window):
-    """Generate continuous predictions using industry-level systems"""
+    """Generate continuous predictions using industry-level systems with enhanced pattern following"""
     try:
-        global adaptive_learning_system, continuous_predictions
+        global adaptive_learning_system, continuous_predictions, advanced_pattern_follower
         
         # Extract target values
         target_values = data[target_col].values
         
-        # Add current data to adaptive learning system
-        # Use more data points for better pattern detection (at least 50 or all if less)
-        data_points_to_use = min(len(target_values), max(50, len(target_values)))
-        for value in target_values[-data_points_to_use:]:  # Add sufficient data points for pattern detection
-            adaptive_learning_system.add_data_point(float(value))
-        
-        # Generate continuous predictions
-        prediction_results = adaptive_learning_system.get_continuous_predictions(
-            steps=steps, 
-            advance_steps=min(5, steps//6)  # Advance by 5 steps or 1/6 of total steps
-        )
+        # Use the advanced pattern following engine for better pattern preservation
+        try:
+            # First, try the advanced pattern following engine
+            pattern_following_result = advanced_pattern_follower.generate_pattern_following_predictions(
+                target_values, steps=steps
+            )
+            
+            # Extract predictions and quality metrics
+            predictions = pattern_following_result['predictions']
+            pattern_analysis = {
+                'pattern_following_score': pattern_following_result['pattern_following_score'],
+                'characteristic_preservation': pattern_following_result['characteristic_preservation'],
+                'quality_metrics': pattern_following_result['quality_metrics'],
+                'historical_characteristics': pattern_following_result['historical_characteristics']
+            }
+            
+            # If pattern following score is high, use these predictions
+            if pattern_following_result['pattern_following_score'] >= 0.7:
+                prediction_method = 'advanced_pattern_following'
+                confidence_intervals = []
+                
+                # Calculate confidence intervals based on historical variability
+                historical_std = pattern_following_result['historical_characteristics'].get('statistical', {}).get('std', np.std(target_values))
+                
+                for i, pred in enumerate(predictions):
+                    # Increasing uncertainty with prediction horizon
+                    uncertainty = historical_std * (1 + 0.1 * i)
+                    
+                    confidence_intervals.append({
+                        'lower': float(pred - 1.96 * uncertainty),
+                        'upper': float(pred + 1.96 * uncertainty),
+                        'std_error': float(uncertainty)
+                    })
+                
+            else:
+                # Fallback to adaptive learning system if pattern following score is low
+                raise Exception("Pattern following score too low, using fallback")
+                
+        except Exception as fallback_error:
+            print(f"Pattern following fallback: {fallback_error}")
+            
+            # Fallback to adaptive learning system
+            # Add current data to adaptive learning system
+            data_points_to_use = min(len(target_values), max(50, len(target_values)))
+            for value in target_values[-data_points_to_use:]:
+                adaptive_learning_system.add_data_point(float(value))
+            
+            # Generate continuous predictions
+            prediction_results = adaptive_learning_system.get_continuous_predictions(
+                steps=steps, 
+                advance_steps=min(5, steps//6)
+            )
+            
+            # Extract predictions and analysis
+            predictions = prediction_results['predictions']
+            confidence_intervals = prediction_results.get('confidence_intervals', [])
+            pattern_analysis = prediction_results.get('pattern_analysis', {})
+            quality_metrics = prediction_results.get('quality_metrics', {})
+            prediction_method = 'adaptive_learning_fallback'
         
         # Calculate prediction offset for continuous extension
         prediction_offset = len(continuous_predictions) * 5  # Each call advances by 5 steps
@@ -2358,26 +2406,14 @@ async def generate_industry_level_continuous_prediction(model, model_type, data,
                 freq='D'
             )
         
-        # Extract predictions from results
-        predictions = prediction_results['predictions']
-        confidence_intervals = prediction_results.get('confidence_intervals', [])
-        pattern_analysis = prediction_results.get('pattern_analysis', {})
-        quality_metrics = prediction_results.get('quality_metrics', {})
-        
-        # Create result with industry-level predictions
+        # Create result with enhanced pattern following
         result = {
             'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
             'predictions': predictions[:steps],
             'confidence_intervals': confidence_intervals[:steps],
-            'pattern_analysis': {
-                'primary_pattern': pattern_analysis.get('pattern_classification', {}).get('primary_pattern', 'unknown'),
-                'pattern_confidence': pattern_analysis.get('pattern_classification', {}).get('confidence', 0.5),
-                'pattern_strength': pattern_analysis.get('pattern_strength', 0.5),
-                'predictability_score': pattern_analysis.get('predictability', {}).get('predictability_score', 0.5),
-                'quality_score': quality_metrics.get('overall_quality_score', 0.5)
-            },
-            'system_metrics': adaptive_learning_system.get_system_metrics(),
-            'prediction_method': 'industry_level_adaptive'
+            'pattern_analysis': pattern_analysis,
+            'prediction_method': prediction_method,
+            'system_metrics': getattr(adaptive_learning_system, 'get_system_metrics', lambda: {})()
         }
         
         # Store prediction for continuous use
@@ -2387,7 +2423,7 @@ async def generate_industry_level_continuous_prediction(model, model_type, data,
         
     except Exception as e:
         print(f"Error in industry-level continuous prediction: {e}")
-        # Fallback to legacy system
+        # Final fallback to legacy system
         return await generate_legacy_continuous_prediction(
             model, model_type, data, time_col, target_col, steps, time_window
         )
