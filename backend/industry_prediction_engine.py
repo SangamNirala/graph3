@@ -720,26 +720,57 @@ class AdvancedPredictionEngine:
     
     def _apply_volatility_correction(self, predictions: np.ndarray, data: np.ndarray,
                                    pattern_analysis: Dict) -> np.ndarray:
-        """Apply volatility correction to predictions"""
+        """Apply enhanced volatility correction to predictions"""
         try:
-            # Historical volatility
+            # Calculate historical volatility metrics
             historical_volatility = np.std(data)
+            historical_changes = np.diff(data)
+            historical_change_volatility = np.std(historical_changes)
             
-            # Prediction volatility
-            prediction_volatility = np.std(np.diff(predictions))
+            # Calculate prediction volatility metrics
+            prediction_volatility = np.std(predictions)
+            prediction_changes = np.diff(predictions)
+            prediction_change_volatility = np.std(prediction_changes)
             
-            # Correct if volatility is too high
-            if prediction_volatility > 2 * historical_volatility:
-                smoothing_factor = historical_volatility / prediction_volatility
+            # Correct overall volatility to match historical patterns
+            volatility_ratio = historical_volatility / (prediction_volatility + 1e-10)
+            
+            if abs(volatility_ratio - 1.0) > 0.3:  # Significant volatility mismatch
+                # Apply volatility correction
+                prediction_mean = np.mean(predictions)
+                corrected_predictions = prediction_mean + (predictions - prediction_mean) * volatility_ratio
                 
-                # Apply smoothing
+                # Smooth the correction to avoid abrupt changes
+                alpha = 0.7  # Smoothing factor
+                predictions = alpha * corrected_predictions + (1 - alpha) * predictions
+            
+            # Correct change volatility to match historical patterns
+            change_volatility_ratio = historical_change_volatility / (prediction_change_volatility + 1e-10)
+            
+            if abs(change_volatility_ratio - 1.0) > 0.5:  # Significant change volatility mismatch
+                # Apply change volatility correction
+                corrected_changes = prediction_changes * change_volatility_ratio
+                
+                # Reconstruct predictions from corrected changes
+                corrected_predictions = np.zeros_like(predictions)
+                corrected_predictions[0] = predictions[0]
                 for i in range(1, len(predictions)):
-                    change = predictions[i] - predictions[i-1]
-                    predictions[i] = predictions[i-1] + smoothing_factor * change
+                    corrected_predictions[i] = corrected_predictions[i-1] + corrected_changes[i-1]
+                
+                # Smooth the correction
+                alpha = 0.5  # Smoothing factor for change corrections
+                predictions = alpha * corrected_predictions + (1 - alpha) * predictions
+            
+            # Add realistic noise to prevent overly smooth predictions
+            if np.std(predictions) < 0.5 * historical_volatility:
+                noise_level = 0.1 * historical_volatility
+                noise = np.random.normal(0, noise_level, len(predictions))
+                predictions = predictions + noise
             
             return predictions
             
         except Exception as e:
+            logger.warning(f"Volatility correction failed: {e}")
             return predictions
     
     def _apply_boundary_correction(self, predictions: np.ndarray, data: np.ndarray,
