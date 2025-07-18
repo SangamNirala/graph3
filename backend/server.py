@@ -38,6 +38,9 @@ from industry_prediction_engine import AdvancedPredictionEngine as IndustryPredi
 from adaptive_continuous_learning import AdaptiveContinuousLearningSystem
 from advanced_pattern_following import AdvancedPatternFollowingEngine
 
+# Import enhanced continuous prediction system
+from enhanced_continuous_prediction import EnhancedContinuousPredictionSystem
+
 # Import new advanced pH prediction system
 from advanced_ph_prediction import AdvancedPhPredictionEngine
 
