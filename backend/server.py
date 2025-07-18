@@ -3562,28 +3562,20 @@ async def get_continuous_learning_status():
 async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bool = True):
     """Generate advanced pH predictions using enhanced pattern learning"""
     try:
-        global advanced_ph_engine, current_model, uploaded_data_for_analysis
+        global advanced_ph_engine, current_model, current_data
         
         # Check if we have data to work with
-        if uploaded_data_for_analysis is None:
+        if current_data is None:
             raise HTTPException(status_code=400, detail="No data available for prediction")
         
-        # Get the target data
-        target_col = uploaded_data_for_analysis.get('target_column', 'pH')
-        data_df = uploaded_data_for_analysis.get('data')
+        # Get numeric columns
+        numeric_columns = current_data.select_dtypes(include=[np.number]).columns
+        if len(numeric_columns) == 0:
+            raise HTTPException(status_code=400, detail="No numeric columns available")
         
-        if data_df is None:
-            raise HTTPException(status_code=400, detail="No data available")
-        
-        # Get the target values
-        if target_col not in data_df.columns:
-            # Try to find a suitable column
-            numeric_columns = data_df.select_dtypes(include=[np.number]).columns
-            if len(numeric_columns) == 0:
-                raise HTTPException(status_code=400, detail="No numeric columns available")
-            target_col = numeric_columns[0]
-        
-        target_values = data_df[target_col].values
+        # Use the first numeric column as target (assuming it's pH)
+        target_col = numeric_columns[0]
+        target_values = current_data[target_col].values
         
         # Initialize advanced pH engine if not already done
         if advanced_ph_engine is None:
@@ -3616,7 +3608,8 @@ async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bo
                 'model_type': 'advanced_pattern_aware_lstm',
                 'steps': steps,
                 'maintain_patterns': maintain_patterns,
-                'data_points_used': len(target_values)
+                'data_points_used': len(target_values),
+                'target_column': target_col
             }
         }
         
