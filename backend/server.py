@@ -44,6 +44,10 @@ from enhanced_continuous_prediction import EnhancedContinuousPredictionSystem
 # Import new advanced pH prediction system
 from advanced_ph_prediction import AdvancedPhPredictionEngine
 
+# Import latest advanced pattern memory and real-time prediction systems
+from advanced_pattern_memory import AdvancedPatternMemory
+from enhanced_realtime_continuous_prediction import EnhancedRealTimeContinuousPrediction
+
 # Import new advanced models
 from advanced_models import (
     AdvancedTimeSeriesForecaster, 
