@@ -406,7 +406,10 @@ function App() {
 
   // Generate predictions with time window
   const generatePredictions = async (window = 0) => {
-    if (!modelId) return null;
+    if (!modelId) {
+      alert('❌ No model available: Please train a model first before generating predictions.');
+      return null;
+    }
 
     try {
       // Try new advanced pH prediction first
@@ -422,9 +425,49 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         return data;
+      } else {
+        // Get detailed error message from response
+        let errorMessage = 'Prediction generation failed';
+        try {
+          const errorData = await response.json();
+          if (errorData.detail) {
+            errorMessage = `❌ Prediction failed: ${errorData.detail}`;
+          } else if (errorData.error) {
+            errorMessage = `❌ Prediction failed: ${errorData.error}`;
+          } else if (errorData.message) {
+            errorMessage = `❌ Prediction failed: ${errorData.message}`;
+          }
+        } catch (e) {
+          errorMessage = `❌ Prediction failed: HTTP ${response.status} - ${response.statusText}`;
+        }
+        
+        alert(errorMessage);
+        console.error('Prediction generation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          modelId: modelId,
+          window: window
+        });
       }
     } catch (error) {
       console.error('Error generating predictions:', error);
+      
+      // Provide specific error messages based on error type
+      let errorMessage = 'Prediction generation failed';
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = '❌ Network error: Unable to connect to server. Please check your internet connection.';
+      } else if (error.name === 'TypeError' && error.message.includes('JSON')) {
+        errorMessage = '❌ Server response error: Invalid response format.';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = '❌ Prediction timeout: Generation took too long. Please try again.';
+      } else if (error.message.includes('abort')) {
+        errorMessage = '❌ Prediction cancelled: Generation was interrupted.';
+      } else {
+        errorMessage = `❌ Prediction failed: ${error.message}`;
+      }
+      
+      alert(errorMessage);
     }
     return null;
   };
