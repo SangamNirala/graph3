@@ -385,8 +385,8 @@ class AdaptiveContinuousLearningSystem:
             logger.error(f"Failed to apply continuous corrections: {e}")
             return predictions
     
-    def _apply_pattern_corrections(self, predictions: np.ndarray, data: np.ndarray) -> np.ndarray:
-        """Apply pattern-specific corrections"""
+    def _apply_enhanced_pattern_corrections(self, predictions: np.ndarray, data: np.ndarray) -> np.ndarray:
+        """Apply enhanced pattern-specific corrections"""
         try:
             if self.current_pattern is None:
                 return predictions
@@ -394,16 +394,148 @@ class AdaptiveContinuousLearningSystem:
             pattern_type = self.current_pattern['pattern_classification']['primary_pattern']
             
             if pattern_type == 'sinusoidal':
-                return self._apply_sinusoidal_corrections(predictions, data)
+                return self._apply_enhanced_sinusoidal_corrections(predictions, data)
             elif pattern_type == 'seasonal':
-                return self._apply_seasonal_corrections(predictions, data)
+                return self._apply_enhanced_seasonal_corrections(predictions, data)
             elif pattern_type == 'trending':
-                return self._apply_trending_corrections(predictions, data)
+                return self._apply_enhanced_trending_corrections(predictions, data)
+            elif pattern_type == 'linear':
+                return self._apply_enhanced_linear_corrections(predictions, data)
             else:
-                return predictions
+                return self._apply_generic_pattern_corrections(predictions, data)
                 
         except Exception as e:
-            logger.error(f"Failed to apply pattern corrections: {e}")
+            logger.error(f"Failed to apply enhanced pattern corrections: {e}")
+            return predictions
+    
+    def _apply_enhanced_sinusoidal_corrections(self, predictions: np.ndarray, data: np.ndarray) -> np.ndarray:
+        """Apply enhanced corrections for sinusoidal patterns"""
+        try:
+            # Detect sinusoidal characteristics in historical data
+            from scipy.fft import fft, fftfreq
+            
+            # Perform FFT to identify dominant frequencies
+            fft_data = fft(data)
+            freqs = fftfreq(len(data))
+            
+            # Find dominant frequency (excluding DC component)
+            dominant_freq_idx = np.argmax(np.abs(fft_data[1:len(data)//2])) + 1
+            dominant_freq = freqs[dominant_freq_idx]
+            
+            # Calculate period
+            period = 1.0 / abs(dominant_freq) if dominant_freq != 0 else len(data)
+            
+            # Generate sinusoidal correction
+            t = np.arange(len(predictions))
+            phase = 2 * np.pi * t / period
+            
+            # Extract amplitude and phase from historical data
+            amplitude = np.std(data) * 0.8
+            phase_shift = 0  # Could be estimated from data
+            
+            # Apply sinusoidal correction
+            sinusoidal_component = amplitude * np.sin(phase + phase_shift)
+            
+            # Blend with predictions
+            blend_factor = 0.3  # Adjustable blending
+            corrected_predictions = predictions + blend_factor * sinusoidal_component
+            
+            return corrected_predictions
+            
+        except Exception as e:
+            logger.warning(f"Sinusoidal correction failed: {e}")
+            return predictions
+    
+    def _apply_enhanced_seasonal_corrections(self, predictions: np.ndarray, data: np.ndarray) -> np.ndarray:
+        """Apply enhanced corrections for seasonal patterns"""
+        try:
+            # Detect seasonal patterns in historical data
+            season_length = min(len(data) // 4, 12)  # Assume quarterly or monthly patterns
+            
+            if season_length < 3:
+                return predictions
+            
+            # Calculate seasonal component
+            seasonal_avg = np.zeros(season_length)
+            for i in range(season_length):
+                seasonal_indices = np.arange(i, len(data), season_length)
+                seasonal_avg[i] = np.mean(data[seasonal_indices])
+            
+            # Apply seasonal correction to predictions
+            corrected_predictions = predictions.copy()
+            for i in range(len(predictions)):
+                seasonal_idx = i % season_length
+                seasonal_correction = seasonal_avg[seasonal_idx] - np.mean(data)
+                corrected_predictions[i] += seasonal_correction * 0.2  # Gentle correction
+            
+            return corrected_predictions
+            
+        except Exception as e:
+            logger.warning(f"Seasonal correction failed: {e}")
+            return predictions
+    
+    def _apply_enhanced_trending_corrections(self, predictions: np.ndarray, data: np.ndarray) -> np.ndarray:
+        """Apply enhanced corrections for trending patterns"""
+        try:
+            # Calculate historical trend
+            x = np.arange(len(data))
+            trend_coeffs = np.polyfit(x, data, 1)
+            historical_trend = trend_coeffs[0]
+            
+            # Calculate prediction trend
+            pred_x = np.arange(len(predictions))
+            pred_trend_coeffs = np.polyfit(pred_x, predictions, 1)
+            prediction_trend = pred_trend_coeffs[0]
+            
+            # Apply trend correction
+            if abs(historical_trend) > 1e-6:  # Avoid division by zero
+                trend_ratio = historical_trend / prediction_trend if prediction_trend != 0 else 1.0
+                trend_ratio = np.clip(trend_ratio, 0.3, 3.0)  # Limit extreme corrections
+                
+                # Apply gradual trend correction
+                trend_correction = np.arange(len(predictions)) * (historical_trend - prediction_trend) * 0.3
+                corrected_predictions = predictions + trend_correction
+            else:
+                corrected_predictions = predictions
+            
+            return corrected_predictions
+            
+        except Exception as e:
+            logger.warning(f"Trending correction failed: {e}")
+            return predictions
+    
+    def _apply_enhanced_linear_corrections(self, predictions: np.ndarray, data: np.ndarray) -> np.ndarray:
+        """Apply enhanced corrections for linear patterns"""
+        try:
+            # Similar to trending but with more conservative approach
+            return self._apply_enhanced_trending_corrections(predictions, data)
+            
+        except Exception as e:
+            return predictions
+    
+    def _apply_generic_pattern_corrections(self, predictions: np.ndarray, data: np.ndarray) -> np.ndarray:
+        """Apply generic pattern corrections for unrecognized patterns"""
+        try:
+            # Apply statistical corrections
+            historical_mean = np.mean(data)
+            historical_std = np.std(data)
+            
+            pred_mean = np.mean(predictions)
+            pred_std = np.std(predictions)
+            
+            # Center correction
+            center_correction = (historical_mean - pred_mean) * 0.2
+            
+            # Variability correction
+            if pred_std > 0:
+                variability_correction = historical_std / pred_std * 0.7
+                corrected_predictions = pred_mean + center_correction + (predictions - pred_mean) * variability_correction
+            else:
+                corrected_predictions = predictions + center_correction
+            
+            return corrected_predictions
+            
+        except Exception as e:
             return predictions
     
     def _apply_sinusoidal_corrections(self, predictions: np.ndarray, data: np.ndarray) -> np.ndarray:
