@@ -725,6 +725,323 @@ def _generate_adaptive_predictions(patterns, steps):
         print(f"Error in adaptive prediction: {e}")
         return []
 
+def _calculate_pattern_strength(original_data):
+    """Calculate the strength of patterns in the data"""
+    try:
+        if len(original_data) < 5:
+            return 0.5
+        
+        # Calculate multiple pattern strength metrics
+        
+        # 1. Trend strength
+        x = np.arange(len(original_data))
+        trend_coef = np.polyfit(x, original_data, 1)[0]
+        trend_strength = abs(trend_coef) / (np.std(original_data) + 1e-8)
+        
+        # 2. Cyclical strength using autocorrelation
+        cyclical_strength = 0.0
+        for lag in range(1, min(len(original_data) // 3, 10)):
+            if len(original_data) >= lag * 2:
+                x1 = original_data[:-lag]
+                x2 = original_data[lag:]
+                if len(x1) > 0 and len(x2) > 0:
+                    corr = np.corrcoef(x1, x2)[0, 1]
+                    if not np.isnan(corr):
+                        cyclical_strength = max(cyclical_strength, abs(corr))
+        
+        # 3. Pattern regularity (smoothness)
+        second_diff = np.diff(np.diff(original_data))
+        regularity = 1.0 / (1.0 + np.std(second_diff) / (np.std(original_data) + 1e-8))
+        
+        # Combine metrics
+        pattern_strength = (trend_strength + cyclical_strength + regularity) / 3
+        return min(1.0, pattern_strength)
+        
+    except Exception as e:
+        return 0.5
+
+def _detect_cyclical_patterns(original_data):
+    """Detect cyclical patterns in the data"""
+    try:
+        patterns = []
+        
+        if len(original_data) < 8:
+            return patterns
+        
+        # Test different cycle lengths
+        for cycle_length in range(2, min(len(original_data) // 3, 12)):
+            # Calculate autocorrelation at this lag
+            if len(original_data) >= cycle_length * 2:
+                x1 = original_data[:-cycle_length]
+                x2 = original_data[cycle_length:]
+                
+                if len(x1) > 0 and len(x2) > 0:
+                    corr = np.corrcoef(x1, x2)[0, 1]
+                    if not np.isnan(corr) and abs(corr) > 0.3:
+                        patterns.append({
+                            'cycle_length': cycle_length,
+                            'strength': abs(corr),
+                            'phase': np.mean(original_data[-cycle_length:])
+                        })
+        
+        # Sort by strength
+        patterns.sort(key=lambda x: x['strength'], reverse=True)
+        return patterns[:3]  # Return top 3 patterns
+        
+    except Exception as e:
+        return []
+
+def _analyze_local_patterns(original_data):
+    """Analyze local patterns in different segments of the data"""
+    try:
+        local_patterns = []
+        
+        if len(original_data) < 10:
+            return local_patterns
+        
+        # Analyze different segments
+        segment_size = max(5, len(original_data) // 4)
+        
+        for i in range(0, len(original_data) - segment_size, segment_size // 2):
+            segment = original_data[i:i + segment_size]
+            
+            if len(segment) >= 5:
+                # Calculate local characteristics
+                local_mean = np.mean(segment)
+                local_std = np.std(segment)
+                local_trend = np.polyfit(np.arange(len(segment)), segment, 1)[0]
+                
+                # Calculate local volatility
+                local_changes = np.diff(segment)
+                local_volatility = np.std(local_changes) if len(local_changes) > 0 else 0
+                
+                local_patterns.append({
+                    'start_idx': i,
+                    'end_idx': i + segment_size,
+                    'mean': local_mean,
+                    'std': local_std,
+                    'trend': local_trend,
+                    'volatility': local_volatility,
+                    'weight': len(segment) / len(original_data)
+                })
+        
+        return local_patterns
+        
+    except Exception as e:
+        return []
+
+def _calculate_adaptive_trend_decay(step, trend_consistency, stability_factor):
+    """Calculate adaptive trend decay based on pattern characteristics"""
+    try:
+        # Base decay rate
+        base_decay = 0.95
+        
+        # Adjust based on trend consistency
+        if trend_consistency > 0.8:
+            # Strong consistent trend - slower decay
+            consistency_adjustment = 0.03
+        elif trend_consistency > 0.5:
+            # Moderate trend - standard decay
+            consistency_adjustment = 0.0
+        else:
+            # Weak trend - faster decay
+            consistency_adjustment = -0.02
+        
+        # Adjust based on stability
+        stability_adjustment = stability_factor * 0.02
+        
+        # Calculate final decay rate
+        final_decay = base_decay + consistency_adjustment + stability_adjustment
+        final_decay = max(0.85, min(0.99, final_decay))  # Bound the decay rate
+        
+        return final_decay ** step
+        
+    except Exception as e:
+        return 0.95 ** step
+
+def _calculate_enhanced_cyclical_component(step, cyclical_patterns, original_data, current_value):
+    """Calculate enhanced cyclical component based on detected patterns"""
+    try:
+        if not cyclical_patterns:
+            return 0.0
+        
+        cyclical_component = 0.0
+        total_weight = 0.0
+        
+        for pattern in cyclical_patterns:
+            cycle_length = pattern['cycle_length']
+            strength = pattern['strength']
+            
+            # Calculate phase in the cycle
+            phase = (step % cycle_length) / cycle_length * 2 * np.pi
+            
+            # Calculate amplitude based on pattern strength and data characteristics
+            data_std = np.std(original_data)
+            amplitude = data_std * 0.2 * strength
+            
+            # Calculate cyclical value
+            cycle_value = amplitude * np.sin(phase)
+            
+            # Weight by pattern strength
+            weight = strength
+            cyclical_component += cycle_value * weight
+            total_weight += weight
+        
+        # Normalize by total weight
+        if total_weight > 0:
+            cyclical_component /= total_weight
+        
+        # Apply decay over time
+        decay_factor = 0.98 ** step
+        cyclical_component *= decay_factor
+        
+        return cyclical_component
+        
+    except Exception as e:
+        return 0.0
+
+def _calculate_local_pattern_component(step, local_patterns, original_data, current_value):
+    """Calculate local pattern component based on segment analysis"""
+    try:
+        if not local_patterns:
+            return 0.0
+        
+        # Weight recent segments more heavily
+        total_weight = 0.0
+        weighted_trend = 0.0
+        
+        for pattern in local_patterns:
+            # Calculate distance from current position
+            distance = len(original_data) - pattern['end_idx']
+            
+            # Weight by recency (more recent = higher weight)
+            recency_weight = 1.0 / (1.0 + distance * 0.1)
+            
+            # Weight by segment importance
+            segment_weight = pattern['weight']
+            
+            # Combined weight
+            total_weight += recency_weight * segment_weight
+            weighted_trend += pattern['trend'] * recency_weight * segment_weight
+        
+        if total_weight > 0:
+            weighted_trend /= total_weight
+        
+        # Apply the weighted trend with decay
+        decay_factor = 0.96 ** step
+        local_component = weighted_trend * (step + 1) * decay_factor * 0.3
+        
+        return local_component
+        
+    except Exception as e:
+        return 0.0
+
+def _calculate_volatility_aware_adjustment(step, original_data, recent_std, stability_factor):
+    """Calculate volatility-aware adjustment to maintain realistic variation"""
+    try:
+        # Calculate historical volatility characteristics
+        historical_changes = np.diff(original_data)
+        historical_volatility = np.std(historical_changes) if len(historical_changes) > 0 else recent_std
+        
+        # Target volatility based on stability
+        target_volatility = historical_volatility * (0.5 + stability_factor * 0.5)
+        
+        # Decay volatility over prediction horizon
+        volatility_decay = 0.97 ** step
+        adjusted_volatility = target_volatility * volatility_decay
+        
+        # Add controlled random variation
+        import random
+        variation = random.gauss(0, adjusted_volatility * 0.1)
+        
+        return variation
+        
+    except Exception as e:
+        return 0.0
+
+def _apply_enhanced_bias_correction(predicted_value, step, patterns, original_data):
+    """Apply enhanced bias correction to maintain historical characteristics"""
+    try:
+        # Multi-level bias correction
+        
+        # 1. Global bias correction
+        historical_mean = patterns['mean']
+        global_bias = (historical_mean - predicted_value) * 0.01 * (1 + step * 0.001)
+        
+        # 2. Local bias correction
+        recent_mean = patterns['recent_mean']
+        local_bias = (recent_mean - predicted_value) * 0.02 * (1 + step * 0.001)
+        
+        # 3. Range-based bias correction
+        historical_range = np.max(original_data) - np.min(original_data)
+        if predicted_value < np.min(original_data) - 0.2 * historical_range:
+            range_bias = (np.min(original_data) - predicted_value) * 0.3
+        elif predicted_value > np.max(original_data) + 0.2 * historical_range:
+            range_bias = (np.max(original_data) - predicted_value) * 0.3
+        else:
+            range_bias = 0.0
+        
+        # Combine bias corrections
+        total_bias = global_bias + local_bias + range_bias
+        
+        return total_bias
+        
+    except Exception as e:
+        return 0.0
+
+def _apply_enhanced_bounds_checking(predicted_value, step, patterns, original_data):
+    """Apply enhanced bounds checking to keep predictions realistic"""
+    try:
+        # Calculate dynamic bounds based on historical data
+        historical_mean = patterns['mean']
+        historical_std = patterns['std']
+        
+        # Calculate percentile-based bounds
+        lower_percentile = np.percentile(original_data, 5)
+        upper_percentile = np.percentile(original_data, 95)
+        
+        # Calculate adaptive bounds that expand over time
+        expansion_factor = 1.0 + (step * 0.02)
+        
+        # Conservative bounds
+        conservative_lower = historical_mean - 2 * historical_std
+        conservative_upper = historical_mean + 2 * historical_std
+        
+        # Adaptive bounds
+        adaptive_lower = min(lower_percentile, conservative_lower) * expansion_factor
+        adaptive_upper = max(upper_percentile, conservative_upper) * expansion_factor
+        
+        # Apply soft bounds (gradual correction rather than hard clipping)
+        if predicted_value < adaptive_lower:
+            correction_factor = 0.7
+            predicted_value = adaptive_lower * correction_factor + predicted_value * (1 - correction_factor)
+        elif predicted_value > adaptive_upper:
+            correction_factor = 0.7
+            predicted_value = adaptive_upper * correction_factor + predicted_value * (1 - correction_factor)
+        
+        return predicted_value
+        
+    except Exception as e:
+        return predicted_value
+
+def _generate_simple_fallback(patterns, steps):
+    """Generate simple fallback predictions when advanced methods fail"""
+    try:
+        last_value = patterns['last_value']
+        trend_slope = patterns.get('trend_slope', 0)
+        
+        predictions = []
+        for i in range(steps):
+            # Simple linear prediction with decay
+            decay = 0.95 ** i
+            predicted_value = last_value + trend_slope * (i + 1) * decay
+            predictions.append(predicted_value)
+        
+        return predictions
+        
+    except Exception as e:
+        return [patterns.get('last_value', 0)] * steps
+
 def _calculate_pattern_component(patterns, step, current_value):
     """Calculate pattern-based component to maintain historical characteristics"""
     # Cyclical component based on historical patterns
