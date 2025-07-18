@@ -208,7 +208,7 @@ function App() {
       });
       if (response.ok) {
         const result = await response.json();
-        alert(`Hyperparameter optimization completed!\nBest parameters: ${JSON.stringify(result.best_parameters)}\nBest score: ${result.best_score.toFixed(4)}`);
+        showToast(`Hyperparameter optimization completed! Best parameters: ${JSON.stringify(result.best_parameters)}, Best score: ${result.best_score.toFixed(4)}`, 'success');
       }
     } catch (error) {
       console.error('Error optimizing hyperparameters:', error);
