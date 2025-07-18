@@ -83,9 +83,9 @@ def test_continuous_prediction_bias():
     for i in range(num_calls):
         print(f"   Call {i+1}/{num_calls}...")
         
-        response = session.post(
+        response = session.get(
             f"{API_BASE_URL}/generate-continuous-prediction",
-            json={
+            params={
                 "model_id": model_id,
                 "steps": 5,
                 "time_window": 30
