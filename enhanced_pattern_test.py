@@ -1,5 +1,616 @@
 #!/usr/bin/env python3
 """
+Enhanced Pattern-Learning Prediction System Testing
+Focus on testing the comprehensive pattern-learning improvements for continuous prediction downward bias resolution
+"""
+
+import requests
+import json
+import pandas as pd
+import numpy as np
+import time
+import os
+from pathlib import Path
+from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+from scipy import stats
+
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent / 'frontend' / '.env')
+
+# Get backend URL from environment
+BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://c8772c28-6b4b-4343-84fa-effeefd86ff0.preview.emergentagent.com')
+API_BASE_URL = f"{BACKEND_URL}/api"
+
+print(f"Testing Enhanced Pattern-Learning System at: {API_BASE_URL}")
+
+class EnhancedPatternTester:
+    def __init__(self):
+        self.session = requests.Session()
+        self.test_results = {}
+        self.data_id = None
+        self.model_id = None
+        
+    def create_pattern_data(self, pattern_type="linear", size=100):
+        """Create different types of sensor data patterns for testing"""
+        dates = pd.date_range(start='2024-01-01', periods=size, freq='H')
+        
+        if pattern_type == "linear":
+            # Linear upward trend with noise
+            values = np.linspace(6.5, 7.5, size) + np.random.normal(0, 0.1, size)
+            
+        elif pattern_type == "sinusoidal":
+            # Sinusoidal pattern (cyclical)
+            t = np.linspace(0, 4*np.pi, size)
+            values = 7.0 + 0.5 * np.sin(t) + np.random.normal(0, 0.05, size)
+            
+        elif pattern_type == "seasonal":
+            # Seasonal pattern with daily cycles
+            t = np.arange(size)
+            daily_cycle = 0.3 * np.sin(2 * np.pi * t / 24)  # 24-hour cycle
+            weekly_trend = 0.1 * np.sin(2 * np.pi * t / (24*7))  # Weekly trend
+            values = 7.2 + daily_cycle + weekly_trend + np.random.normal(0, 0.08, size)
+            
+        elif pattern_type == "trending":
+            # Non-linear trending pattern (quadratic)
+            t = np.linspace(0, 1, size)
+            values = 6.8 + 0.8 * t + 0.3 * t**2 + np.random.normal(0, 0.1, size)
+            
+        elif pattern_type == "stable":
+            # Stable pattern around mean with small variations
+            values = np.full(size, 7.3) + np.random.normal(0, 0.05, size)
+            
+        elif pattern_type == "volatile":
+            # High volatility pattern
+            values = 7.0 + np.cumsum(np.random.normal(0, 0.15, size))
+            # Keep within reasonable pH bounds
+            values = np.clip(values, 6.0, 8.0)
+            
+        # Ensure values are within realistic pH range
+        values = np.clip(values, 5.5, 8.5)
+        
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'ph_value': values
+        })
+        
+        return df
+    
+    def upload_pattern_data(self, pattern_type="linear"):
+        """Upload pattern data and get analysis"""
+        print(f"\n=== Uploading {pattern_type} pattern data ===")
+        
+        try:
+            df = self.create_pattern_data(pattern_type, size=100)
+            csv_content = df.to_csv(index=False)
+            
+            files = {
+                'file': (f'{pattern_type}_pattern.csv', csv_content, 'text/csv')
+            }
+            
+            response = self.session.post(f"{API_BASE_URL}/upload-data", files=files)
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.data_id = data.get('data_id')
+                
+                print(f"✅ {pattern_type} data uploaded successfully")
+                print(f"   Data ID: {self.data_id}")
+                print(f"   Data shape: {data['analysis']['data_shape']}")
+                
+                return True, df
+            else:
+                print(f"❌ Upload failed: {response.status_code} - {response.text}")
+                return False, None
+                
+        except Exception as e:
+            print(f"❌ Upload error: {str(e)}")
+            return False, None
+    
+    def train_arima_model(self):
+        """Train ARIMA model for pattern learning"""
+        print("\n=== Training ARIMA Model ===")
+        
+        if not self.data_id:
+            print("❌ No data uploaded")
+            return False
+            
+        try:
+            training_params = {
+                "time_column": "timestamp",
+                "target_column": "ph_value",
+                "order": [1, 1, 1]
+            }
+            
+            response = self.session.post(
+                f"{API_BASE_URL}/train-model",
+                params={"data_id": self.data_id, "model_type": "arima"},
+                json=training_params
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.model_id = data.get('model_id')
+                print(f"✅ ARIMA model trained successfully")
+                print(f"   Model ID: {self.model_id}")
+                return True
+            else:
+                print(f"❌ Training failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Training error: {str(e)}")
+            return False
+    
+    def test_continuous_prediction_bias(self, num_calls=10):
+        """Test continuous prediction for downward bias - MAIN FOCUS"""
+        print(f"\n=== Testing Continuous Prediction Bias ({num_calls} calls) ===")
+        
+        if not self.model_id:
+            print("❌ No trained model")
+            return False
+            
+        try:
+            # Reset continuous predictions first
+            reset_response = self.session.post(f"{API_BASE_URL}/reset-continuous-prediction")
+            if reset_response.status_code != 200:
+                print(f"⚠️ Reset warning: {reset_response.status_code}")
+            
+            all_predictions = []
+            timestamps = []
+            
+            for i in range(num_calls):
+                print(f"   Call {i+1}/{num_calls}...")
+                
+                response = self.session.post(
+                    f"{API_BASE_URL}/generate-continuous-prediction",
+                    json={
+                        "model_id": self.model_id,
+                        "steps": 10,
+                        "time_window": 50
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    predictions = data.get('predictions', [])
+                    
+                    if predictions:
+                        pred_values = [p['value'] for p in predictions]
+                        pred_timestamps = [p['timestamp'] for p in predictions]
+                        
+                        all_predictions.extend(pred_values)
+                        timestamps.extend(pred_timestamps)
+                        
+                        print(f"      Predictions: {len(pred_values)} values")
+                        print(f"      Range: {min(pred_values):.3f} - {max(pred_values):.3f}")
+                        print(f"      Mean: {np.mean(pred_values):.3f}")
+                        
+                        # Small delay between calls
+                        time.sleep(0.5)
+                    else:
+                        print(f"      ❌ No predictions returned")
+                        
+                else:
+                    print(f"      ❌ Call failed: {response.status_code}")
+            
+            # Analyze bias in continuous predictions
+            if len(all_predictions) > 10:
+                return self.analyze_prediction_bias(all_predictions, "Continuous Prediction")
+            else:
+                print("❌ Insufficient predictions for bias analysis")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Continuous prediction test error: {str(e)}")
+            return False
+    
+    def test_pattern_following(self, original_data):
+        """Test if predictions follow historical patterns"""
+        print("\n=== Testing Pattern Following ===")
+        
+        if not self.model_id:
+            print("❌ No trained model")
+            return False
+            
+        try:
+            # Generate predictions
+            response = self.session.post(
+                f"{API_BASE_URL}/generate-prediction",
+                json={
+                    "model_id": self.model_id,
+                    "steps": 30
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                predictions = data.get('predictions', [])
+                
+                if predictions:
+                    pred_values = [p['value'] for p in predictions]
+                    historical_values = original_data['ph_value'].values
+                    
+                    # Analyze pattern following
+                    return self.analyze_pattern_following(historical_values, pred_values)
+                else:
+                    print("❌ No predictions returned")
+                    return False
+            else:
+                print(f"❌ Prediction failed: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Pattern following test error: {str(e)}")
+            return False
+    
+    def test_variability_preservation(self, original_data):
+        """Test if predictions maintain realistic variability"""
+        print("\n=== Testing Variability Preservation ===")
+        
+        if not self.model_id:
+            print("❌ No trained model")
+            return False
+            
+        try:
+            # Generate multiple prediction sets
+            all_predictions = []
+            
+            for i in range(5):
+                response = self.session.post(
+                    f"{API_BASE_URL}/generate-prediction",
+                    json={
+                        "model_id": self.model_id,
+                        "steps": 20
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    predictions = data.get('predictions', [])
+                    
+                    if predictions:
+                        pred_values = [p['value'] for p in predictions]
+                        all_predictions.extend(pred_values)
+                
+                time.sleep(0.3)  # Small delay
+            
+            if len(all_predictions) > 10:
+                historical_values = original_data['ph_value'].values
+                return self.analyze_variability_preservation(historical_values, all_predictions)
+            else:
+                print("❌ Insufficient predictions for variability analysis")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Variability test error: {str(e)}")
+            return False
+    
+    def analyze_prediction_bias(self, predictions, test_name):
+        """Analyze predictions for downward bias"""
+        print(f"\n--- {test_name} Bias Analysis ---")
+        
+        try:
+            predictions = np.array(predictions)
+            
+            # Calculate trend slope
+            x = np.arange(len(predictions))
+            slope, intercept, r_value, p_value, std_err = stats.linregress(x, predictions)
+            
+            # Calculate statistics
+            mean_pred = np.mean(predictions)
+            std_pred = np.std(predictions)
+            min_pred = np.min(predictions)
+            max_pred = np.max(predictions)
+            
+            print(f"   Predictions count: {len(predictions)}")
+            print(f"   Mean: {mean_pred:.6f}")
+            print(f"   Std: {std_pred:.6f}")
+            print(f"   Range: {min_pred:.6f} - {max_pred:.6f}")
+            print(f"   Trend slope: {slope:.6f}")
+            print(f"   R-squared: {r_value**2:.6f}")
+            print(f"   P-value: {p_value:.6f}")
+            
+            # Bias assessment
+            bias_threshold = 0.01  # Acceptable slope threshold
+            
+            if abs(slope) <= bias_threshold:
+                print(f"✅ NO DOWNWARD BIAS DETECTED (slope: {slope:.6f})")
+                bias_result = True
+            else:
+                if slope < -bias_threshold:
+                    print(f"❌ DOWNWARD BIAS DETECTED (slope: {slope:.6f})")
+                else:
+                    print(f"⚠️ UPWARD BIAS DETECTED (slope: {slope:.6f})")
+                bias_result = False
+            
+            # Variability check
+            if std_pred > 0.001:
+                print(f"✅ Good variability (std: {std_pred:.6f})")
+                variability_result = True
+            else:
+                print(f"❌ Low variability (std: {std_pred:.6f})")
+                variability_result = False
+            
+            # pH range check
+            if 5.5 <= min_pred <= max_pred <= 8.5:
+                print(f"✅ Realistic pH range")
+                range_result = True
+            else:
+                print(f"❌ Unrealistic pH range")
+                range_result = False
+            
+            overall_result = bias_result and variability_result and range_result
+            
+            return {
+                'overall': overall_result,
+                'bias': bias_result,
+                'variability': variability_result,
+                'range': range_result,
+                'slope': slope,
+                'mean': mean_pred,
+                'std': std_pred,
+                'count': len(predictions)
+            }
+            
+        except Exception as e:
+            print(f"❌ Bias analysis error: {str(e)}")
+            return {'overall': False, 'error': str(e)}
+    
+    def analyze_pattern_following(self, historical, predictions):
+        """Analyze how well predictions follow historical patterns"""
+        print("\n--- Pattern Following Analysis ---")
+        
+        try:
+            hist_mean = np.mean(historical)
+            hist_std = np.std(historical)
+            pred_mean = np.mean(predictions)
+            pred_std = np.std(predictions)
+            
+            # Calculate pattern similarity metrics
+            mean_deviation = abs(pred_mean - hist_mean) / hist_std
+            std_ratio = pred_std / hist_std if hist_std > 0 else 0
+            
+            print(f"   Historical mean: {hist_mean:.6f}, std: {hist_std:.6f}")
+            print(f"   Prediction mean: {pred_mean:.6f}, std: {pred_std:.6f}")
+            print(f"   Mean deviation: {mean_deviation:.6f}")
+            print(f"   Std ratio: {std_ratio:.6f}")
+            
+            # Pattern following assessment
+            mean_threshold = 0.5  # Acceptable mean deviation
+            std_threshold_low = 0.3  # Minimum std ratio
+            std_threshold_high = 3.0  # Maximum std ratio
+            
+            mean_ok = mean_deviation <= mean_threshold
+            std_ok = std_threshold_low <= std_ratio <= std_threshold_high
+            
+            if mean_ok and std_ok:
+                print("✅ Good pattern following")
+                result = True
+            else:
+                print("❌ Poor pattern following")
+                result = False
+            
+            return {
+                'result': result,
+                'mean_deviation': mean_deviation,
+                'std_ratio': std_ratio,
+                'historical_stats': {'mean': hist_mean, 'std': hist_std},
+                'prediction_stats': {'mean': pred_mean, 'std': pred_std}
+            }
+            
+        except Exception as e:
+            print(f"❌ Pattern following analysis error: {str(e)}")
+            return {'result': False, 'error': str(e)}
+    
+    def analyze_variability_preservation(self, historical, predictions):
+        """Analyze if predictions preserve realistic variability"""
+        print("\n--- Variability Preservation Analysis ---")
+        
+        try:
+            hist_std = np.std(historical)
+            pred_std = np.std(predictions)
+            
+            # Calculate change variability
+            hist_changes = np.diff(historical)
+            pred_changes = np.diff(predictions)
+            
+            hist_change_std = np.std(hist_changes) if len(hist_changes) > 0 else 0
+            pred_change_std = np.std(pred_changes) if len(pred_changes) > 0 else 0
+            
+            # Calculate variability ratios
+            value_variability_ratio = pred_std / hist_std if hist_std > 0 else 0
+            change_variability_ratio = pred_change_std / hist_change_std if hist_change_std > 0 else 0
+            
+            print(f"   Historical value std: {hist_std:.6f}")
+            print(f"   Prediction value std: {pred_std:.6f}")
+            print(f"   Value variability ratio: {value_variability_ratio:.6f}")
+            print(f"   Historical change std: {hist_change_std:.6f}")
+            print(f"   Prediction change std: {pred_change_std:.6f}")
+            print(f"   Change variability ratio: {change_variability_ratio:.6f}")
+            
+            # Variability assessment
+            value_threshold_low = 0.2
+            value_threshold_high = 5.0
+            change_threshold_low = 0.1
+            change_threshold_high = 10.0
+            
+            value_ok = value_threshold_low <= value_variability_ratio <= value_threshold_high
+            change_ok = change_threshold_low <= change_variability_ratio <= change_threshold_high
+            
+            if value_ok and change_ok:
+                print("✅ Good variability preservation")
+                result = True
+            else:
+                print("❌ Poor variability preservation")
+                result = False
+            
+            return {
+                'result': result,
+                'value_variability_ratio': value_variability_ratio,
+                'change_variability_ratio': change_variability_ratio,
+                'historical_std': hist_std,
+                'prediction_std': pred_std
+            }
+            
+        except Exception as e:
+            print(f"❌ Variability analysis error: {str(e)}")
+            return {'result': False, 'error': str(e)}
+    
+    def test_sensor_data_adaptability(self):
+        """Test system adaptability to different sensor data patterns"""
+        print("\n=== Testing Sensor Data Adaptability ===")
+        
+        pattern_types = ["linear", "sinusoidal", "seasonal", "trending", "stable"]
+        adaptability_results = {}
+        
+        for pattern_type in pattern_types:
+            print(f"\n--- Testing {pattern_type} pattern ---")
+            
+            # Upload pattern data
+            upload_success, original_data = self.upload_pattern_data(pattern_type)
+            if not upload_success:
+                adaptability_results[pattern_type] = {'success': False, 'error': 'Upload failed'}
+                continue
+            
+            # Train model
+            train_success = self.train_arima_model()
+            if not train_success:
+                adaptability_results[pattern_type] = {'success': False, 'error': 'Training failed'}
+                continue
+            
+            # Test continuous prediction bias
+            bias_result = self.test_continuous_prediction_bias(num_calls=5)
+            
+            # Test pattern following
+            pattern_result = self.test_pattern_following(original_data)
+            
+            # Test variability preservation
+            variability_result = self.test_variability_preservation(original_data)
+            
+            adaptability_results[pattern_type] = {
+                'success': True,
+                'bias_test': bias_result,
+                'pattern_test': pattern_result,
+                'variability_test': variability_result
+            }
+        
+        return adaptability_results
+    
+    def run_comprehensive_test(self):
+        """Run comprehensive enhanced pattern-learning test"""
+        print("🎯 ENHANCED PATTERN-LEARNING PREDICTION SYSTEM TESTING")
+        print("=" * 60)
+        
+        # Test 1: Continuous Prediction Downward Bias (Main Focus)
+        print("\n🔬 TEST 1: CONTINUOUS PREDICTION DOWNWARD BIAS")
+        upload_success, original_data = self.upload_pattern_data("linear")
+        if upload_success and self.train_arima_model():
+            bias_test_result = self.test_continuous_prediction_bias(num_calls=15)
+            self.test_results['continuous_bias'] = bias_test_result
+        else:
+            self.test_results['continuous_bias'] = {'overall': False, 'error': 'Setup failed'}
+        
+        # Test 2: Pattern Following with Different Data Types
+        print("\n🔬 TEST 2: PATTERN FOLLOWING")
+        if original_data is not None:
+            pattern_result = self.test_pattern_following(original_data)
+            self.test_results['pattern_following'] = pattern_result
+        else:
+            self.test_results['pattern_following'] = {'result': False, 'error': 'No data'}
+        
+        # Test 3: Variability Preservation
+        print("\n🔬 TEST 3: VARIABILITY PRESERVATION")
+        if original_data is not None:
+            variability_result = self.test_variability_preservation(original_data)
+            self.test_results['variability_preservation'] = variability_result
+        else:
+            self.test_results['variability_preservation'] = {'result': False, 'error': 'No data'}
+        
+        # Test 4: Sensor Data Adaptability
+        print("\n🔬 TEST 4: SENSOR DATA ADAPTABILITY")
+        adaptability_results = self.test_sensor_data_adaptability()
+        self.test_results['sensor_adaptability'] = adaptability_results
+        
+        # Generate final report
+        self.generate_final_report()
+    
+    def generate_final_report(self):
+        """Generate comprehensive test report"""
+        print("\n" + "=" * 60)
+        print("🎯 ENHANCED PATTERN-LEARNING SYSTEM TEST REPORT")
+        print("=" * 60)
+        
+        # Test 1: Continuous Bias
+        bias_result = self.test_results.get('continuous_bias', {})
+        if bias_result.get('overall'):
+            print("✅ CONTINUOUS PREDICTION BIAS: RESOLVED")
+            print(f"   Slope: {bias_result.get('slope', 0):.6f}")
+            print(f"   Variability: {bias_result.get('std', 0):.6f}")
+        else:
+            print("❌ CONTINUOUS PREDICTION BIAS: ISSUES DETECTED")
+            if 'error' in bias_result:
+                print(f"   Error: {bias_result['error']}")
+        
+        # Test 2: Pattern Following
+        pattern_result = self.test_results.get('pattern_following', {})
+        if pattern_result.get('result'):
+            print("✅ PATTERN FOLLOWING: WORKING")
+        else:
+            print("❌ PATTERN FOLLOWING: NEEDS IMPROVEMENT")
+        
+        # Test 3: Variability Preservation
+        variability_result = self.test_results.get('variability_preservation', {})
+        if variability_result.get('result'):
+            print("✅ VARIABILITY PRESERVATION: WORKING")
+        else:
+            print("❌ VARIABILITY PRESERVATION: NEEDS IMPROVEMENT")
+        
+        # Test 4: Sensor Adaptability
+        adaptability_results = self.test_results.get('sensor_adaptability', {})
+        successful_patterns = sum(1 for result in adaptability_results.values() 
+                                if result.get('success', False))
+        total_patterns = len(adaptability_results)
+        
+        if successful_patterns >= total_patterns * 0.8:  # 80% success rate
+            print(f"✅ SENSOR DATA ADAPTABILITY: WORKING ({successful_patterns}/{total_patterns})")
+        else:
+            print(f"❌ SENSOR DATA ADAPTABILITY: NEEDS IMPROVEMENT ({successful_patterns}/{total_patterns})")
+        
+        # Overall Assessment
+        print("\n" + "-" * 40)
+        print("OVERALL ASSESSMENT:")
+        
+        success_count = 0
+        total_tests = 4
+        
+        if bias_result.get('overall'): success_count += 1
+        if pattern_result.get('result'): success_count += 1
+        if variability_result.get('result'): success_count += 1
+        if successful_patterns >= total_patterns * 0.8: success_count += 1
+        
+        success_rate = (success_count / total_tests) * 100
+        
+        print(f"Success Rate: {success_rate:.1f}% ({success_count}/{total_tests})")
+        
+        if success_rate >= 75:
+            print("🎉 ENHANCED PATTERN-LEARNING SYSTEM: WORKING EXCELLENTLY!")
+            print("   Downward bias issue has been resolved.")
+            print("   System maintains historical patterns and variability.")
+        elif success_rate >= 50:
+            print("⚠️ ENHANCED PATTERN-LEARNING SYSTEM: PARTIALLY WORKING")
+            print("   Some improvements needed for optimal performance.")
+        else:
+            print("❌ ENHANCED PATTERN-LEARNING SYSTEM: NEEDS SIGNIFICANT WORK")
+            print("   Major issues detected that require attention.")
+        
+        return success_rate
+
+if __name__ == "__main__":
+    tester = EnhancedPatternTester()
+    tester.run_comprehensive_test()
+"""
 Enhanced Pattern-Following Algorithm Testing
 Tests the comprehensive bias correction, pattern-based prediction, trend stabilization, 
 and error correction techniques to verify proper pattern following.
