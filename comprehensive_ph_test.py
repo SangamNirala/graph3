@@ -18,7 +18,7 @@ import time
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / 'frontend' / '.env')
 
-BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://98d8044c-ba53-4701-bc0a-eb9f36e38b63.preview.emergentagent.com')
+BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://c8772c28-6b4b-4343-84fa-effeefd86ff0.preview.emergentagent.com')
 API_BASE_URL = f"{BACKEND_URL}/api"
 
 class ComprehensivePhTester:
