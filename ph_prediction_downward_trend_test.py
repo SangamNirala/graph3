@@ -382,7 +382,7 @@ class PhPredictionTester:
                 # Generate several continuous predictions
                 continuous_means = []
                 for i in range(3):
-                    cont_response = self.session.post(f"{API_BASE_URL}/generate-continuous-prediction")
+                    cont_response = self.session.get(f"{API_BASE_URL}/generate-continuous-prediction")
                     
                     if cont_response.status_code == 200:
                         cont_data = cont_response.json()
