@@ -705,19 +705,129 @@ class AdvancedTimeSeriesForecaster:
         
         return corrected_prediction
     
-    def _calculate_pattern_correction(self, prediction, step, original_input, local_mean):
-        """Calculate pattern-based correction to maintain historical characteristics"""
-        # Analyze cyclical patterns in historical data
+    def _calculate_enhanced_pattern_correction(self, prediction, step, original_input, 
+                                             local_mean, historical_mean):
+        """Calculate enhanced pattern-based correction with multi-scale analysis"""
+        pattern_corrections = []
+        
+        # Short-term pattern correction (last 3-5 values)
         if len(original_input) >= 4:
-            # Enhanced pattern detection with multiple timeframes
+            short_pattern = original_input[-4:]
+            short_changes = np.diff(short_pattern)
+            if len(short_changes) > 0:
+                expected_change = np.mean(short_changes)
+                expected_next = original_input[-1] + expected_change
+                short_correction = (expected_next - prediction) * 0.4
+                pattern_corrections.append(short_correction)
+        
+        # Medium-term pattern correction (last 6-10 values)
+        if len(original_input) >= 8:
+            medium_pattern = original_input[-8:]
+            medium_changes = np.diff(medium_pattern)
+            if len(medium_changes) > 0:
+                # Use weighted average of changes (more weight to recent)
+                weights = np.exp(np.linspace(-1, 0, len(medium_changes)))
+                weights /= np.sum(weights)
+                weighted_change = np.sum(medium_changes * weights)
+                expected_next = original_input[-1] + weighted_change
+                medium_correction = (expected_next - prediction) * 0.3
+                pattern_corrections.append(medium_correction)
+        
+        # Long-term pattern correction (overall trend)
+        if len(original_input) >= 12:
+            long_trend = np.polyfit(np.arange(len(original_input)), original_input, 1)[0]
+            expected_next = original_input[-1] + long_trend
+            long_correction = (expected_next - prediction) * 0.2
+            pattern_corrections.append(long_correction)
+        
+        # Combine pattern corrections
+        if pattern_corrections:
+            return np.mean(pattern_corrections)
+        else:
+            return 0.0
+    
+    def _calculate_advanced_momentum_correction(self, prediction, step, original_input, 
+                                              recent_trend, historical_std):
+        """Calculate advanced momentum correction with acceleration awareness"""
+        if len(original_input) >= 4:
+            # Calculate multi-level momentum
             recent_changes = np.diff(original_input[-4:])
-            if len(recent_changes) > 0:
-                avg_change = np.mean(recent_changes)
-                # If prediction deviates too much from expected pattern
-                expected_next = original_input[-1] + avg_change
-                deviation = prediction - expected_next
-                pattern_correction = -deviation * 0.3  # Stronger correction
-                return pattern_correction
+            recent_momentum = np.mean(recent_changes)
+            
+            # Calculate acceleration (change in momentum)
+            if len(recent_changes) >= 2:
+                acceleration = np.mean(np.diff(recent_changes))
+            else:
+                acceleration = 0
+            
+            # Adaptive momentum correction based on trend consistency
+            momentum_strength = abs(recent_momentum) / (historical_std + 1e-8)
+            
+            # Strong momentum should be preserved
+            if momentum_strength > 0.2:
+                momentum_correction = recent_momentum * 0.5 * (1 / (1 + step * 0.05))
+                
+                # Add acceleration component for smooth transitions
+                acceleration_correction = acceleration * 0.2 * (1 / (1 + step * 0.1))
+                
+                return momentum_correction + acceleration_correction
+            else:
+                return 0.0
+        
+        return 0.0
+    
+    def _calculate_range_preservation_correction(self, prediction, step, original_input, 
+                                               historical_mean, historical_std):
+        """Calculate correction to keep predictions within realistic historical ranges"""
+        # Calculate historical percentiles for realistic bounds
+        historical_min = np.percentile(original_input, 5)   # 5th percentile
+        historical_max = np.percentile(original_input, 95)  # 95th percentile
+        historical_range = historical_max - historical_min
+        
+        # Calculate recent percentiles for adaptive bounds
+        recent_portion = min(20, len(original_input))
+        recent_data = original_input[-recent_portion:]
+        recent_min = np.percentile(recent_data, 10)
+        recent_max = np.percentile(recent_data, 90)
+        
+        # Adaptive bounds that expand slightly over time but stay reasonable
+        expansion_factor = 1.0 + (step * 0.02)  # Gradual expansion
+        lower_bound = max(historical_min - 0.5 * historical_std, 
+                         recent_min - 0.3 * historical_std * expansion_factor)
+        upper_bound = min(historical_max + 0.5 * historical_std, 
+                         recent_max + 0.3 * historical_std * expansion_factor)
+        
+        # Apply soft bounds correction
+        if prediction < lower_bound:
+            return (lower_bound - prediction) * 0.6
+        elif prediction > upper_bound:
+            return (upper_bound - prediction) * 0.6
+        else:
+            return 0.0
+    
+    def _calculate_pattern_consistency_correction(self, prediction, step, original_input, recent_trend):
+        """Calculate correction to maintain pattern consistency"""
+        if len(original_input) >= 6:
+            # Analyze pattern consistency in recent data
+            pattern_window = min(6, len(original_input))
+            recent_pattern = original_input[-pattern_window:]
+            
+            # Calculate pattern regularity
+            changes = np.diff(recent_pattern)
+            if len(changes) > 2:
+                # Check for consistent directional patterns
+                positive_changes = np.sum(changes > 0)
+                negative_changes = np.sum(changes < 0)
+                
+                # If there's a strong directional pattern, enforce it
+                if positive_changes > len(changes) * 0.7:  # Strong upward pattern
+                    expected_change = np.mean(changes[changes > 0])
+                    expected_next = original_input[-1] + expected_change * 0.7
+                    return (expected_next - prediction) * 0.3
+                elif negative_changes > len(changes) * 0.7:  # Strong downward pattern
+                    expected_change = np.mean(changes[changes < 0])
+                    expected_next = original_input[-1] + expected_change * 0.7
+                    return (expected_next - prediction) * 0.3
         
         return 0.0
     
