@@ -228,10 +228,7 @@ class ContinuousPredictionBiasTester:
                 print(f"⚠️ Reset warning: {reset_response.status_code}")
             
             # Start continuous prediction
-            start_response = self.session.post(
-                f"{API_BASE_URL}/start-continuous-prediction",
-                params={"model_id": self.model_id}
-            )
+            start_response = self.session.post(f"{API_BASE_URL}/start-continuous-prediction")
             
             if start_response.status_code != 200:
                 print(f"❌ Failed to start continuous prediction: {start_response.status_code}")
