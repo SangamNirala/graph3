@@ -2326,9 +2326,6 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
             return await generate_legacy_continuous_prediction(
                 model, model_type, data, time_col, target_col, steps, time_window
             )
-            return await generate_legacy_continuous_prediction(
-                model, model_type, data, time_col, target_col, steps, time_window
-            )
         
     except Exception as e:
         print(f"Error in continuous prediction: {e}")
