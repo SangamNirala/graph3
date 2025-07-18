@@ -2506,6 +2506,70 @@ async def generate_industry_level_continuous_prediction(model, model_type, data,
             model, model_type, data, time_col, target_col, steps, time_window
         )
 
+async def generate_advanced_pattern_memory_prediction(model, model_type, data, time_col, target_col, steps, time_window):
+    """Generate predictions using advanced pattern memory system"""
+    try:
+        global advanced_pattern_memory, continuous_predictions
+        
+        # Extract target values
+        target_values = data[target_col].values
+        
+        # Use advanced pattern memory system for prediction
+        prediction_result = advanced_pattern_memory.generate_memory_based_predictions(
+            target_values,
+            steps=steps,
+            time_window=time_window
+        )
+        
+        # Create timestamps for predictions
+        last_timestamp = data[time_col].iloc[-1]
+        if isinstance(last_timestamp, str):
+            last_timestamp = pd.to_datetime(last_timestamp)
+        
+        # Generate future timestamps
+        time_freq = pd.infer_freq(pd.to_datetime(data[time_col]))
+        if time_freq is None:
+            time_freq = 'D'  # Default to daily frequency
+        
+        future_timestamps = pd.date_range(
+            start=last_timestamp + pd.Timedelta(time_freq),
+            periods=steps,
+            freq=time_freq
+        )
+        
+        # Format result
+        result = {
+            'model_id': f"advanced_pattern_memory_{len(continuous_predictions)}",
+            'predictions': [float(pred) for pred in prediction_result['predictions']],
+            'timestamps': [ts.isoformat() for ts in future_timestamps],
+            'confidence_intervals': [
+                {
+                    'lower': float(pred * 0.92),
+                    'upper': float(pred * 1.08),
+                    'std_error': float(abs(pred * 0.08))
+                } for pred in prediction_result['predictions']
+            ],
+            'metadata': {
+                'prediction_method': 'advanced_pattern_memory',
+                'pattern_strength': prediction_result.get('pattern_strength', 0.8),
+                'memory_utilization': prediction_result.get('memory_utilization', 0.7),
+                'steps': steps,
+                'time_window': time_window
+            }
+        }
+        
+        # Apply safe JSON serialization
+        result = safe_json_serialization(result)
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error in advanced pattern memory prediction: {e}")
+        # Fallback to industry-level prediction
+        return await generate_industry_level_continuous_prediction(
+            model, model_type, data, time_col, target_col, steps, time_window
+        )
+
 async def generate_legacy_continuous_prediction(model, model_type, data, time_col, target_col, steps, time_window):
     """Legacy continuous prediction method"""
     try:
