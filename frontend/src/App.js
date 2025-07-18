@@ -249,12 +249,12 @@ function App() {
   // Train model
   const handleTrainModel = async () => {
     if (!uploadedData || !parameters.time_column || !parameters.target_column) {
-      alert('❌ Missing required fields: Please select both time and target columns');
+      showToast('Missing required fields: Please select both time and target columns', 'error');
       return;
     }
 
     if (parameters.time_column === parameters.target_column) {
-      alert('❌ Invalid column selection: Time column and target column cannot be the same. Please select different columns.');
+      showToast('Invalid column selection: Time column and target column cannot be the same. Please select different columns.', 'error');
       return;
     }
 
@@ -276,7 +276,9 @@ function App() {
         // Show performance metrics for advanced models
         if (result.performance_metrics) {
           const metrics = result.performance_metrics;
-          alert(`✅ Model trained successfully!\nPerformance Grade: ${result.evaluation_grade}\nRMSE: ${metrics.rmse?.toFixed(4) || 'N/A'}\nMAE: ${metrics.mae?.toFixed(4) || 'N/A'}\nR²: ${metrics.r2?.toFixed(4) || 'N/A'}`);
+          showToast(`Model trained successfully! Performance Grade: ${result.evaluation_grade}, RMSE: ${metrics.rmse?.toFixed(4) || 'N/A'}, MAE: ${metrics.mae?.toFixed(4) || 'N/A'}, R²: ${metrics.r2?.toFixed(4) || 'N/A'}`, 'success');
+        } else {
+          showToast('Model trained successfully!', 'success');
         }
         
         // Load historical data
@@ -287,17 +289,17 @@ function App() {
         try {
           const errorData = await response.json();
           if (errorData.detail) {
-            errorMessage = `❌ Training failed: ${errorData.detail}`;
+            errorMessage = `Training failed: ${errorData.detail}`;
           } else if (errorData.error) {
-            errorMessage = `❌ Training failed: ${errorData.error}`;
+            errorMessage = `Training failed: ${errorData.error}`;
           } else if (errorData.message) {
-            errorMessage = `❌ Training failed: ${errorData.message}`;
+            errorMessage = `Training failed: ${errorData.message}`;
           }
         } catch (e) {
-          errorMessage = `❌ Training failed: HTTP ${response.status} - ${response.statusText}`;
+          errorMessage = `Training failed: HTTP ${response.status} - ${response.statusText}`;
         }
         
-        alert(errorMessage);
+        showToast(errorMessage, 'error');
         console.error('Training failed:', {
           status: response.status,
           statusText: response.statusText,
@@ -312,18 +314,18 @@ function App() {
       let errorMessage = 'Training failed';
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        errorMessage = '❌ Network error: Unable to connect to server. Please check your internet connection.';
+        errorMessage = 'Network error: Unable to connect to server. Please check your internet connection.';
       } else if (error.name === 'TypeError' && error.message.includes('JSON')) {
-        errorMessage = '❌ Server response error: Invalid response format.';
+        errorMessage = 'Server response error: Invalid response format.';
       } else if (error.message.includes('timeout')) {
-        errorMessage = '❌ Training timeout: Model training took too long. Please try with a smaller dataset.';
+        errorMessage = 'Training timeout: Model training took too long. Please try with a smaller dataset.';
       } else if (error.message.includes('abort')) {
-        errorMessage = '❌ Training cancelled: Model training was interrupted.';
+        errorMessage = 'Training cancelled: Model training was interrupted.';
       } else {
-        errorMessage = `❌ Training failed: ${error.message}`;
+        errorMessage = `Training failed: ${error.message}`;
       }
       
-      alert(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setIsTraining(false);
     }
