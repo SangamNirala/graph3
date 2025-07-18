@@ -585,9 +585,9 @@ class EnhancedPatternTester:
         success_count = 0
         total_tests = 4
         
-        if bias_result.get('overall'): success_count += 1
-        if pattern_result.get('result'): success_count += 1
-        if variability_result.get('result'): success_count += 1
+        if isinstance(bias_result, dict) and bias_result.get('overall'): success_count += 1
+        if isinstance(pattern_result, dict) and pattern_result.get('result'): success_count += 1
+        if isinstance(variability_result, dict) and variability_result.get('result'): success_count += 1
         if successful_patterns >= total_patterns * 0.8: success_count += 1
         
         success_rate = (success_count / total_tests) * 100
