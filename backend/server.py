@@ -2300,7 +2300,7 @@ async def generate_pattern_following_prediction(model_id: str, steps: int = 30, 
 async def generate_continuous_prediction(model_id: str, steps: int = 30, time_window: int = 100):
     """Generate continuous predictions with industry-level pattern-based extrapolation"""
     try:
-        global current_model, continuous_predictions, use_industry_level_prediction
+        global current_model, continuous_predictions, use_industry_level_prediction, use_advanced_pattern_memory
         
         if current_model is None:
             raise HTTPException(status_code=400, detail="No model trained")
@@ -2311,13 +2311,21 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
         time_col = current_model['time_col']
         target_col = current_model['target_col']
         
+        # Use advanced pattern memory system if enabled
+        if use_advanced_pattern_memory:
+            return await generate_advanced_pattern_memory_prediction(
+                model, model_type, data, time_col, target_col, steps, time_window
+            )
         # Use industry-level prediction system
-        if use_industry_level_prediction:
+        elif use_industry_level_prediction:
             return await generate_industry_level_continuous_prediction(
                 model, model_type, data, time_col, target_col, steps, time_window
             )
         else:
             # Fallback to original system
+            return await generate_legacy_continuous_prediction(
+                model, model_type, data, time_col, target_col, steps, time_window
+            )
             return await generate_legacy_continuous_prediction(
                 model, model_type, data, time_col, target_col, steps, time_window
             )
