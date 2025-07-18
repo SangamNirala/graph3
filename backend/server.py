@@ -2475,12 +2475,15 @@ async def generate_industry_level_continuous_prediction(model, model_type, data,
         # Create result with enhanced pattern following
         result = {
             'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-            'predictions': predictions[:steps],
+            'predictions': [float(p) for p in predictions[:steps]],  # Ensure float conversion
             'confidence_intervals': confidence_intervals[:steps],
-            'pattern_analysis': pattern_analysis,
+            'pattern_analysis': safe_json_serialization(pattern_analysis),
             'prediction_method': prediction_method,
-            'system_metrics': getattr(adaptive_learning_system, 'get_system_metrics', lambda: {})()
+            'system_metrics': safe_json_serialization(getattr(adaptive_learning_system, 'get_system_metrics', lambda: {})())
         }
+        
+        # Apply safe JSON serialization to the entire result
+        result = safe_json_serialization(result)
         
         # Store prediction for continuous use
         continuous_predictions.append(result)
