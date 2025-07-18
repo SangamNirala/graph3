@@ -575,6 +575,7 @@ class PhPredictionTester:
         ph_values = np.clip(ph_values, 6.0, 8.0)
         
         return pd.DataFrame({'timestamp': timestamps, 'ph_value': ph_values})
+    def test_advanced_prediction_endpoints(self):
         """Test 6: Advanced prediction endpoints for pattern following"""
         print("\n=== Testing Advanced Prediction Endpoints ===")
         
