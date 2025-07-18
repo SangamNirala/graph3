@@ -2628,6 +2628,63 @@ async def toggle_prediction_system(use_industry_level: bool = True):
         }
         
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/configure-pattern-following")
+async def configure_pattern_following(
+    enable_advanced_pattern_following: bool = True,
+    enable_industry_level: bool = True
+):
+    """Configure pattern following and prediction systems"""
+    try:
+        global use_industry_level_prediction, use_advanced_pattern_following
+        
+        use_industry_level_prediction = enable_industry_level
+        use_advanced_pattern_following = enable_advanced_pattern_following
+        
+        return {
+            'status': 'success',
+            'message': 'Pattern following configuration updated',
+            'configuration': {
+                'advanced_pattern_following': use_advanced_pattern_following,
+                'industry_level_prediction': use_industry_level_prediction
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/get-prediction-config")
+async def get_prediction_config():
+    """Get current prediction system configuration"""
+    try:
+        global use_industry_level_prediction, use_advanced_pattern_following
+        
+        return {
+            'configuration': {
+                'advanced_pattern_following': use_advanced_pattern_following,
+                'industry_level_prediction': use_industry_level_prediction
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/toggle-prediction-system")
+async def toggle_prediction_system(use_industry_level: bool = True):
+    """Toggle between industry-level and legacy prediction systems"""
+    try:
+        global use_industry_level_prediction
+        
+        use_industry_level_prediction = use_industry_level
+        
+        return {
+            'status': 'success',
+            'message': f'Switched to {"industry-level" if use_industry_level else "legacy"} prediction system',
+            'current_system': 'industry_level' if use_industry_level else 'legacy'
+        }
+        
+    except Exception as e:
         print(f"Error toggling prediction system: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
