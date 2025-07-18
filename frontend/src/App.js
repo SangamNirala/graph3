@@ -446,7 +446,7 @@ function App() {
   // Generate predictions with time window
   const generatePredictions = async (window = 0) => {
     if (!modelId) {
-      alert('❌ No model available: Please train a model first before generating predictions.');
+      showToast('No model available: Please train a model first before generating predictions.', 'error');
       return null;
     }
 
@@ -470,17 +470,17 @@ function App() {
         try {
           const errorData = await response.json();
           if (errorData.detail) {
-            errorMessage = `❌ Prediction failed: ${errorData.detail}`;
+            errorMessage = `Prediction failed: ${errorData.detail}`;
           } else if (errorData.error) {
-            errorMessage = `❌ Prediction failed: ${errorData.error}`;
+            errorMessage = `Prediction failed: ${errorData.error}`;
           } else if (errorData.message) {
-            errorMessage = `❌ Prediction failed: ${errorData.message}`;
+            errorMessage = `Prediction failed: ${errorData.message}`;
           }
         } catch (e) {
-          errorMessage = `❌ Prediction failed: HTTP ${response.status} - ${response.statusText}`;
+          errorMessage = `Prediction failed: HTTP ${response.status} - ${response.statusText}`;
         }
         
-        alert(errorMessage);
+        showToast(errorMessage, 'error');
         console.error('Prediction generation failed:', {
           status: response.status,
           statusText: response.statusText,
@@ -495,18 +495,18 @@ function App() {
       let errorMessage = 'Prediction generation failed';
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        errorMessage = '❌ Network error: Unable to connect to server. Please check your internet connection.';
+        errorMessage = 'Network error: Unable to connect to server. Please check your internet connection.';
       } else if (error.name === 'TypeError' && error.message.includes('JSON')) {
-        errorMessage = '❌ Server response error: Invalid response format.';
+        errorMessage = 'Server response error: Invalid response format.';
       } else if (error.message.includes('timeout')) {
-        errorMessage = '❌ Prediction timeout: Generation took too long. Please try again.';
+        errorMessage = 'Prediction timeout: Generation took too long. Please try again.';
       } else if (error.message.includes('abort')) {
-        errorMessage = '❌ Prediction cancelled: Generation was interrupted.';
+        errorMessage = 'Prediction cancelled: Generation was interrupted.';
       } else {
-        errorMessage = `❌ Prediction failed: ${error.message}`;
+        errorMessage = `Prediction failed: ${error.message}`;
       }
       
-      alert(errorMessage);
+      showToast(errorMessage, 'error');
     }
     return null;
   };
