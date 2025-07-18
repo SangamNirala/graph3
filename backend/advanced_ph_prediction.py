@@ -544,8 +544,8 @@ class AdvancedPhPredictionEngine:
         if self.historical_data is None:
             return {}
         
-        hist_min = np.min(self.historical_data)
-        hist_max = np.max(self.historical_data)
+        hist_min = float(np.min(self.historical_data))
+        hist_max = float(np.max(self.historical_data))
         hist_range = hist_max - hist_min
         
         # Extended bounds
@@ -553,15 +553,15 @@ class AdvancedPhPredictionEngine:
         upper_bound = hist_max + 0.5 * hist_range
         
         # Check compliance
-        within_bounds = np.all((predictions >= lower_bound) & (predictions <= upper_bound))
-        outlier_count = np.sum((predictions < lower_bound) | (predictions > upper_bound))
+        within_bounds = bool(np.all((predictions >= lower_bound) & (predictions <= upper_bound)))
+        outlier_count = int(np.sum((predictions < lower_bound) | (predictions > upper_bound)))
         
         return {
             'within_bounds': within_bounds,
             'outlier_count': outlier_count,
-            'outlier_percentage': outlier_count / len(predictions) * 100,
+            'outlier_percentage': float(outlier_count / len(predictions) * 100),
             'bounds': {
-                'lower': lower_bound,
-                'upper': upper_bound
+                'lower': float(lower_bound),
+                'upper': float(upper_bound)
             }
         }
