@@ -656,30 +656,52 @@ class AdvancedTimeSeriesForecaster:
     
     def _apply_bias_correction(self, prediction, step, historical_mean, historical_std, 
                               recent_trend, local_mean, local_std, original_input):
-        """Apply bias correction to prevent accumulated drift"""
-        # Enhanced mean reversion component - stronger pull to historical mean
-        mean_reversion = (historical_mean - prediction) * 0.03 * (1 + step * 0.005)
+        """Apply enhanced bias correction to prevent accumulated drift and maintain historical patterns"""
+        # Multi-level mean reversion with historical context
+        global_mean_reversion = (historical_mean - prediction) * 0.02 * (1 + step * 0.003)
+        local_mean_reversion = (local_mean - prediction) * 0.05 * (1 + step * 0.002)
         
-        # Enhanced trend continuation with slower decay to maintain historical patterns
-        trend_component = recent_trend * (0.95 ** step)  # Slower decay for better pattern following
+        # Enhanced trend continuation with adaptive decay based on trend strength
+        trend_strength = abs(recent_trend) / (historical_std + 1e-8)
+        trend_decay = 0.97 ** step if trend_strength > 0.1 else 0.93 ** step
+        trend_component = recent_trend * trend_decay
         
-        # Volatility constraint - limit extreme movements
-        if abs(prediction - local_mean) > 2.5 * local_std:
-            volatility_correction = np.sign(local_mean - prediction) * local_std * 0.3
+        # Multi-level volatility constraint with historical context
+        historical_range = np.max(original_input) - np.min(original_input)
+        recent_range = np.max(original_input[-min(10, len(original_input)):]) - np.min(original_input[-min(10, len(original_input)):])
+        
+        # Adaptive volatility bounds based on recent vs historical patterns
+        volatility_bound = min(2.0 * local_std, 0.3 * historical_range)
+        if abs(prediction - local_mean) > volatility_bound:
+            volatility_correction = np.sign(local_mean - prediction) * volatility_bound * 0.4
         else:
             volatility_correction = 0
         
-        # Enhanced pattern-based correction
-        pattern_correction = self._calculate_pattern_correction(
-            prediction, step, original_input, local_mean
+        # Enhanced pattern-based correction with multi-scale analysis
+        pattern_correction = self._calculate_enhanced_pattern_correction(
+            prediction, step, original_input, local_mean, historical_mean
         )
         
-        # Apply momentum from recent values to maintain pattern continuity
-        momentum_correction = self._calculate_momentum_correction(
+        # Advanced momentum correction with acceleration awareness
+        momentum_correction = self._calculate_advanced_momentum_correction(
+            prediction, step, original_input, recent_trend, historical_std
+        )
+        
+        # Range preservation correction - ensure predictions stay within realistic bounds
+        range_correction = self._calculate_range_preservation_correction(
+            prediction, step, original_input, historical_mean, historical_std
+        )
+        
+        # Pattern consistency correction - maintain identified patterns
+        consistency_correction = self._calculate_pattern_consistency_correction(
             prediction, step, original_input, recent_trend
         )
         
-        corrected_prediction = prediction + mean_reversion + trend_component + volatility_correction + pattern_correction + momentum_correction
+        corrected_prediction = (prediction + 
+                              global_mean_reversion + local_mean_reversion + 
+                              trend_component + volatility_correction + 
+                              pattern_correction + momentum_correction + 
+                              range_correction + consistency_correction)
         
         return corrected_prediction
     
