@@ -2436,10 +2436,7 @@ async def generate_industry_level_continuous_prediction(model, model_type, data,
                 pattern_analysis = prediction_results.get('pattern_analysis', {})
                 prediction_method = 'adaptive_learning_fallback'
         
-        # Calculate prediction offset for continuous extension
-        prediction_offset = len(continuous_predictions) * 5  # Each call advances by 5 steps
-        
-        # Create timestamps for predictions
+        # Create timestamps for predictions (using the prediction offset calculated earlier)
         if time_col in data.columns:
             last_timestamp = pd.to_datetime(data[time_col].iloc[-1])
             time_series = pd.to_datetime(data[time_col])
@@ -2452,17 +2449,25 @@ async def generate_industry_level_continuous_prediction(model, model_type, data,
         if freq is None:
             freq = 'D'
         
-        # Create future timestamps
+        # Create future timestamps with improved offset calculation
         try:
+            # Use a more sophisticated offset calculation based on prediction method
+            if prediction_method == 'enhanced_continuous_prediction':
+                # Enhanced system uses more sophisticated offset calculation
+                time_offset = prediction_offset * 0.1  # Reduce offset accumulation
+            else:
+                # Legacy systems use traditional offset
+                time_offset = prediction_offset * 5
+            
             future_timestamps = pd.date_range(
-                start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
+                start=last_timestamp + pd.Timedelta(days=1 + time_offset), 
                 periods=steps, 
                 freq=freq
             )
         except:
             # Fallback to daily frequency
             future_timestamps = pd.date_range(
-                start=last_timestamp + pd.Timedelta(days=1 + prediction_offset), 
+                start=last_timestamp + pd.Timedelta(days=1 + time_offset), 
                 periods=steps, 
                 freq='D'
             )
