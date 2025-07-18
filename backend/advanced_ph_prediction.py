@@ -67,7 +67,8 @@ class AdvancedPhPredictionEngine:
         Fit the advanced prediction model with comprehensive pattern learning
         """
         if len(data) < self.prediction_params['seq_len']:
-            raise ValueError(f"Need at least {self.prediction_params['seq_len']} data points")
+            # Adjust sequence length if data is too small
+            self.prediction_params['seq_len'] = max(3, len(data) // 2)
         
         # Store historical data
         self.historical_data = data.copy()
@@ -81,31 +82,47 @@ class AdvancedPhPredictionEngine:
         
         logger.info(f"Training pattern-aware model with {len(data)} data points")
         
-        # Fit the model
-        training_results = self.pattern_predictor.fit(
-            data,
-            epochs=self.prediction_params['epochs'],
-            batch_size=self.prediction_params['batch_size'],
-            learning_rate=self.prediction_params['learning_rate']
-        )
-        
-        # Store pattern analysis
-        self.pattern_analysis = training_results['patterns']
-        self.fitted = True
-        
-        # Evaluate model performance
-        evaluation = self._evaluate_model(data)
-        
-        return {
-            'training_results': training_results,
-            'evaluation': evaluation,
-            'pattern_analysis': self.pattern_analysis,
-            'model_info': {
-                'data_points': len(data),
-                'seq_len': self.prediction_params['seq_len'],
-                'model_type': 'pattern_aware_lstm'
+        try:
+            # Fit the model
+            training_results = self.pattern_predictor.fit(
+                data,
+                epochs=self.prediction_params['epochs'],
+                batch_size=self.prediction_params['batch_size'],
+                learning_rate=self.prediction_params['learning_rate']
+            )
+            
+            # Store pattern analysis
+            self.pattern_analysis = training_results['patterns']
+            self.fitted = True
+            
+            # Evaluate model performance
+            evaluation = self._evaluate_model(data)
+            
+            return {
+                'training_results': training_results,
+                'evaluation': evaluation,
+                'pattern_analysis': self.pattern_analysis,
+                'model_info': {
+                    'data_points': len(data),
+                    'seq_len': self.prediction_params['seq_len'],
+                    'model_type': 'pattern_aware_lstm'
+                }
             }
-        }
+            
+        except Exception as e:
+            logger.error(f"Error in model training: {e}")
+            # Return simplified result on error
+            return {
+                'training_results': {'error': str(e)},
+                'evaluation': {'error': 'Training failed'},
+                'pattern_analysis': {},
+                'model_info': {
+                    'data_points': len(data),
+                    'seq_len': self.prediction_params['seq_len'],
+                    'model_type': 'pattern_aware_lstm',
+                    'error': str(e)
+                }
+            }
     
     def predict_continuous(self, steps: int = 30, 
                           maintain_patterns: bool = True) -> Dict[str, Any]:
