@@ -1404,6 +1404,34 @@ function App() {
       {currentStep === 'upload' && renderUploadStep()}
       {currentStep === 'parameters' && renderParametersStep()}
       {currentStep === 'prediction' && renderPredictionStep()}
+      
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+          toast.type === 'success' 
+            ? 'bg-green-100 border border-green-400 text-green-700' 
+            : toast.type === 'error' 
+            ? 'bg-red-100 border border-red-400 text-red-700' 
+            : 'bg-blue-100 border border-blue-400 text-blue-700'
+        }`}>
+          <div className="flex items-center">
+            <div className="mr-3">
+              {toast.type === 'success' && <div className="text-2xl">✅</div>}
+              {toast.type === 'error' && <div className="text-2xl">❌</div>}
+              {toast.type === 'info' && <div className="text-2xl">ℹ️</div>}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium">{toast.message}</p>
+            </div>
+            <button
+              onClick={() => setToast({ show: false, message: '', type: 'info' })}
+              className="ml-4 text-gray-400 hover:text-gray-600"
+            >
+              <div className="text-lg">×</div>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
