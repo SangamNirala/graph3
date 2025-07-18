@@ -2269,6 +2269,9 @@ async def generate_pattern_following_prediction(model_id: str, steps: int = 30, 
             ]
         }
         
+        # Apply safe JSON serialization to handle numpy types
+        result = safe_json_serialization(result)
+        
         # Store prediction for continuous use
         continuous_predictions.append(result)
         
