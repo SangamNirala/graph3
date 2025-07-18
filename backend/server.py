@@ -194,6 +194,7 @@ active_prediction_system = "advanced_ph_prediction"  # Current active prediction
 industry_pattern_recognizer = IndustryLevelPatternRecognition()
 industry_prediction_engine = IndustryPredictionEngine()
 adaptive_learning_system = AdaptiveContinuousLearningSystem()
+advanced_pattern_follower = AdvancedPatternFollowingEngine()
 
 # Global flag to control which system to use
 use_industry_level_prediction = True  # Enable industry-level predictions
