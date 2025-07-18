@@ -3600,10 +3600,10 @@ async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bo
         result = {
             'predictions': prediction_results['predictions'],
             'timestamps': prediction_results['timestamps'],
-            'metrics': prediction_results['metrics'],
-            'quality_analysis': quality_analysis,
-            'pattern_analysis': prediction_results['pattern_analysis'],
-            'historical_continuity': prediction_results['historical_continuity'],
+            'metrics': convert_numpy_types(prediction_results['metrics']),
+            'quality_analysis': convert_numpy_types(quality_analysis),
+            'pattern_analysis': convert_numpy_types(prediction_results['pattern_analysis']),
+            'historical_continuity': convert_numpy_types(prediction_results['historical_continuity']),
             'prediction_info': {
                 'model_type': 'advanced_pattern_aware_lstm',
                 'steps': steps,
@@ -3613,7 +3613,7 @@ async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bo
             }
         }
         
-        return result
+        return convert_numpy_types(result)
         
     except Exception as e:
         logger.error(f"Error in advanced pH prediction: {e}")
