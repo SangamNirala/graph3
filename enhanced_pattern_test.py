@@ -544,25 +544,25 @@ class EnhancedPatternTester:
         
         # Test 1: Continuous Bias
         bias_result = self.test_results.get('continuous_bias', {})
-        if bias_result.get('overall'):
+        if isinstance(bias_result, dict) and bias_result.get('overall'):
             print("✅ CONTINUOUS PREDICTION BIAS: RESOLVED")
             print(f"   Slope: {bias_result.get('slope', 0):.6f}")
             print(f"   Variability: {bias_result.get('std', 0):.6f}")
         else:
             print("❌ CONTINUOUS PREDICTION BIAS: ISSUES DETECTED")
-            if 'error' in bias_result:
+            if isinstance(bias_result, dict) and 'error' in bias_result:
                 print(f"   Error: {bias_result['error']}")
         
         # Test 2: Pattern Following
         pattern_result = self.test_results.get('pattern_following', {})
-        if pattern_result.get('result'):
+        if isinstance(pattern_result, dict) and pattern_result.get('result'):
             print("✅ PATTERN FOLLOWING: WORKING")
         else:
             print("❌ PATTERN FOLLOWING: NEEDS IMPROVEMENT")
         
         # Test 3: Variability Preservation
         variability_result = self.test_results.get('variability_preservation', {})
-        if variability_result.get('result'):
+        if isinstance(variability_result, dict) and variability_result.get('result'):
             print("✅ VARIABILITY PRESERVATION: WORKING")
         else:
             print("❌ VARIABILITY PRESERVATION: NEEDS IMPROVEMENT")
