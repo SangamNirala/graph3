@@ -18,8 +18,8 @@ def test_simple_prediction():
     
     # Create simple test data
     data = {
-        'time_step': list(range(10)),
-        'pH': [7.0, 7.1, 6.9, 7.2, 7.0, 6.8, 7.1, 7.3, 7.0, 6.9]
+        'time_step': list(range(30)),
+        'pH': [7.0 + 0.1 * np.sin(i/3) + 0.05 * np.random.randn() for i in range(30)]
     }
     
     df = pd.DataFrame(data)
