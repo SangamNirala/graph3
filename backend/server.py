@@ -2614,8 +2614,8 @@ async def reset_learning_system():
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/toggle-prediction-system")
-async def toggle_prediction_system(use_industry_level: bool = True):
-    """Toggle between industry-level and legacy prediction systems"""
+async def toggle_prediction_system_legacy(use_industry_level: bool = True):
+    """Toggle between industry-level and legacy prediction systems (legacy endpoint)"""
     try:
         global use_industry_level_prediction
         
