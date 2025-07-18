@@ -97,12 +97,25 @@ def test_continuous_prediction_bias():
             predictions = data.get('predictions', [])
             
             if predictions:
-                pred_values = [p['value'] for p in predictions]
-                all_predictions.extend(pred_values)
+                # Handle different response formats
+                if isinstance(predictions, list) and len(predictions) > 0:
+                    if isinstance(predictions[0], dict):
+                        # Format: [{'value': x, 'timestamp': y}, ...]
+                        pred_values = [p['value'] for p in predictions]
+                    else:
+                        # Format: [x, y, z, ...] (direct values)
+                        pred_values = predictions
+                else:
+                    pred_values = []
                 
-                print(f"      Predictions: {len(pred_values)} values")
-                print(f"      Range: {min(pred_values):.3f} - {max(pred_values):.3f}")
-                print(f"      Mean: {np.mean(pred_values):.3f}")
+                if pred_values:
+                    all_predictions.extend(pred_values)
+                    
+                    print(f"      Predictions: {len(pred_values)} values")
+                    print(f"      Range: {min(pred_values):.3f} - {max(pred_values):.3f}")
+                    print(f"      Mean: {np.mean(pred_values):.3f}")
+                else:
+                    print(f"      ❌ No prediction values found")
             else:
                 print(f"      ❌ No predictions returned")
         else:
