@@ -199,6 +199,9 @@ industry_prediction_engine = IndustryPredictionEngine()
 adaptive_learning_system = AdaptiveContinuousLearningSystem()
 advanced_pattern_follower = AdvancedPatternFollowingEngine()
 
+# Enhanced continuous prediction system
+enhanced_continuous_predictor = EnhancedContinuousPredictionSystem()
+
 # Global flag to control which system to use
 use_industry_level_prediction = True  # Enable industry-level predictions
 use_advanced_pattern_following = True  # Enable advanced pattern following
