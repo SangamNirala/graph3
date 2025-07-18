@@ -360,7 +360,10 @@ function App() {
 
   // Generate continuous predictions with proper extrapolation
   const generateContinuousPredictions = async () => {
-    if (!modelId) return null;
+    if (!modelId) {
+      console.error('No model available for continuous predictions');
+      return null;
+    }
 
     try {
       // Try new advanced pH prediction first
@@ -384,9 +387,33 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         return data;
+      } else {
+        // Log error details but don't alert for continuous predictions (they run in background)
+        console.error('Continuous prediction failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          modelId: modelId,
+          timeWindow: timeWindow
+        });
+        
+        // Try to get error details
+        try {
+          const errorData = await response.json();
+          console.error('Error details:', errorData);
+        } catch (e) {
+          console.error('Could not parse error response');
+        }
       }
     } catch (error) {
       console.error('Error generating continuous predictions:', error);
+      
+      // Log additional details for debugging
+      console.error('Continuous prediction error details:', {
+        errorName: error.name,
+        errorMessage: error.message,
+        modelId: modelId,
+        timeWindow: timeWindow
+      });
     }
     return null;
   };
