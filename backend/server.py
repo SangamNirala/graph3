@@ -37,6 +37,9 @@ from advanced_pattern_recognition import IndustryLevelPatternRecognition
 from industry_prediction_engine import AdvancedPredictionEngine as IndustryPredictionEngine
 from adaptive_continuous_learning import AdaptiveContinuousLearningSystem
 
+# Import new advanced pH prediction system
+from advanced_ph_prediction import AdvancedPhPredictionEngine
+
 # Import new advanced models
 from advanced_models import (
     AdvancedTimeSeriesForecaster, 
