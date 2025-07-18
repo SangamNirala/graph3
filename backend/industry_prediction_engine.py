@@ -272,33 +272,63 @@ class AdvancedPredictionEngine:
             return self._predict_ensemble_hybrid(data, steps, pattern_analysis)
     
     def _predict_linear(self, data: np.ndarray, steps: int, pattern_analysis: Dict) -> np.ndarray:
-        """Linear prediction with trend analysis"""
+        """Enhanced linear prediction with improved pattern analysis"""
         try:
             # Get trend information
             trend_analysis = pattern_analysis['trend_analysis']
             overall_trend = trend_analysis['overall_trend']
             
-            # Fit linear model
+            # Calculate historical statistics
+            historical_mean = np.mean(data)
+            historical_std = np.std(data)
+            
+            # Fit linear model with robust fitting
             x = np.arange(len(data))
             coeffs = np.polyfit(x, data, 1)
             
-            # Generate predictions
+            # Generate base predictions
             future_x = np.arange(len(data), len(data) + steps)
-            predictions = np.polyval(coeffs, future_x)
+            base_predictions = np.polyval(coeffs, future_x)
             
-            # Apply trend stabilization
+            # Apply enhanced trend stabilization
             trend_strength = overall_trend.get('strength', 0.5)
+            slope = coeffs[0]
+            
+            # Calculate adaptive mean reversion strength
             if trend_strength > 0.8:
-                # Strong trend - continue as is
-                pass
+                # Strong trend - reduce mean reversion but prevent extreme values
+                mean_reversion_strength = 0.05
+            elif trend_strength > 0.5:
+                # Moderate trend - balanced approach
+                mean_reversion_strength = 0.2
             else:
-                # Weak trend - add mean reversion
-                mean_reversion = (np.mean(data) - predictions) * 0.1
-                predictions += mean_reversion
+                # Weak trend - stronger mean reversion
+                mean_reversion_strength = 0.4
+            
+            # Apply mean reversion with decay
+            mean_reversion = (historical_mean - base_predictions) * mean_reversion_strength
+            
+            # Add pattern-based corrections
+            predictions = base_predictions + mean_reversion
+            
+            # Apply variability preservation
+            if np.std(predictions) < 0.5 * historical_std:
+                # Predictions too flat - add controlled variability
+                variability_factor = historical_std / (np.std(predictions) + 1e-10)
+                pred_mean = np.mean(predictions)
+                predictions = pred_mean + (predictions - pred_mean) * variability_factor * 0.7
+            
+            # Apply boundary constraints
+            data_range = np.max(data) - np.min(data)
+            range_expansion = 0.2 * data_range
+            predictions = np.clip(predictions, 
+                                np.min(data) - range_expansion, 
+                                np.max(data) + range_expansion)
             
             return predictions
             
         except Exception as e:
+            logger.warning(f"Linear prediction failed: {e}")
             return np.full(steps, data[-1])
     
     def _predict_exponential(self, data: np.ndarray, steps: int, pattern_analysis: Dict) -> np.ndarray:
