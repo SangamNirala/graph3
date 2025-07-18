@@ -589,6 +589,118 @@ class EnhancedContinuousPredictionSystem:
             logger.error(f"Error in cyclical pattern analysis: {e}")
             return {'dominant_period': None, 'strength': 0.0, 'amplitude': 0.0}
     
+    def _analyze_volatility_patterns(self, data: np.ndarray) -> Dict[str, Any]:
+        """Analyze volatility patterns in data"""
+        try:
+            volatility = {}
+            
+            # Rolling volatility
+            if len(data) >= 5:
+                window_size = max(3, len(data) // 5)
+                volatility_values = []
+                
+                for i in range(window_size, len(data)):
+                    window_data = data[i-window_size:i]
+                    volatility_values.append(np.std(window_data))
+                
+                if volatility_values:
+                    volatility['mean_volatility'] = np.mean(volatility_values)
+                    volatility['volatility_trend'] = np.polyfit(np.arange(len(volatility_values)), volatility_values, 1)[0]
+                else:
+                    volatility['mean_volatility'] = np.std(data)
+                    volatility['volatility_trend'] = 0.0
+            else:
+                volatility['mean_volatility'] = np.std(data)
+                volatility['volatility_trend'] = 0.0
+            
+            return volatility
+            
+        except Exception as e:
+            logger.error(f"Error in volatility pattern analysis: {e}")
+            return {'mean_volatility': 0.0, 'volatility_trend': 0.0}
+    
+    def _analyze_local_patterns(self, data: np.ndarray) -> Dict[str, Any]:
+        """Analyze local patterns in data"""
+        try:
+            local = {}
+            
+            # Recent behavior
+            if len(data) >= 5:
+                recent_data = data[-5:]
+                local['recent_mean'] = np.mean(recent_data)
+                local['recent_std'] = np.std(recent_data)
+                local['recent_trend'] = np.polyfit(np.arange(len(recent_data)), recent_data, 1)[0]
+                
+                # Change points detection
+                changes = np.diff(recent_data)
+                local['change_frequency'] = np.sum(np.abs(changes) > 0.5 * np.std(data))
+                local['change_magnitude'] = np.mean(np.abs(changes))
+            else:
+                local['recent_mean'] = np.mean(data)
+                local['recent_std'] = np.std(data)
+                local['recent_trend'] = 0.0
+                local['change_frequency'] = 0
+                local['change_magnitude'] = 0.0
+            
+            return local
+            
+        except Exception as e:
+            logger.error(f"Error in local pattern analysis: {e}")
+            return {'recent_mean': 0.0, 'recent_std': 0.0, 'recent_trend': 0.0, 'change_frequency': 0, 'change_magnitude': 0.0}
+    
+    def _analyze_frequency_patterns(self, data: np.ndarray) -> Dict[str, Any]:
+        """Analyze frequency domain patterns"""
+        try:
+            frequency = {}
+            
+            # FFT analysis
+            if len(data) >= 8:
+                fft_data = np.fft.fft(data)
+                frequencies = np.fft.fftfreq(len(data))
+                
+                # Find dominant frequencies
+                power_spectrum = np.abs(fft_data)
+                dominant_freq_idx = np.argmax(power_spectrum[1:len(data)//2]) + 1
+                
+                frequency['dominant_frequency'] = frequencies[dominant_freq_idx]
+                frequency['dominant_power'] = power_spectrum[dominant_freq_idx]
+                frequency['total_power'] = np.sum(power_spectrum)
+                frequency['frequency_concentration'] = frequency['dominant_power'] / frequency['total_power']
+            else:
+                frequency['dominant_frequency'] = 0.0
+                frequency['dominant_power'] = 0.0
+                frequency['total_power'] = 0.0
+                frequency['frequency_concentration'] = 0.0
+            
+            return frequency
+            
+        except Exception as e:
+            logger.error(f"Error in frequency pattern analysis: {e}")
+            return {'dominant_frequency': 0.0, 'dominant_power': 0.0, 'total_power': 0.0, 'frequency_concentration': 0.0}
+    
+    def _get_default_patterns(self, data: np.ndarray) -> Dict[str, Any]:
+        """Get default patterns when analysis fails"""
+        try:
+            return {
+                'statistical': {
+                    'mean': np.mean(data),
+                    'std': np.std(data),
+                    'min': np.min(data),
+                    'max': np.max(data),
+                    'range': np.max(data) - np.min(data),
+                    'skewness': 0.0,
+                    'kurtosis': 0.0
+                },
+                'trends': {'recent_trend': 0.0, 'medium_trend': 0.0, 'long_trend': 0.0},
+                'cyclical': {'dominant_period': None, 'strength': 0.0, 'amplitude': 0.0},
+                'volatility': {'mean_volatility': np.std(data), 'volatility_trend': 0.0},
+                'local': {'recent_mean': np.mean(data), 'recent_std': np.std(data), 'recent_trend': 0.0, 'change_frequency': 0, 'change_magnitude': 0.0},
+                'frequency': {'dominant_frequency': 0.0, 'dominant_power': 0.0, 'total_power': 0.0, 'frequency_concentration': 0.0}
+            }
+        except Exception as e:
+            logger.error(f"Error in default patterns: {e}")
+            return {}
+
     def _generate_fallback_predictions(self, data: np.ndarray, steps: int) -> Dict[str, Any]:
         """Generate fallback predictions when main algorithm fails"""
         try:
