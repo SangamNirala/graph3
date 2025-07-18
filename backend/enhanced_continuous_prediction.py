@@ -701,6 +701,420 @@ class EnhancedContinuousPredictionSystem:
             logger.error(f"Error in default patterns: {e}")
             return {}
 
+    def _generate_trend_aware_predictions(self, data: np.ndarray, steps: int, patterns: Dict) -> np.ndarray:
+        """Generate trend-aware predictions"""
+        try:
+            # Get trend information
+            recent_trend = patterns['trends'].get('recent_trend', 0)
+            medium_trend = patterns['trends'].get('medium_trend', 0)
+            long_trend = patterns['trends'].get('long_trend', 0)
+            
+            # Weighted trend combination
+            trend_weights = [0.5, 0.3, 0.2]  # Recent, medium, long
+            combined_trend = (recent_trend * trend_weights[0] + 
+                            medium_trend * trend_weights[1] + 
+                            long_trend * trend_weights[2])
+            
+            # Generate predictions
+            predictions = []
+            last_value = data[-1]
+            
+            for i in range(steps):
+                # Apply trend with decay
+                trend_decay = np.exp(-0.1 * i)  # Gradual trend decay
+                next_value = last_value + combined_trend * (i + 1) * trend_decay
+                predictions.append(next_value)
+            
+            return np.array(predictions)
+            
+        except Exception as e:
+            logger.error(f"Error in trend-aware predictions: {e}")
+            return np.full(steps, data[-1])
+    
+    def _generate_cyclical_predictions(self, data: np.ndarray, steps: int, patterns: Dict) -> np.ndarray:
+        """Generate cyclical predictions"""
+        try:
+            cyclical_patterns = patterns.get('cyclical', {})
+            
+            if cyclical_patterns.get('dominant_period') and cyclical_patterns.get('strength', 0) > 0.3:
+                period = cyclical_patterns['dominant_period']
+                amplitude = cyclical_patterns['amplitude']
+                
+                # Generate cyclical predictions
+                predictions = []
+                last_value = data[-1]
+                
+                for i in range(steps):
+                    phase = 2 * np.pi * i / period
+                    cyclical_component = amplitude * np.sin(phase)
+                    predictions.append(last_value + cyclical_component)
+                
+                return np.array(predictions)
+            else:
+                # No strong cyclical pattern, use simple continuation
+                return np.full(steps, data[-1])
+                
+        except Exception as e:
+            logger.error(f"Error in cyclical predictions: {e}")
+            return np.full(steps, data[-1])
+    
+    def _generate_volatility_aware_predictions(self, data: np.ndarray, steps: int, patterns: Dict) -> np.ndarray:
+        """Generate volatility-aware predictions"""
+        try:
+            volatility_patterns = patterns.get('volatility', {})
+            mean_volatility = volatility_patterns.get('mean_volatility', np.std(data))
+            
+            # Generate predictions with appropriate volatility
+            predictions = []
+            last_value = data[-1]
+            
+            for i in range(steps):
+                # Add volatility-based noise
+                noise = np.random.normal(0, mean_volatility * 0.5)
+                # Apply volatility decay
+                volatility_decay = np.exp(-0.05 * i)
+                next_value = last_value + noise * volatility_decay
+                predictions.append(next_value)
+            
+            return np.array(predictions)
+            
+        except Exception as e:
+            logger.error(f"Error in volatility-aware predictions: {e}")
+            return np.full(steps, data[-1])
+    
+    def _generate_local_pattern_predictions(self, data: np.ndarray, steps: int, patterns: Dict) -> np.ndarray:
+        """Generate predictions based on local patterns"""
+        try:
+            local_patterns = patterns.get('local', {})
+            recent_trend = local_patterns.get('recent_trend', 0)
+            change_magnitude = local_patterns.get('change_magnitude', 0)
+            
+            # Generate predictions based on recent behavior
+            predictions = []
+            last_value = data[-1]
+            
+            for i in range(steps):
+                # Apply local trend with some randomness
+                local_change = recent_trend + np.random.normal(0, change_magnitude * 0.3)
+                next_value = last_value + local_change * (i + 1)
+                predictions.append(next_value)
+            
+            return np.array(predictions)
+            
+        except Exception as e:
+            logger.error(f"Error in local pattern predictions: {e}")
+            return np.full(steps, data[-1])
+    
+    def _generate_frequency_based_predictions(self, data: np.ndarray, steps: int, patterns: Dict) -> np.ndarray:
+        """Generate predictions based on frequency analysis"""
+        try:
+            frequency_patterns = patterns.get('frequency', {})
+            dominant_freq = frequency_patterns.get('dominant_frequency', 0)
+            concentration = frequency_patterns.get('frequency_concentration', 0)
+            
+            if abs(dominant_freq) > 1e-6 and concentration > 0.3:
+                # Generate frequency-based predictions
+                predictions = []
+                last_value = data[-1]
+                
+                for i in range(steps):
+                    # Apply frequency component
+                    freq_component = np.sin(2 * np.pi * dominant_freq * i) * np.std(data) * 0.3
+                    predictions.append(last_value + freq_component)
+                
+                return np.array(predictions)
+            else:
+                # No strong frequency pattern
+                return np.full(steps, data[-1])
+                
+        except Exception as e:
+            logger.error(f"Error in frequency-based predictions: {e}")
+            return np.full(steps, data[-1])
+    
+    def _combine_predictions_adaptively(self, predictions: Dict[str, np.ndarray], patterns: Dict) -> np.ndarray:
+        """Combine predictions adaptively based on pattern strength"""
+        try:
+            # Calculate weights based on pattern strength
+            weights = {}
+            total_weight = 0
+            
+            # Trend weight
+            trend_strength = max(abs(patterns['trends'].get('recent_trend', 0)), 
+                               abs(patterns['trends'].get('medium_trend', 0)))
+            weights['trend'] = min(0.4, trend_strength / (patterns['statistical']['std'] + 1e-10))
+            
+            # Cyclical weight
+            cyclical_strength = patterns['cyclical'].get('strength', 0)
+            weights['cyclical'] = min(0.3, cyclical_strength)
+            
+            # Volatility weight
+            weights['volatility'] = 0.2
+            
+            # Local weight
+            local_change = patterns['local'].get('change_magnitude', 0)
+            weights['local'] = min(0.2, local_change / (patterns['statistical']['std'] + 1e-10))
+            
+            # Frequency weight
+            freq_concentration = patterns['frequency'].get('frequency_concentration', 0)
+            weights['frequency'] = min(0.2, freq_concentration)
+            
+            # Normalize weights
+            total_weight = sum(weights.values())
+            if total_weight > 0:
+                for key in weights:
+                    weights[key] /= total_weight
+            else:
+                # Equal weights if no pattern detected
+                weights = {key: 1.0/len(predictions) for key in predictions}
+            
+            # Combine predictions
+            combined = np.zeros_like(predictions['trend'])
+            for method, pred in predictions.items():
+                if method in weights:
+                    combined += weights[method] * pred
+            
+            return combined
+            
+        except Exception as e:
+            logger.error(f"Error in adaptive prediction combination: {e}")
+            return predictions.get('trend', np.zeros(30))
+    
+    def _generate_simple_predictions(self, data: np.ndarray, steps: int) -> np.ndarray:
+        """Generate simple predictions as fallback"""
+        try:
+            if len(data) >= 2:
+                # Simple linear extrapolation
+                trend = data[-1] - data[-2]
+                predictions = [data[-1] + trend * (i + 1) for i in range(steps)]
+                return np.array(predictions)
+            else:
+                return np.full(steps, data[-1] if len(data) > 0 else 0.0)
+                
+        except Exception as e:
+            logger.error(f"Error in simple predictions: {e}")
+            return np.zeros(steps)
+    
+    def _apply_continuity_preservation(self, predictions: np.ndarray, data: np.ndarray, 
+                                     previous_predictions: List) -> np.ndarray:
+        """Apply continuity preservation with previous predictions"""
+        try:
+            if not previous_predictions:
+                return predictions
+            
+            # Calculate expected continuation based on previous predictions
+            prev_array = np.array(previous_predictions)
+            if len(prev_array) >= 2:
+                prev_trend = prev_array[-1] - prev_array[-2]
+                expected_first = prev_array[-1] + prev_trend
+                
+                # Apply continuity correction
+                actual_first = predictions[0]
+                continuity_gap = expected_first - actual_first
+                
+                # Apply gap correction with decay
+                if abs(continuity_gap) > 0.1 * np.std(data):
+                    correction_weights = np.exp(-0.2 * np.arange(len(predictions)))
+                    predictions += continuity_gap * correction_weights * self.continuity_strength
+            
+            return predictions
+            
+        except Exception as e:
+            logger.error(f"Error in continuity preservation: {e}")
+            return predictions
+    
+    def _apply_boundary_preservation(self, predictions: np.ndarray, data: np.ndarray, 
+                                   patterns: Dict) -> np.ndarray:
+        """Apply boundary preservation to keep predictions within reasonable range"""
+        try:
+            # Calculate reasonable bounds
+            historical_min = patterns['statistical']['min']
+            historical_max = patterns['statistical']['max']
+            historical_range = patterns['statistical']['range']
+            
+            # Expand bounds slightly to allow for natural variation
+            range_expansion = 0.2 * historical_range
+            lower_bound = historical_min - range_expansion
+            upper_bound = historical_max + range_expansion
+            
+            # Apply bounds
+            predictions = np.clip(predictions, lower_bound, upper_bound)
+            
+            return predictions
+            
+        except Exception as e:
+            logger.error(f"Error in boundary preservation: {e}")
+            return predictions
+    
+    def _preserve_statistical_characteristics(self, predictions: np.ndarray, data: np.ndarray, 
+                                            patterns: Dict) -> np.ndarray:
+        """Preserve statistical characteristics in predictions"""
+        try:
+            # Target statistics
+            target_mean = patterns['statistical']['mean']
+            target_std = patterns['statistical']['std']
+            
+            # Current statistics
+            current_mean = np.mean(predictions)
+            current_std = np.std(predictions)
+            
+            # Apply statistical preservation
+            if abs(current_mean - target_mean) > 0.1 * target_std:
+                # Adjust mean
+                mean_adjustment = (target_mean - current_mean) * 0.5
+                predictions += mean_adjustment
+            
+            # Adjust standard deviation
+            if current_std > 0 and abs(current_std - target_std) > 0.2 * target_std:
+                std_adjustment = target_std / current_std
+                prediction_mean = np.mean(predictions)
+                predictions = prediction_mean + (predictions - prediction_mean) * std_adjustment * 0.7
+            
+            return predictions
+            
+        except Exception as e:
+            logger.error(f"Error in statistical characteristic preservation: {e}")
+            return predictions
+    
+    def _preserve_trend_characteristics(self, predictions: np.ndarray, data: np.ndarray, 
+                                      patterns: Dict) -> np.ndarray:
+        """Preserve trend characteristics in predictions"""
+        try:
+            # Already handled in trend momentum preservation
+            return predictions
+            
+        except Exception as e:
+            logger.error(f"Error in trend characteristic preservation: {e}")
+            return predictions
+    
+    def _preserve_cyclical_characteristics(self, predictions: np.ndarray, data: np.ndarray, 
+                                         patterns: Dict) -> np.ndarray:
+        """Preserve cyclical characteristics in predictions"""
+        try:
+            # Already handled in cyclical preservation
+            return predictions
+            
+        except Exception as e:
+            logger.error(f"Error in cyclical characteristic preservation: {e}")
+            return predictions
+    
+    def _preserve_volatility_characteristics(self, predictions: np.ndarray, data: np.ndarray, 
+                                           patterns: Dict) -> np.ndarray:
+        """Preserve volatility characteristics in predictions"""
+        try:
+            target_volatility = patterns['volatility'].get('mean_volatility', np.std(data))
+            
+            # Calculate current volatility
+            if len(predictions) >= 2:
+                current_volatility = np.std(np.diff(predictions))
+                
+                if abs(current_volatility - target_volatility) > 0.3 * target_volatility:
+                    # Apply volatility adjustment
+                    volatility_factor = target_volatility / (current_volatility + 1e-10)
+                    prediction_mean = np.mean(predictions)
+                    predictions = prediction_mean + (predictions - prediction_mean) * volatility_factor * 0.5
+            
+            return predictions
+            
+        except Exception as e:
+            logger.error(f"Error in volatility characteristic preservation: {e}")
+            return predictions
+    
+    def _apply_accumulated_bias_prevention(self, predictions: np.ndarray, data: np.ndarray) -> np.ndarray:
+        """Apply accumulated bias prevention based on historical bias tracking"""
+        try:
+            if len(self.bias_tracking) < 3:
+                return predictions
+            
+            # Calculate accumulated bias
+            recent_biases = self.bias_tracking[-3:]
+            mean_bias_trend = np.mean([b['mean_bias'] for b in recent_biases])
+            trend_bias_trend = np.mean([b['trend_bias'] for b in recent_biases])
+            
+            # Apply accumulated bias correction
+            if abs(mean_bias_trend) > 0.05 * np.std(data):
+                bias_correction = -mean_bias_trend * 0.3
+                predictions += bias_correction
+            
+            if abs(trend_bias_trend) > 0.05 * np.std(data):
+                trend_correction = -trend_bias_trend * 0.3
+                correction_weights = np.linspace(0, 1, len(predictions))
+                predictions += trend_correction * correction_weights
+            
+            return predictions
+            
+        except Exception as e:
+            logger.error(f"Error in accumulated bias prevention: {e}")
+            return predictions
+    
+    def _calculate_variability_preservation_score(self, predictions: np.ndarray, data: np.ndarray, 
+                                                patterns: Dict) -> float:
+        """Calculate variability preservation score"""
+        try:
+            target_std = patterns['statistical']['std']
+            prediction_std = np.std(predictions)
+            
+            # Calculate similarity score
+            if target_std > 0:
+                similarity = 1.0 - min(1.0, abs(prediction_std - target_std) / target_std)
+            else:
+                similarity = 1.0 if prediction_std == 0 else 0.0
+            
+            return max(0.0, min(1.0, similarity))
+            
+        except Exception as e:
+            logger.error(f"Error in variability preservation score: {e}")
+            return 0.5
+    
+    def _calculate_trend_preservation_score(self, predictions: np.ndarray, data: np.ndarray, 
+                                          patterns: Dict) -> float:
+        """Calculate trend preservation score"""
+        try:
+            target_trend = patterns['trends'].get('recent_trend', 0)
+            
+            if len(predictions) >= 2:
+                x = np.arange(len(predictions))
+                prediction_trend = np.polyfit(x, predictions, 1)[0]
+                
+                # Calculate similarity
+                if abs(target_trend) > 1e-6:
+                    similarity = 1.0 - min(1.0, abs(prediction_trend - target_trend) / abs(target_trend))
+                else:
+                    similarity = 1.0 if abs(prediction_trend) < 1e-6 else 0.0
+            else:
+                similarity = 0.5
+            
+            return max(0.0, min(1.0, similarity))
+            
+        except Exception as e:
+            logger.error(f"Error in trend preservation score: {e}")
+            return 0.5
+    
+    def _calculate_bias_prevention_score(self, predictions: np.ndarray, data: np.ndarray, 
+                                       patterns: Dict) -> float:
+        """Calculate bias prevention score"""
+        try:
+            # Calculate different types of bias
+            mean_bias = abs(np.mean(predictions) - patterns['statistical']['mean'])
+            std_bias = abs(np.std(predictions) - patterns['statistical']['std'])
+            
+            # Normalize biases
+            target_std = patterns['statistical']['std']
+            if target_std > 0:
+                mean_bias_norm = mean_bias / target_std
+                std_bias_norm = std_bias / target_std
+            else:
+                mean_bias_norm = 0.0
+                std_bias_norm = 0.0
+            
+            # Calculate bias prevention score
+            bias_score = 1.0 - min(1.0, (mean_bias_norm + std_bias_norm) / 2)
+            
+            return max(0.0, min(1.0, bias_score))
+            
+        except Exception as e:
+            logger.error(f"Error in bias prevention score: {e}")
+            return 0.5
+
     def _generate_fallback_predictions(self, data: np.ndarray, steps: int) -> Dict[str, Any]:
         """Generate fallback predictions when main algorithm fails"""
         try:
