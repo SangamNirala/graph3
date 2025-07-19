@@ -557,10 +557,7 @@ function App() {
       const newPredictions = await generateContinuousPredictions();
       if (newPredictions && newPredictions.predictions) {
         setPredictionData(newPredictions);
-        setLstmPredictions(prev => {
-          const updated = [...prev, ...newPredictions.predictions];
-          return updated.slice(-timeWindow); // Keep only data within time window
-        });
+        updatePredictionsSmooth(newPredictions);
       }
     }
   };
