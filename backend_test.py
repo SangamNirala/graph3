@@ -2305,6 +2305,18 @@ class BackendTester:
         # ENHANCED NEW FEATURE TESTS (from review request)
         self.test_ph_target_management()
         self.test_advanced_pattern_analysis()
+        
+        # NOISE REDUCTION SYSTEM TESTING (Focus of current review)
+        print("\n" + "="*60)
+        print("🎯 NOISE REDUCTION SYSTEM TESTING - COMPREHENSIVE SMOOTHING")
+        print("="*60)
+        
+        try:
+            asyncio.run(self.test_noise_reduction_system())
+        except Exception as e:
+            print(f"❌ Noise reduction system test failed: {str(e)}")
+            self.test_results['noise_reduction_system'] = False
+        
         self.test_integration_flow()
         
         self.test_error_handling()
