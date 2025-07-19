@@ -1642,6 +1642,7 @@ function App() {
                   color="#10B981"
                   showAnimation={true}
                   smoothLevel="high"
+                  useFixedScale={true}
                 />
               ) : lstmPredictions.length > 0 ? (
                 <PhChart 
