@@ -378,7 +378,20 @@ function App() {
     }
 
     try {
-      // Try new enhanced real-time prediction first (highest priority)
+      // Try new enhanced real-time prediction v2 first (highest priority)
+      const enhancedRealtimeV2Response = await fetch(`${API}/generate-enhanced-realtime-prediction-v2?steps=30&time_window=${timeWindow}&maintain_patterns=true`);
+      if (enhancedRealtimeV2Response.ok) {
+        const enhancedRealtimeV2Data = await enhancedRealtimeV2Response.json();
+        console.log('Enhanced real-time prediction v2 result:', enhancedRealtimeV2Data);
+        console.log('Pattern following score:', enhancedRealtimeV2Data.metadata?.pattern_following_score);
+        console.log('Variability preservation score:', enhancedRealtimeV2Data.metadata?.variability_preservation_score);
+        console.log('Bias prevention score:', enhancedRealtimeV2Data.metadata?.bias_prevention_score);
+        console.log('Continuity score:', enhancedRealtimeV2Data.metadata?.continuity_score);
+        console.log('Quality metrics:', enhancedRealtimeV2Data.metadata?.quality_metrics);
+        return enhancedRealtimeV2Data;
+      }
+      
+      // Fallback to previous enhanced real-time prediction (second priority)
       const enhancedRealtimeResponse = await fetch(`${API}/generate-enhanced-realtime-prediction?steps=30&time_window=${timeWindow}&maintain_patterns=true`);
       if (enhancedRealtimeResponse.ok) {
         const enhancedRealtimeData = await enhancedRealtimeResponse.json();
