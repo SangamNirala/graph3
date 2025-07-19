@@ -48,6 +48,9 @@ from advanced_ph_prediction import AdvancedPhPredictionEngine
 from advanced_pattern_memory import AdvancedPatternMemory
 from enhanced_realtime_continuous_prediction import EnhancedRealTimeContinuousPrediction
 
+# Import new enhanced real-time prediction system with advanced pattern learning
+from enhanced_realtime_prediction_system import EnhancedRealTimePredictionSystem
+
 # Import enhanced v2 systems for superior pattern following
 from advanced_pattern_memory_v2 import AdvancedPatternMemoryV2
 from enhanced_realtime_continuous_prediction_v2 import EnhancedRealtimeContinuousPredictionV2
