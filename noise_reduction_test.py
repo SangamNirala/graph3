@@ -572,6 +572,11 @@ class NoiseReductionTester:
             print("❌ Failed to upload test data. Cannot proceed with testing.")
             return
         
+        # Train basic model for predictions
+        if not self.train_basic_model():
+            print("❌ Failed to train basic model. Cannot proceed with prediction testing.")
+            return
+        
         # Run all tests
         self.test_enhanced_realtime_prediction_endpoint()
         self.test_advanced_ph_prediction_endpoints()
