@@ -4298,6 +4298,13 @@ async def test_noise_reduction(request_data: dict):
 # Include the router in the main app
 app.include_router(api_router)
 
+# Import the enhanced pattern API endpoints
+from enhanced_pattern_api import enhanced_api_router
+
+# Include API routers
+app.include_router(api_router, prefix="/api")
+app.include_router(enhanced_api_router, prefix="/api/enhanced")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
