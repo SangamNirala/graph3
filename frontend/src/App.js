@@ -898,10 +898,7 @@ function App() {
               const extensionData = await extensionResponse.json();
               
               // Update predictions with smooth extension
-              setLstmPredictions(prev => {
-                const updated = [...prev, ...extensionData.predictions];
-                return updated.slice(-timeWindow); // Keep within time window
-              });
+              updatePredictionsSmooth(extensionData);
               
               // Update prediction data for display
               setPredictionData(extensionData);
