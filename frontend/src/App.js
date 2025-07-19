@@ -542,10 +542,120 @@ function App() {
     }
   }, [timeWindow]);
 
-  // Simple chart component for pH monitoring dashboard
-  const PhChart = ({ data, title, color = '#3B82F6', showAnimation = false, currentValue = null }) => {
+  // Enhanced smooth chart component for pH monitoring dashboard with advanced noise reduction
+  const PhChart = ({ data, title, color = '#3B82F6', showAnimation = false, currentValue = null, smoothLevel = 'high' }) => {
     const canvasRef = React.useRef(null);
     const [animationFrame, setAnimationFrame] = React.useState(0);
+    const [visualBuffer, setVisualBuffer] = React.useState([]);
+    
+    // Frontend visual smoothing function using interpolation
+    const applyVisualSmoothing = (values, level = 'high') => {
+      if (!values || values.length < 3) return values;
+      
+      const smoothed = [...values];
+      
+      // Apply different smoothing levels
+      switch (level) {
+        case 'high':
+          // Apply multiple passes of smoothing for maximum smoothness
+          for (let pass = 0; pass < 2; pass++) {
+            for (let i = 1; i < smoothed.length - 1; i++) {
+              smoothed[i] = (smoothed[i-1] * 0.25 + smoothed[i] * 0.5 + smoothed[i+1] * 0.25);
+            }
+          }
+          break;
+        case 'medium':
+          // Single pass smoothing
+          for (let i = 1; i < smoothed.length - 1; i++) {
+            smoothed[i] = (smoothed[i-1] * 0.2 + smoothed[i] * 0.6 + smoothed[i+1] * 0.2);
+          }
+          break;
+        case 'low':
+          // Light smoothing
+          for (let i = 1; i < smoothed.length - 1; i++) {
+            smoothed[i] = (smoothed[i-1] * 0.1 + smoothed[i] * 0.8 + smoothed[i+1] * 0.1);
+          }
+          break;
+      }
+      
+      return smoothed;
+    };
+
+    // Create interpolated points for smooth curves
+    const createInterpolatedCurve = (points) => {
+      if (points.length < 2) return points;
+      
+      const interpolated = [];
+      
+      for (let i = 0; i < points.length - 1; i++) {
+        interpolated.push(points[i]);
+        
+        // Add interpolated points between existing points
+        const steps = 3; // Number of interpolation steps
+        for (let j = 1; j < steps; j++) {
+          const t = j / steps;
+          const interpolatedPoint = {
+            x: points[i].x + t * (points[i + 1].x - points[i].x),
+            y: points[i].y + t * (points[i + 1].y - points[i].y)
+          };
+          interpolated.push(interpolatedPoint);
+        }
+      }
+      
+      interpolated.push(points[points.length - 1]);
+      return interpolated;
+    };
+
+    // Draw smooth cubic Bezier curve
+    const drawSmoothCurve = (ctx, points, tension = 0.3) => {
+      if (points.length < 2) return;
+      
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      
+      for (let i = 0; i < points.length - 1; i++) {
+        const cp1x = points[i].x + (points[i + 1].x - points[i].x) * tension;
+        const cp1y = points[i].y + (points[i + 1].y - points[i].y) * tension;
+        
+        const cp2x = points[i + 1].x - (points[i + 1].x - points[i].x) * tension;
+        const cp2y = points[i + 1].y - (points[i + 1].y - points[i].y) * tension;
+        
+        if (i === 0) {
+          ctx.quadraticCurveTo(cp1x, cp1y, points[i + 1].x, points[i + 1].y);
+        } else {
+          ctx.bezierCurveTo(
+            cp1x, cp1y,
+            cp2x, cp2y,
+            points[i + 1].x, points[i + 1].y
+          );
+        }
+      }
+    };
+
+    // Draw smooth area fill
+    const drawSmoothAreaFill = (ctx, points, color, alpha = 0.3) => {
+      if (points.length < 2) return;
+      
+      const hexToRgba = (hex, alpha = 0.3) => {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      };
+      
+      ctx.fillStyle = hexToRgba(color, alpha);
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, ctx.canvas.height - 50);
+      
+      // Draw smooth curve to create the top boundary
+      ctx.lineTo(points[0].x, points[0].y);
+      drawSmoothCurve(ctx, points, 0.2);
+      
+      // Close the path along the bottom
+      ctx.lineTo(points[points.length - 1].x, ctx.canvas.height - 50);
+      ctx.closePath();
+      ctx.fill();
+    };
     
     React.useEffect(() => {
       if (!data || !canvasRef.current) return;
@@ -606,79 +716,73 @@ function App() {
       // Ensure we have valid numeric values
       values = values.filter(v => v !== null && v !== undefined && !isNaN(v));
       
-      console.log('PhChart rendering values:', values.length, 'data points:', values.slice(0, 5));
+      console.log('Enhanced PhChart rendering values:', values.length, 'data points:', values.slice(0, 5));
       
       if (values && values.length > 0) {
-        const maxVal = Math.max(...values);
-        const minVal = Math.min(...values);
+        // Apply frontend visual smoothing
+        const smoothedValues = applyVisualSmoothing(values, smoothLevel);
+        
+        const maxVal = Math.max(...smoothedValues);
+        const minVal = Math.min(...smoothedValues);
         const range = maxVal - minVal || 1;
         
-        console.log('PhChart range:', { minVal, maxVal, range });
+        console.log('Enhanced PhChart range:', { minVal, maxVal, range, smoothLevel });
         
-        // Convert hex color to rgba for area fill
-        const hexToRgba = (hex, alpha = 0.3) => {
-          const r = parseInt(hex.slice(1, 3), 16);
-          const g = parseInt(hex.slice(3, 5), 16);
-          const b = parseInt(hex.slice(5, 7), 16);
-          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        };
+        // Convert values to coordinate points
+        const points = smoothedValues.map((value, index) => ({
+          x: 50 + (index / Math.max(smoothedValues.length - 1, 1)) * (width - 100),
+          y: height - 50 - ((value - minVal) / range) * (height - 100)
+        }));
         
-        // Draw area fill
-        ctx.fillStyle = hexToRgba(color, 0.3);
-        ctx.beginPath();
-        ctx.moveTo(50, height - 50);
+        // Create interpolated points for extra smoothness
+        const interpolatedPoints = createInterpolatedCurve(points);
         
-        values.forEach((value, index) => {
-          const x = 50 + (index / Math.max(values.length - 1, 1)) * (width - 100);
-          const y = height - 50 - ((value - minVal) / range) * (height - 100);
-          ctx.lineTo(x, y);
-        });
+        // Draw smooth area fill
+        drawSmoothAreaFill(ctx, interpolatedPoints, color, 0.3);
         
-        ctx.lineTo(width - 50, height - 50);
-        ctx.closePath();
-        ctx.fill();
-        
-        // Draw line
+        // Draw smooth curve line
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
-        ctx.beginPath();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         
-        values.forEach((value, index) => {
-          const x = 50 + (index / Math.max(values.length - 1, 1)) * (width - 100);
-          const y = height - 50 - ((value - minVal) / range) * (height - 100);
-          
-          if (index === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-        });
+        // Enable antialiasing for smoother lines
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         
+        // Draw the main smooth curve
+        drawSmoothCurve(ctx, points, 0.3);
         ctx.stroke();
         
-        // Draw data points
+        // Draw data points (less prominent for smoother look)
         ctx.fillStyle = color;
-        values.forEach((value, index) => {
-          const x = 50 + (index / Math.max(values.length - 1, 1)) * (width - 100);
-          const y = height - 50 - ((value - minVal) / range) * (height - 100);
-          
-          ctx.beginPath();
-          ctx.arc(x, y, 3, 0, 2 * Math.PI);
-          ctx.fill();
+        ctx.globalAlpha = 0.7;
+        points.forEach((point, index) => {
+          // Only show every few points to reduce visual noise
+          if (index % 2 === 0 || index === points.length - 1) {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 2, 0, 2 * Math.PI);
+            ctx.fill();
+          }
         });
+        ctx.globalAlpha = 1.0;
         
-        // Show animation effect for live data
-        if (showAnimation && isPredicting) {
-          const pulseSize = 3 + Math.sin(animationFrame * 0.1) * 2;
-          const lastIndex = values.length - 1;
-          const x = 50 + (lastIndex / Math.max(values.length - 1, 1)) * (width - 100);
-          const y = height - 50 - ((values[lastIndex] - minVal) / range) * (height - 100);
+        // Enhanced animation effect for live data with smooth pulsing
+        if (showAnimation && isPredicting && points.length > 0) {
+          const pulseSize = 4 + Math.sin(animationFrame * 0.08) * 2;
+          const lastPoint = points[points.length - 1];
           
+          // Glowing effect
+          ctx.shadowColor = '#10B981';
+          ctx.shadowBlur = 10;
           ctx.strokeStyle = '#10B981';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(x, y, pulseSize, 0, 2 * Math.PI);
+          ctx.arc(lastPoint.x, lastPoint.y, pulseSize, 0, 2 * Math.PI);
           ctx.stroke();
+          
+          // Reset shadow
+          ctx.shadowBlur = 0;
         }
       } else {
         // Draw "No Data" message
@@ -702,7 +806,15 @@ function App() {
         ctx.fillText(`Current: ${currentValue}`, width - 60, 45);
       }
       
-    }, [data, title, color, showAnimation, animationFrame, isPredicting, currentValue]);
+      // Draw smoothing level indicator
+      if (smoothLevel !== 'medium') {
+        ctx.fillStyle = '#6B7280';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Smooth: ${smoothLevel}`, 60, height - 15);
+      }
+      
+    }, [data, title, color, showAnimation, animationFrame, isPredicting, currentValue, smoothLevel]);
     
     React.useEffect(() => {
       let animationId;
