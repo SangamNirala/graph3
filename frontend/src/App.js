@@ -874,6 +874,44 @@ function App() {
       ctx.lineTo(50, height - 50);
       ctx.stroke();
       
+      // Add axis labels and titles
+      ctx.fillStyle = '#374151';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      
+      // Y-axis labels (pH values)
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 14; i += 2) {
+        const y = height - 50 - (i / 14) * (height - 100);
+        ctx.fillText(i.toString(), 45, y + 4);
+      }
+      
+      // Y-axis title
+      ctx.save();
+      ctx.translate(20, height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText('pH Level', 0, 0);
+      ctx.restore();
+      
+      // X-axis labels (time points or data points)
+      ctx.textAlign = 'center';
+      const numXLabels = 5;
+      for (let i = 0; i < numXLabels; i++) {
+        const x = 50 + (i / (numXLabels - 1)) * (width - 100);
+        const labelValue = useFixedScale ? 
+          `T${Math.round((i / (numXLabels - 1)) * 30)}` : // Time points for slider graph
+          `${Math.round((i / (numXLabels - 1)) * 24)}h`; // Hours for historical data
+        ctx.fillText(labelValue, x, height - 30);
+      }
+      
+      // X-axis title
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 14px Arial';
+      const xAxisTitle = useFixedScale ? 'Time Points' : 'Time (Hours)';
+      ctx.fillText(xAxisTitle, width / 2, height - 10);
+      
       // Process data - handle multiple formats
       let values = [];
       if (Array.isArray(data)) {
