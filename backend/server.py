@@ -2442,34 +2442,42 @@ async def generate_enhanced_realtime_prediction(steps: int = 30, time_window: in
             freq=time_freq
         )
         
-        # Format result with smoothed predictions
+        # Format result with enhanced pattern learning and smoothed predictions
         result = {
-            'model_id': f"enhanced_realtime_{len(continuous_predictions)}",
+            'model_id': f"enhanced_realtime_universal_{len(continuous_predictions)}",
             'predictions': [float(pred) for pred in smoothed_predictions],
             'timestamps': [ts.isoformat() for ts in future_timestamps],
-            'confidence_intervals': [
+            'confidence_intervals': prediction_result.get('confidence_intervals', [
                 {
                     'lower': float(pred * 0.95),
                     'upper': float(pred * 1.05),
                     'std_error': float(abs(pred * 0.05))
                 } for pred in smoothed_predictions
-            ],
+            ]),
             'metadata': {
-                'prediction_method': 'enhanced_realtime_continuous_with_noise_reduction',
-                'pattern_following_score': prediction_result.get('pattern_following_score', 0.8),
-                'continuity_score': prediction_result.get('continuity_score', 0.8),
-                'variability_preservation': prediction_result.get('variability_preservation', 0.8),
-                'prediction_confidence': prediction_result.get('prediction_confidence', 0.8),
+                'prediction_method': 'universal_pattern_learning_with_enhanced_noise_reduction',
+                'pattern_following_score': prediction_result.get('pattern_following_score', 0.0),
+                'continuity_score': prediction_result.get('continuity_score', 0.0),
+                'variability_preservation': prediction_result.get('variability_preservation', 0.0),
+                'prediction_confidence': prediction_result.get('prediction_confidence', 0.0),
                 'steps': steps,
                 'time_window': time_window,
                 'maintain_patterns': maintain_patterns,
+                'universal_pattern_learning_applied': True,
+                'pattern_learning_quality': pattern_learning_result.get('learning_quality', {}),
                 'noise_reduction_applied': True,
                 'smoothing_methods': noise_reduction_result['smoothing_applied'],
                 'noise_reduction_score': noise_reduction_result['noise_reduction_score'],
                 'smoothness_score': noise_metrics.get('smoothness_score', 0.8)
             },
             'quality_metrics': prediction_result.get('quality_metrics', {}),
-            'adaptation_info': prediction_result.get('adaptation_info', {}),
+            'pattern_analysis': pattern_learning_result.get('pattern_analysis', {}),
+            'enhancement_info': {
+                'universal_pattern_learning': pattern_learning_result.get('learning_summary', {}),
+                'patterns_learned': pattern_learning_result.get('patterns_learned', 0),
+                'prediction_enhancement_applied': True,
+                'right_panel_optimization': True
+            },
             'noise_reduction_metrics': noise_metrics
         }
         
