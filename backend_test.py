@@ -1197,8 +1197,314 @@ class BackendTester:
             print(f"❌ Pattern analysis error: {str(e)}")
             self.test_results['pattern_analysis'] = False
     
+    def test_noise_reduction_system(self):
+        """Test 13: Advanced Noise Reduction System for Real-Time Predictions"""
+        print("\n=== Testing Advanced Noise Reduction System ===")
+        
+        try:
+            noise_reduction_tests = []
+            
+            # Create test data with different noise patterns
+            test_datasets = self.create_noise_test_datasets()
+            
+            # Test 1: Core Noise Reduction System with Smooth Data
+            print("Testing noise reduction with smooth data...")
+            smooth_data = test_datasets['smooth']
+            response = self.session.post(
+                f"{API_BASE_URL}/test-noise-reduction",
+                json={
+                    "predictions": smooth_data,
+                    "test_type": "smooth_data"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                noise_score = data.get('noise_reduction_score', 0)
+                smoothing_applied = data.get('smoothing_applied', [])
+                
+                print(f"✅ Smooth data test successful")
+                print(f"   Noise reduction score: {noise_score:.3f}")
+                print(f"   Smoothing methods: {smoothing_applied}")
+                
+                # For smooth data, minimal smoothing should be applied
+                smooth_test_passed = 'minimal_smoothing' in smoothing_applied or 'light_smoothing' in smoothing_applied
+                noise_reduction_tests.append(("Smooth data handling", smooth_test_passed))
+            else:
+                print(f"❌ Smooth data test failed: {response.status_code}")
+                noise_reduction_tests.append(("Smooth data handling", False))
+            
+            # Test 2: Noisy Data with Spikes
+            print("Testing noise reduction with spike noise...")
+            spike_data = test_datasets['spikes']
+            response = self.session.post(
+                f"{API_BASE_URL}/test-noise-reduction",
+                json={
+                    "predictions": spike_data,
+                    "test_type": "spike_noise"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                noise_score = data.get('noise_reduction_score', 0)
+                smoothing_applied = data.get('smoothing_applied', [])
+                
+                print(f"✅ Spike noise test successful")
+                print(f"   Noise reduction score: {noise_score:.3f}")
+                print(f"   Smoothing methods: {smoothing_applied}")
+                
+                # For spike data, spike removal should be applied
+                spike_test_passed = ('spike_removal' in smoothing_applied or 
+                                   'median_filter' in smoothing_applied) and noise_score > 0.3
+                noise_reduction_tests.append(("Spike noise reduction", spike_test_passed))
+            else:
+                print(f"❌ Spike noise test failed: {response.status_code}")
+                noise_reduction_tests.append(("Spike noise reduction", False))
+            
+            # Test 3: Jittery Data
+            print("Testing noise reduction with jitter noise...")
+            jitter_data = test_datasets['jitter']
+            response = self.session.post(
+                f"{API_BASE_URL}/test-noise-reduction",
+                json={
+                    "predictions": jitter_data,
+                    "test_type": "jitter_noise"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                noise_score = data.get('noise_reduction_score', 0)
+                smoothing_applied = data.get('smoothing_applied', [])
+                
+                print(f"✅ Jitter noise test successful")
+                print(f"   Noise reduction score: {noise_score:.3f}")
+                print(f"   Smoothing methods: {smoothing_applied}")
+                
+                # For jitter data, Savgol or Gaussian smoothing should be applied
+                jitter_test_passed = ('savgol_filter' in smoothing_applied or 
+                                    'gaussian_smooth' in smoothing_applied) and noise_score > 0.2
+                noise_reduction_tests.append(("Jitter noise reduction", jitter_test_passed))
+            else:
+                print(f"❌ Jitter noise test failed: {response.status_code}")
+                noise_reduction_tests.append(("Jitter noise reduction", False))
+            
+            # Test 4: Oscillating Data
+            print("Testing noise reduction with oscillation noise...")
+            oscillation_data = test_datasets['oscillation']
+            response = self.session.post(
+                f"{API_BASE_URL}/test-noise-reduction",
+                json={
+                    "predictions": oscillation_data,
+                    "test_type": "oscillation_noise"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                noise_score = data.get('noise_reduction_score', 0)
+                smoothing_applied = data.get('smoothing_applied', [])
+                
+                print(f"✅ Oscillation noise test successful")
+                print(f"   Noise reduction score: {noise_score:.3f}")
+                print(f"   Smoothing methods: {smoothing_applied}")
+                
+                # For oscillation data, Butterworth filter should be applied
+                oscillation_test_passed = ('butterworth_filter' in smoothing_applied or 
+                                         'moving_average' in smoothing_applied) and noise_score > 0.2
+                noise_reduction_tests.append(("Oscillation noise reduction", oscillation_test_passed))
+            else:
+                print(f"❌ Oscillation noise test failed: {response.status_code}")
+                noise_reduction_tests.append(("Oscillation noise reduction", False))
+            
+            # Test 5: Enhanced Real-Time Prediction with Noise Reduction
+            print("Testing enhanced real-time prediction with noise reduction...")
+            if self.model_id:
+                response = self.session.get(
+                    f"{API_BASE_URL}/generate-enhanced-realtime-prediction",
+                    params={"steps": 20, "time_window": 100, "maintain_patterns": True}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    predictions = data.get('predictions', [])
+                    noise_info = data.get('noise_reduction_info', {})
+                    
+                    print(f"✅ Enhanced real-time prediction successful")
+                    print(f"   Predictions generated: {len(predictions)}")
+                    print(f"   Noise reduction applied: {noise_info.get('applied', False)}")
+                    
+                    # Check if noise reduction was applied
+                    enhanced_realtime_passed = (len(predictions) == 20 and 
+                                              noise_info.get('applied', False))
+                    noise_reduction_tests.append(("Enhanced real-time prediction", enhanced_realtime_passed))
+                else:
+                    print(f"❌ Enhanced real-time prediction failed: {response.status_code}")
+                    noise_reduction_tests.append(("Enhanced real-time prediction", False))
+            else:
+                print("⚠️  Skipping enhanced real-time test - no model available")
+                noise_reduction_tests.append(("Enhanced real-time prediction", False))
+            
+            # Test 6: Advanced pH Prediction with Noise Reduction
+            print("Testing advanced pH prediction with noise reduction...")
+            response = self.session.get(
+                f"{API_BASE_URL}/generate-advanced-ph-prediction",
+                params={"steps": 15, "maintain_patterns": True}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                predictions = data.get('predictions', [])
+                noise_info = data.get('noise_reduction_info', {})
+                
+                print(f"✅ Advanced pH prediction successful")
+                print(f"   Predictions generated: {len(predictions)}")
+                print(f"   Noise reduction applied: {noise_info.get('applied', False)}")
+                
+                # Check if predictions are in realistic pH range and smooth
+                ph_range_valid = all(6.0 <= p <= 8.0 for p in predictions[:5]) if predictions else False
+                advanced_ph_passed = len(predictions) == 15 and ph_range_valid
+                noise_reduction_tests.append(("Advanced pH prediction", advanced_ph_passed))
+            else:
+                print(f"❌ Advanced pH prediction failed: {response.status_code}")
+                noise_reduction_tests.append(("Advanced pH prediction", False))
+            
+            # Test 7: Extended pH Prediction with Real-Time Smoothing
+            print("Testing extended pH prediction with real-time smoothing...")
+            response = self.session.get(
+                f"{API_BASE_URL}/extend-advanced-ph-prediction",
+                params={"additional_steps": 5}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                predictions = data.get('predictions', [])
+                prediction_info = data.get('prediction_info', {})
+                
+                print(f"✅ Extended pH prediction successful")
+                print(f"   Extended predictions: {len(predictions)}")
+                print(f"   Noise reduction applied: {prediction_info.get('noise_reduction_applied', False)}")
+                print(f"   Smoothing type: {prediction_info.get('smoothing_type', 'none')}")
+                
+                # Check if real-time smoothing was applied
+                extended_ph_passed = (len(predictions) == 5 and 
+                                    prediction_info.get('noise_reduction_applied', False) and
+                                    prediction_info.get('smoothing_type') == 'real_time_optimized')
+                noise_reduction_tests.append(("Extended pH prediction", extended_ph_passed))
+            else:
+                print(f"❌ Extended pH prediction failed: {response.status_code}")
+                noise_reduction_tests.append(("Extended pH prediction", False))
+            
+            # Test 8: Continuous Prediction Smoothness
+            print("Testing continuous prediction smoothness...")
+            if self.model_id:
+                # Make multiple continuous predictions to test smoothness
+                predictions_series = []
+                for i in range(3):
+                    response = self.session.get(
+                        f"{API_BASE_URL}/generate-enhanced-realtime-prediction",
+                        params={"steps": 10, "time_window": 50}
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        predictions_series.append(data.get('predictions', []))
+                        time.sleep(0.5)
+                
+                if len(predictions_series) >= 2:
+                    # Check smoothness between consecutive predictions
+                    smoothness_score = self.calculate_prediction_smoothness(predictions_series)
+                    print(f"   Prediction smoothness score: {smoothness_score:.3f}")
+                    
+                    smoothness_passed = smoothness_score > 0.7  # Threshold for acceptable smoothness
+                    noise_reduction_tests.append(("Continuous prediction smoothness", smoothness_passed))
+                else:
+                    noise_reduction_tests.append(("Continuous prediction smoothness", False))
+            else:
+                noise_reduction_tests.append(("Continuous prediction smoothness", False))
+            
+            # Evaluate noise reduction system tests
+            passed_tests = sum(1 for _, passed in noise_reduction_tests if passed)
+            total_tests = len(noise_reduction_tests)
+            
+            print(f"\n📊 Noise Reduction System test results: {passed_tests}/{total_tests}")
+            for test_name, passed in noise_reduction_tests:
+                status = "✅" if passed else "❌"
+                print(f"   {status} {test_name}")
+            
+            self.test_results['noise_reduction_system'] = passed_tests >= total_tests * 0.75  # 75% pass rate
+            
+        except Exception as e:
+            print(f"❌ Noise reduction system test error: {str(e)}")
+            self.test_results['noise_reduction_system'] = False
+    
+    def create_noise_test_datasets(self):
+        """Create test datasets with different noise patterns"""
+        # Base smooth signal
+        x = np.linspace(0, 10, 50)
+        base_signal = 7.0 + 0.5 * np.sin(x) + 0.2 * x
+        
+        datasets = {}
+        
+        # Smooth data (minimal noise)
+        datasets['smooth'] = base_signal + np.random.normal(0, 0.05, len(base_signal))
+        
+        # Data with spikes
+        spike_signal = base_signal.copy()
+        spike_indices = [10, 25, 40]
+        for idx in spike_indices:
+            if idx < len(spike_signal):
+                spike_signal[idx] += np.random.choice([-2, 2])  # Add random spikes
+        datasets['spikes'] = spike_signal.tolist()
+        
+        # Data with jitter (high-frequency noise)
+        jitter_noise = np.random.normal(0, 0.3, len(base_signal))
+        datasets['jitter'] = (base_signal + jitter_noise).tolist()
+        
+        # Data with oscillation
+        oscillation = 0.4 * np.sin(5 * x)  # High-frequency oscillation
+        datasets['oscillation'] = (base_signal + oscillation).tolist()
+        
+        return datasets
+    
+    def calculate_prediction_smoothness(self, predictions_series):
+        """Calculate smoothness score for a series of predictions"""
+        try:
+            if len(predictions_series) < 2:
+                return 0.0
+            
+            # Calculate transitions between consecutive prediction sets
+            transition_scores = []
+            
+            for i in range(1, len(predictions_series)):
+                prev_predictions = predictions_series[i-1]
+                curr_predictions = predictions_series[i]
+                
+                if prev_predictions and curr_predictions:
+                    # Check the transition from last of previous to first of current
+                    transition_gap = abs(curr_predictions[0] - prev_predictions[-1])
+                    
+                    # Calculate average change within each prediction set
+                    prev_avg_change = np.mean(np.abs(np.diff(prev_predictions))) if len(prev_predictions) > 1 else 0
+                    curr_avg_change = np.mean(np.abs(np.diff(curr_predictions))) if len(curr_predictions) > 1 else 0
+                    avg_internal_change = (prev_avg_change + curr_avg_change) / 2
+                    
+                    # Smoothness score: lower transition gap relative to internal changes is better
+                    if avg_internal_change > 0:
+                        smoothness = 1.0 / (1.0 + transition_gap / avg_internal_change)
+                    else:
+                        smoothness = 1.0 if transition_gap < 0.1 else 0.5
+                    
+                    transition_scores.append(smoothness)
+            
+            return np.mean(transition_scores) if transition_scores else 0.0
+            
+        except Exception as e:
+            print(f"Error calculating smoothness: {e}")
+            return 0.0
+
     def test_integration_flow(self):
-        """Test 13: Complete Integration Flow"""
+        """Test 14: Complete Integration Flow"""
         print("\n=== Testing Complete Integration Flow ===")
         
         try:
