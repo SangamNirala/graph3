@@ -2340,9 +2340,9 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
 @api_router.get("/generate-enhanced-realtime-prediction")
 async def generate_enhanced_realtime_prediction(steps: int = 30, time_window: int = 100, 
                                                maintain_patterns: bool = True):
-    """Generate enhanced real-time predictions that perfectly follow historical patterns"""
+    """Generate enhanced real-time predictions that perfectly follow historical patterns with noise reduction"""
     try:
-        global current_model, continuous_predictions, enhanced_realtime_predictor
+        global current_model, continuous_predictions, enhanced_realtime_predictor, noise_reduction_system
         
         if current_model is None:
             raise HTTPException(status_code=400, detail="No model trained")
@@ -2375,6 +2375,23 @@ async def generate_enhanced_realtime_prediction(steps: int = 30, time_window: in
             real_time_feedback=None  # Can be extended for real-time feedback
         )
         
+        # Apply comprehensive noise reduction to smooth the predictions
+        raw_predictions = prediction_result['predictions']
+        print(f"Applying noise reduction to {len(raw_predictions)} predictions")
+        
+        noise_reduction_result = noise_reduction_system.apply_comprehensive_smoothing(
+            predictions=raw_predictions,
+            historical_data=target_values.tolist()[-100:],  # Use recent historical data
+            previous_predictions=previous_predictions
+        )
+        
+        # Use smoothed predictions
+        smoothed_predictions = noise_reduction_result['smoothed_predictions']
+        noise_metrics = noise_reduction_result.get('quality_metrics', {})
+        
+        print(f"Noise reduction applied: {noise_reduction_result['smoothing_applied']}")
+        print(f"Noise reduction score: {noise_reduction_result['noise_reduction_score']:.3f}")
+        
         # Create timestamps for predictions
         last_timestamp = data[time_col].iloc[-1]
         if isinstance(last_timestamp, str):
@@ -2391,30 +2408,35 @@ async def generate_enhanced_realtime_prediction(steps: int = 30, time_window: in
             freq=time_freq
         )
         
-        # Format result
+        # Format result with smoothed predictions
         result = {
             'model_id': f"enhanced_realtime_{len(continuous_predictions)}",
-            'predictions': [float(pred) for pred in prediction_result['predictions']],
+            'predictions': [float(pred) for pred in smoothed_predictions],
             'timestamps': [ts.isoformat() for ts in future_timestamps],
             'confidence_intervals': [
                 {
                     'lower': float(pred * 0.95),
                     'upper': float(pred * 1.05),
                     'std_error': float(abs(pred * 0.05))
-                } for pred in prediction_result['predictions']
+                } for pred in smoothed_predictions
             ],
             'metadata': {
-                'prediction_method': 'enhanced_realtime_continuous',
+                'prediction_method': 'enhanced_realtime_continuous_with_noise_reduction',
                 'pattern_following_score': prediction_result.get('pattern_following_score', 0.8),
                 'continuity_score': prediction_result.get('continuity_score', 0.8),
                 'variability_preservation': prediction_result.get('variability_preservation', 0.8),
                 'prediction_confidence': prediction_result.get('prediction_confidence', 0.8),
                 'steps': steps,
                 'time_window': time_window,
-                'maintain_patterns': maintain_patterns
+                'maintain_patterns': maintain_patterns,
+                'noise_reduction_applied': True,
+                'smoothing_methods': noise_reduction_result['smoothing_applied'],
+                'noise_reduction_score': noise_reduction_result['noise_reduction_score'],
+                'smoothness_score': noise_metrics.get('smoothness_score', 0.8)
             },
             'quality_metrics': prediction_result.get('quality_metrics', {}),
-            'adaptation_info': prediction_result.get('adaptation_info', {})
+            'adaptation_info': prediction_result.get('adaptation_info', {}),
+            'noise_reduction_metrics': noise_metrics
         }
         
         # Apply safe JSON serialization
