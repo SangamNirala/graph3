@@ -816,14 +816,14 @@ function App() {
       
       ctx.fillStyle = hexToRgba(color, alpha);
       ctx.beginPath();
-      ctx.moveTo(points[0].x, ctx.canvas.height - 50);
+      ctx.moveTo(points[0].x, ctx.canvas.height - 70); // Updated for new margin
       
       // Draw smooth curve to create the top boundary
       ctx.lineTo(points[0].x, points[0].y);
       drawSmoothCurve(ctx, points, 0.2);
       
       // Close the path along the bottom
-      ctx.lineTo(points[points.length - 1].x, ctx.canvas.height - 50);
+      ctx.lineTo(points[points.length - 1].x, ctx.canvas.height - 70); // Updated for new margin
       ctx.closePath();
       ctx.fill();
     };
