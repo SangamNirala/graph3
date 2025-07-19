@@ -893,11 +893,21 @@ function App() {
         // Apply frontend visual smoothing
         const smoothedValues = applyVisualSmoothing(values, smoothLevel);
         
-        const maxVal = Math.max(...smoothedValues);
-        const minVal = Math.min(...smoothedValues);
-        const range = maxVal - minVal || 1;
+        // Use fixed pH scale (0-14) for slider-responsive graph, dynamic scale for others
+        let maxVal, minVal, range;
+        if (useFixedScale) {
+          // Fixed pH scale from 0 to 14
+          minVal = 0;
+          maxVal = 14;
+          range = 14;
+        } else {
+          // Dynamic scale based on data
+          maxVal = Math.max(...smoothedValues);
+          minVal = Math.min(...smoothedValues);
+          range = maxVal - minVal || 1;
+        }
         
-        console.log('Enhanced PhChart range:', { minVal, maxVal, range, smoothLevel });
+        console.log('Enhanced PhChart range:', { minVal, maxVal, range, smoothLevel, useFixedScale });
         
         // Convert values to coordinate points
         const points = smoothedValues.map((value, index) => ({
