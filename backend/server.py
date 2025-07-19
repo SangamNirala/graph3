@@ -217,6 +217,10 @@ enhanced_continuous_predictor = EnhancedContinuousPredictionSystem()
 advanced_pattern_memory = AdvancedPatternMemory()
 enhanced_realtime_predictor = EnhancedRealTimeContinuousPrediction()
 
+# New Universal Pattern Learning and Enhanced Prediction Systems
+universal_pattern_learner = UniversalPatternLearning(memory_size=5000)
+enhanced_pattern_predictor = EnhancedPatternAwarePredictionEngine()
+
 # Advanced noise reduction system for smooth predictions
 noise_reduction_system = AdvancedNoiseReductionSystem()
 
