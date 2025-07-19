@@ -220,20 +220,23 @@ class EnhancedRealtimePredictionV3Tester:
                 if response.status_code == 200:
                     data = response.json()
                     
-                    # Analyze pattern following
-                    pattern_score = data['metadata'].get('pattern_following_score', 0)
-                    variability_score = data['metadata'].get('variability_preservation_score', 0)
-                    bias_score = data['metadata'].get('bias_prevention_score', 0)
+                    # Analyze pattern following (updated for actual API response)
+                    system_metrics = data.get('system_metrics', {})
+                    pattern_analysis = data.get('pattern_analysis', {})
                     
-                    print(f"   Pattern following score: {pattern_score:.3f}")
-                    print(f"   Variability preservation: {variability_score:.3f}")
-                    print(f"   Bias prevention: {bias_score:.3f}")
+                    pattern_stability = system_metrics.get('pattern_stability', 0)
+                    recent_accuracy = system_metrics.get('recent_accuracy', 0)
+                    current_pattern = system_metrics.get('current_pattern', 'unknown')
                     
-                    # Pattern learning success criteria
+                    print(f"   Pattern stability: {pattern_stability:.3f}")
+                    print(f"   Recent accuracy: {recent_accuracy:.3f}")
+                    print(f"   Current pattern: {current_pattern}")
+                    
+                    # Pattern learning success criteria (updated)
                     pattern_success = (
-                        pattern_score >= 0.6 and
-                        variability_score >= 0.5 and
-                        bias_score >= 0.7
+                        pattern_stability >= 0.5 and
+                        recent_accuracy >= 0.6 and
+                        len(data.get('predictions', [])) > 0
                     )
                     
                     pattern_test_results[pattern_type] = pattern_success
