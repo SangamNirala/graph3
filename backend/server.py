@@ -2363,9 +2363,9 @@ async def generate_continuous_prediction(model_id: str, steps: int = 30, time_wi
 @api_router.get("/generate-enhanced-realtime-prediction")
 async def generate_enhanced_realtime_prediction(steps: int = 30, time_window: int = 100, 
                                                maintain_patterns: bool = True):
-    """Generate enhanced real-time predictions that perfectly follow historical patterns with noise reduction"""
+    """Generate enhanced real-time predictions using universal pattern learning for improved historical pattern following"""
     try:
-        global current_model, continuous_predictions, enhanced_realtime_predictor, noise_reduction_system
+        global current_model, continuous_predictions, universal_pattern_learner, enhanced_pattern_predictor, noise_reduction_system
         
         if current_model is None:
             raise HTTPException(status_code=400, detail="No model trained")
@@ -2374,46 +2374,57 @@ async def generate_enhanced_realtime_prediction(steps: int = 30, time_window: in
         target_col = current_model['target_col']
         time_col = current_model['time_col']
         
-        # Extract target values
+        # Extract target values and timestamps
         target_values = data[target_col].values
+        timestamps = data[time_col].values if time_col in data.columns else None
         
-        # Initialize enhanced real-time predictor with historical data if needed
-        if not hasattr(enhanced_realtime_predictor, 'initialized') or not enhanced_realtime_predictor.initialized:
-            initialization_result = enhanced_realtime_predictor.initialize_with_historical_data(
-                target_values, 
-                timestamps=data[time_col].values if time_col in data.columns else None
-            )
-            enhanced_realtime_predictor.initialized = True
-            print(f"Enhanced predictor initialized: {initialization_result}")
+        # Enhanced universal pattern learning
+        pattern_learning_result = universal_pattern_learner.learn_patterns(
+            target_values,
+            timestamps=timestamps,
+            pattern_context={
+                'data_type': 'realtime_continuous',
+                'prediction_target': 'right_panel_graph',
+                'quality_priority': 'high_pattern_following',
+                'maintain_patterns': maintain_patterns
+            }
+        )
         
-        # Get previous predictions for continuity
+        # Get previous predictions for improved continuity
         previous_predictions = None
         if continuous_predictions:
             previous_predictions = continuous_predictions[-1].get('predictions', [])
         
-        # Generate enhanced real-time predictions
-        prediction_result = enhanced_realtime_predictor.generate_continuous_prediction(
+        # Generate enhanced pattern-aware predictions
+        prediction_result = enhanced_pattern_predictor.generate_pattern_aware_predictions(
+            data=target_values,
             steps=steps,
+            patterns=pattern_learning_result.get('pattern_analysis', {}),
             previous_predictions=previous_predictions,
-            real_time_feedback=None  # Can be extended for real-time feedback
+            confidence_level=0.95
         )
         
-        # Apply comprehensive noise reduction to smooth the predictions
+        # Apply comprehensive noise reduction for smooth right panel visualization
         raw_predictions = prediction_result['predictions']
-        print(f"Applying noise reduction to {len(raw_predictions)} predictions")
+        print(f"Applying enhanced noise reduction to {len(raw_predictions)} predictions")
         
         noise_reduction_result = noise_reduction_system.apply_comprehensive_smoothing(
             predictions=raw_predictions,
             historical_data=target_values.tolist()[-100:],  # Use recent historical data
-            previous_predictions=previous_predictions
+            previous_predictions=previous_predictions,
+            smoothing_context={
+                'target': 'right_panel_continuous_graph',
+                'pattern_info': pattern_learning_result.get('pattern_analysis', {}),
+                'quality_priority': 'high_smoothness'
+            }
         )
         
         # Use smoothed predictions
         smoothed_predictions = noise_reduction_result['smoothed_predictions']
         noise_metrics = noise_reduction_result.get('quality_metrics', {})
         
-        print(f"Noise reduction applied: {noise_reduction_result['smoothing_applied']}")
-        print(f"Noise reduction score: {noise_reduction_result['noise_reduction_score']:.3f}")
+        print(f"Enhanced noise reduction applied: {noise_reduction_result['smoothing_applied']}")
+        print(f"Pattern-aware noise reduction score: {noise_reduction_result['noise_reduction_score']:.3f}")
         
         # Create timestamps for predictions
         last_timestamp = data[time_col].iloc[-1]
