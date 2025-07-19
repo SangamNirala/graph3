@@ -2126,9 +2126,9 @@ async def generate_prediction(model_id: str, steps: int = 30, offset: int = 0):
 
 @api_router.get("/generate-enhanced-continuous-prediction")
 async def generate_enhanced_continuous_prediction(model_id: str, steps: int = 30, time_window: int = 100):
-    """Generate continuous predictions with enhanced pattern analysis and accurate trend preservation"""
+    """Generate continuous predictions with enhanced universal pattern learning and improved historical pattern following"""
     try:
-        global current_model, continuous_predictions, global_pattern_analyzer, global_prediction_engine
+        global current_model, continuous_predictions, universal_pattern_learner, enhanced_pattern_predictor
         
         if current_model is None:
             raise HTTPException(status_code=400, detail="No model trained")
@@ -2142,14 +2142,29 @@ async def generate_enhanced_continuous_prediction(model_id: str, steps: int = 30
         # Extract target values for pattern analysis
         target_values = data[target_col].values
         
-        # Perform comprehensive pattern analysis
-        patterns = global_pattern_analyzer.analyze_comprehensive_patterns(target_values)
+        # Extract timestamps for temporal pattern analysis
+        timestamps = None
+        if time_col in data.columns:
+            timestamps = pd.to_datetime(data[time_col]).values
         
-        # Generate enhanced predictions
-        prediction_result = global_prediction_engine.generate_pattern_aware_predictions(
+        # Enhanced universal pattern learning
+        pattern_learning_result = universal_pattern_learner.learn_patterns(
+            target_values, 
+            timestamps=timestamps,
+            pattern_context={'data_type': 'continuous_sensor_data', 'domain': 'pH_monitoring'}
+        )
+        
+        # Get previous predictions for continuity
+        previous_predictions = None
+        if continuous_predictions and len(continuous_predictions) > 0:
+            previous_predictions = continuous_predictions[-1].get('predictions', [])
+        
+        # Generate enhanced pattern-aware predictions
+        prediction_result = enhanced_pattern_predictor.generate_pattern_aware_predictions(
             data=target_values,
             steps=steps,
-            patterns=patterns,
+            patterns=pattern_learning_result.get('pattern_analysis', {}),
+            previous_predictions=previous_predictions,
             confidence_level=0.95
         )
         
@@ -2195,25 +2210,25 @@ async def generate_enhanced_continuous_prediction(model_id: str, steps: int = 30
                 freq='D'
             )
         
-        # Format result
+        # Format result with enhanced pattern learning information
         result = {
             'timestamps': future_timestamps.strftime('%Y-%m-%d %H:%M:%S').tolist(),
             'predictions': prediction_result['predictions'],
-            'confidence_intervals': prediction_result['confidence_intervals'],
+            'confidence_intervals': prediction_result.get('confidence_intervals', []),
             'model_type': model_type,
             'is_enhanced': True,
             'pattern_analysis': {
-                'prediction_method': prediction_result['prediction_method'],
-                'pattern_preservation_score': prediction_result['pattern_preservation_score'],
-                'quality_metrics': prediction_result['quality_metrics'],
-                'pattern_characteristics': prediction_result['pattern_characteristics']
+                'prediction_method': prediction_result.get('prediction_method', 'enhanced_pattern_aware'),
+                'pattern_preservation_score': prediction_result.get('pattern_preservation_score', 0.0),
+                'quality_metrics': prediction_result.get('quality_metrics', {}),
+                'pattern_characteristics': prediction_result.get('pattern_characteristics', {})
             },
             'enhancement_info': {
-                'trend_strength': patterns['trend_analysis']['trend_strength'],
-                'seasonal_strength': patterns['seasonal_analysis']['seasonal_strength'],
-                'predictability_score': patterns['predictability']['predictability_score'],
-                'pattern_quality': patterns['quality_score'],
-                'volatility_score': patterns['volatility_analysis']['overall_volatility']
+                'universal_pattern_learning': pattern_learning_result.get('learning_summary', {}),
+                'pattern_continuity_score': prediction_result.get('continuity_score', 0.0),
+                'prediction_confidence': prediction_result.get('prediction_confidence', 0.0),
+                'temporal_pattern_strength': pattern_learning_result.get('temporal_strength', 0.0),
+                'domain_adaptation_score': pattern_learning_result.get('domain_adaptation', 0.0)
             }
         }
         
