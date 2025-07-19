@@ -459,44 +459,46 @@ function App() {
     
     // If slider is actively moving, create gradual transition toward target pH
     const graphData = [];
+    const startPh = previousPh; // Use actual previous pH value for smooth transition
+    
     for (let i = 0; i < numPoints; i++) {
       const progress = i / (numPoints - 1); // 0 to 1
       
       if (timeSinceLastChange < 1000) {
-        // Very recent change - show dramatic movement toward target with gradual progression
-        const startPh = 7.0; // Assume starting from neutral pH
+        // Very recent change - show gradual movement toward target pH
         const phDifference = targetPhValue - startPh;
         
         // Create gradual upward or downward movement
         let value;
-        if (targetPhValue > startPh) {
-          // Moving upward - create ascending curve
-          value = startPh + (phDifference * Math.pow(progress, 0.8));
-          // Add some natural variation
-          value += Math.sin(i * 0.2) * 0.1 * (1 - progress); // Decreasing variation
+        if (Math.abs(phDifference) > 0.1) {
+          // Significant pH change - show clear directional movement
+          value = startPh + (phDifference * Math.pow(progress, 0.7)); // Slightly faster curve
+          
+          // Add natural variation that decreases as we approach target
+          const variationIntensity = (1 - progress) * 0.15;
+          value += Math.sin(i * 0.25) * variationIntensity;
         } else {
-          // Moving downward - create descending curve  
-          value = startPh + (phDifference * Math.pow(progress, 0.8));
-          // Add some natural variation
-          value += Math.sin(i * 0.2) * 0.1 * (1 - progress); // Decreasing variation
+          // Small pH change - minimal movement
+          value = startPh + (phDifference * progress);
+          value += Math.sin(i * 0.2) * 0.05; // Very small variation
         }
         
-        // Ensure final values approach target pH
-        if (i > numPoints * 0.7) {
-          const finalProgress = (i - numPoints * 0.7) / (numPoints * 0.3);
+        // Ensure final 20% of points smoothly approach target pH
+        if (i > numPoints * 0.8) {
+          const finalProgress = (i - numPoints * 0.8) / (numPoints * 0.2);
           value = value * (1 - finalProgress) + targetPhValue * finalProgress;
         }
         
         graphData.push(Math.max(0, Math.min(14, value)));
       } else {
-        // Recent change - show gradual convergence to horizontal line at target pH
+        // Recent change (1-3 seconds) - show gradual convergence to horizontal line
         const convergenceFactor = (timeSinceLastChange - 1000) / 2000; // 0 to 1 over 2 seconds
-        const variation = 0.3 * (1 - convergenceFactor); // Decreasing variation over time
+        const variation = 0.2 * (1 - convergenceFactor); // Decreasing variation over time
         
         // Create values that gradually settle to target pH level
         const baseValue = targetPhValue;
-        const oscillation = Math.sin(i * 0.3) * variation * Math.exp(-convergenceFactor * 2);
-        const randomNoise = (Math.random() - 0.5) * 0.1 * (1 - convergenceFactor);
+        const oscillation = Math.sin(i * 0.3) * variation * Math.exp(-convergenceFactor * 3);
+        const randomNoise = (Math.random() - 0.5) * 0.08 * (1 - convergenceFactor);
         
         const value = baseValue + oscillation + randomNoise;
         graphData.push(Math.max(0, Math.min(14, value)));
