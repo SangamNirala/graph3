@@ -48,6 +48,9 @@ from advanced_ph_prediction import AdvancedPhPredictionEngine
 from advanced_pattern_memory import AdvancedPatternMemory
 from enhanced_realtime_continuous_prediction import EnhancedRealTimeContinuousPrediction
 
+# Import advanced noise reduction system
+from advanced_noise_reduction import AdvancedNoiseReductionSystem
+
 # Import new advanced models
 from advanced_models import (
     AdvancedTimeSeriesForecaster, 
