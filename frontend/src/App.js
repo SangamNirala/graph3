@@ -1449,6 +1449,7 @@ function App() {
                   title="LSTM Predictions"
                   color="#10B981"
                   showAnimation={isPredicting}
+                  smoothLevel="high"
                 />
               ) : predictionData && predictionData.predictions && predictionData.predictions.length > 0 ? (
                 <PhChart 
@@ -1456,6 +1457,7 @@ function App() {
                   title="Generated Predictions"
                   color="#10B981"
                   showAnimation={false}
+                  smoothLevel="high"
                 />
               ) : (
                 <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
