@@ -1197,7 +1197,7 @@ class BackendTester:
             print(f"❌ Pattern analysis error: {str(e)}")
             self.test_results['pattern_analysis'] = False
     
-    def test_noise_reduction_system(self):
+    async def test_noise_reduction_system(self):
         """Test 13: Advanced Noise Reduction System for Real-Time Predictions"""
         print("\n=== Testing Advanced Noise Reduction System ===")
         
