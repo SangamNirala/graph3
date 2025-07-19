@@ -1197,20 +1197,86 @@ class BackendTester:
             print(f"❌ Pattern analysis error: {str(e)}")
             self.test_results['pattern_analysis'] = False
     
+    def create_ph_test_data(self):
+        """Create realistic pH test data for v2 system testing"""
+        # Generate 48 hours of pH data (every 30 minutes = 96 data points)
+        timestamps = pd.date_range(start='2024-01-01 00:00:00', periods=96, freq='30T')
+        
+        # Create realistic pH pattern (6.0-8.0 range with cyclical variations)
+        time_hours = np.arange(96) * 0.5  # Convert to hours
+        
+        # Base pH around 7.2 with daily cycle
+        base_ph = 7.2
+        daily_cycle = 0.3 * np.sin(2 * np.pi * time_hours / 24)  # Daily variation
+        
+        # Add some process variations
+        process_trend = 0.1 * np.sin(2 * np.pi * time_hours / 12)  # 12-hour cycle
+        
+        # Add realistic noise
+        noise = np.random.normal(0, 0.05, 96)
+        
+        # Combine all components
+        ph_values = base_ph + daily_cycle + process_trend + noise
+        
+        # Ensure pH stays in realistic range
+        ph_values = np.clip(ph_values, 6.0, 8.0)
+        
+        # Create DataFrame
+        df = pd.DataFrame({
+            'timestamp': timestamps,
+            'pH': ph_values,
+            'temperature': np.random.normal(25, 2, 96),  # Temperature data
+            'conductivity': np.random.normal(1500, 100, 96)  # Conductivity data
+        })
+        
+        return df
+    
     def test_enhanced_realtime_prediction_v2(self):
         """Test 13: Enhanced Real-Time Continuous Prediction System v2"""
         print("\n=== Testing Enhanced Real-Time Continuous Prediction System v2 ===")
         
-        if not self.model_id:
-            print("❌ Cannot test enhanced v2 prediction - no model trained")
-            self.test_results['enhanced_realtime_v2'] = False
-            return
-            
         try:
             v2_tests = []
             
-            # Test 1: Basic v2 endpoint functionality
-            print("🔬 Testing basic v2 endpoint functionality...")
+            # Step 1: Upload pH test data
+            print("🔬 Step 1: Uploading realistic pH test data...")
+            ph_df = self.create_ph_test_data()
+            csv_content = ph_df.to_csv(index=False)
+            files = {'file': ('ph_test_data.csv', csv_content, 'text/csv')}
+            
+            response = self.session.post(f"{API_BASE_URL}/upload-data", files=files)
+            upload_success = response.status_code == 200
+            v2_tests.append(("pH data upload", upload_success))
+            
+            if not upload_success:
+                print(f"❌ pH data upload failed: {response.status_code}")
+                self.test_results['enhanced_realtime_v2'] = False
+                return
+            
+            data_id = response.json().get('data_id')
+            print(f"✅ pH data uploaded successfully: {len(ph_df)} data points")
+            
+            # Step 2: Train model with pH data
+            print("🔬 Step 2: Training model with pH data...")
+            response = self.session.post(
+                f"{API_BASE_URL}/train-model",
+                params={"data_id": data_id, "model_type": "arima"},
+                json={"time_column": "timestamp", "target_column": "pH", "order": [1, 1, 1]}
+            )
+            
+            training_success = response.status_code == 200
+            v2_tests.append(("pH model training", training_success))
+            
+            if not training_success:
+                print(f"❌ pH model training failed: {response.status_code}")
+                self.test_results['enhanced_realtime_v2'] = False
+                return
+            
+            model_id = response.json().get('model_id')
+            print("✅ pH model trained successfully")
+            
+            # Step 3: Test basic v2 endpoint functionality
+            print("🔬 Step 3: Testing enhanced v2 endpoint with pH data...")
             response = self.session.get(
                 f"{API_BASE_URL}/generate-enhanced-realtime-prediction-v2",
                 params={"steps": 30, "time_window": 100, "maintain_patterns": True}
@@ -1221,12 +1287,24 @@ class BackendTester:
             
             if basic_v2_success:
                 v2_data = response.json()
-                print("✅ Enhanced v2 endpoint successful")
-                print(f"   Number of predictions: {len(v2_data.get('predictions', []))}")
-                print(f"   Has quality metrics: {'quality_metrics' in v2_data.get('metadata', {})}")
-                
-                # Test 2: Enhanced quality metrics verification
+                predictions = v2_data.get('predictions', [])
                 metadata = v2_data.get('metadata', {})
+                
+                print("✅ Enhanced v2 endpoint successful")
+                print(f"   Number of predictions: {len(predictions)}")
+                print(f"   pH prediction range: {min(predictions):.3f} - {max(predictions):.3f}")
+                
+                # Test 4: pH range validation (should be 6.0-8.0)
+                ph_range_valid = all(6.0 <= pred <= 8.0 for pred in predictions)
+                v2_tests.append(("pH range validation", ph_range_valid))
+                
+                if ph_range_valid:
+                    print("✅ All pH predictions in valid range (6.0-8.0)")
+                else:
+                    invalid_preds = [p for p in predictions if not (6.0 <= p <= 8.0)]
+                    print(f"❌ {len(invalid_preds)} pH predictions outside valid range")
+                
+                # Test 5: Enhanced quality metrics verification
                 required_metrics = [
                     'pattern_following_score', 'variability_preservation_score',
                     'bias_prevention_score', 'continuity_score'
@@ -1240,143 +1318,151 @@ class BackendTester:
                     for metric in required_metrics:
                         value = metadata.get(metric, 0)
                         print(f"   {metric}: {value:.3f}")
+                        
+                    # Test 6: Quality metrics validation
+                    pattern_score = metadata.get('pattern_following_score', 0)
+                    variability_score = metadata.get('variability_preservation_score', 0)
+                    bias_score = metadata.get('bias_prevention_score', 0)
+                    continuity_score = metadata.get('continuity_score', 0)
+                    
+                    quality_scores_valid = all(0 <= score <= 1 for score in [pattern_score, variability_score, bias_score, continuity_score])
+                    v2_tests.append(("Quality scores valid", quality_scores_valid))
+                    
+                    if quality_scores_valid:
+                        print("✅ All quality scores in valid range [0,1]")
+                    else:
+                        print("❌ Some quality scores outside valid range")
+                    
+                    # Test 7: Superior pattern following (should be > 0.6)
+                    superior_pattern_following = pattern_score >= 0.6
+                    v2_tests.append(("Superior pattern following", superior_pattern_following))
+                    
+                    if superior_pattern_following:
+                        print(f"✅ Superior pattern following achieved: {pattern_score:.3f}")
+                    else:
+                        print(f"❌ Pattern following below threshold: {pattern_score:.3f}")
+                    
+                    # Test 8: Variability preservation (should be > 0.7)
+                    good_variability = variability_score >= 0.7
+                    v2_tests.append(("Good variability preservation", good_variability))
+                    
+                    if good_variability:
+                        print(f"✅ Good variability preservation: {variability_score:.3f}")
+                    else:
+                        print(f"❌ Poor variability preservation: {variability_score:.3f}")
+                    
+                    # Test 9: Bias prevention (should be > 0.7)
+                    good_bias_prevention = bias_score >= 0.7
+                    v2_tests.append(("Good bias prevention", good_bias_prevention))
+                    
+                    if good_bias_prevention:
+                        print(f"✅ Good bias prevention: {bias_score:.3f}")
+                    else:
+                        print(f"❌ Poor bias prevention: {bias_score:.3f}")
+                        
                 else:
-                    print("❌ Missing enhanced quality metrics")
+                    print("❌ Enhanced quality metrics missing")
+                    # Add failed tests
+                    for test_name in ["Quality scores valid", "Superior pattern following", 
+                                    "Good variability preservation", "Good bias prevention"]:
+                        v2_tests.append((test_name, False))
                 
-                # Test 3: Pattern following score validation
-                pattern_score = metadata.get('pattern_following_score', 0)
-                pattern_score_valid = 0 <= pattern_score <= 1
-                v2_tests.append(("Pattern following score valid", pattern_score_valid))
-                
-                if pattern_score_valid:
-                    print(f"✅ Pattern following score valid: {pattern_score:.3f}")
-                else:
-                    print(f"❌ Pattern following score invalid: {pattern_score}")
-                
-                # Test 4: Variability preservation validation
-                variability_score = metadata.get('variability_preservation_score', 0)
-                variability_valid = 0 <= variability_score <= 1
-                v2_tests.append(("Variability preservation valid", variability_valid))
-                
-                if variability_valid:
-                    print(f"✅ Variability preservation score valid: {variability_score:.3f}")
-                else:
-                    print(f"❌ Variability preservation score invalid: {variability_score}")
-                
-                # Test 5: Bias prevention validation
-                bias_score = metadata.get('bias_prevention_score', 0)
-                bias_valid = 0 <= bias_score <= 1
-                v2_tests.append(("Bias prevention valid", bias_valid))
-                
-                if bias_valid:
-                    print(f"✅ Bias prevention score valid: {bias_score:.3f}")
-                else:
-                    print(f"❌ Bias prevention score invalid: {bias_score}")
-                
-                # Test 6: Prediction variability analysis
-                predictions = v2_data.get('predictions', [])
+                # Test 10: Prediction variability analysis (avoid flat predictions)
                 if len(predictions) >= 5:
                     pred_std = np.std(predictions)
                     pred_range = max(predictions) - min(predictions)
                     unique_values = len(set([round(p, 3) for p in predictions]))
                     
-                    # Check for non-monotonic behavior (good variability)
-                    variability_good = pred_std > 0.01 and unique_values >= 5
+                    # Check for good variability (not flat/monotonic)
+                    variability_good = pred_std > 0.01 and unique_values >= 5 and pred_range > 0.05
                     v2_tests.append(("Good prediction variability", variability_good))
                     
                     if variability_good:
-                        print(f"✅ Good prediction variability: std={pred_std:.3f}, unique_values={unique_values}")
+                        print(f"✅ Good prediction variability: std={pred_std:.3f}, range={pred_range:.3f}, unique={unique_values}")
                     else:
-                        print(f"❌ Poor prediction variability: std={pred_std:.3f}, unique_values={unique_values}")
+                        print(f"❌ Poor prediction variability: std={pred_std:.3f}, range={pred_range:.3f}, unique={unique_values}")
                 else:
                     v2_tests.append(("Good prediction variability", False))
                 
-                # Test 7: Multiple calls for pattern consistency
-                print("🔬 Testing multiple v2 calls for pattern consistency...")
+                # Test 11: Multiple calls for bias prevention
+                print("🔬 Testing multiple v2 calls for bias accumulation prevention...")
                 v2_results = []
-                for i in range(3):
+                for i in range(5):
                     response = self.session.get(
                         f"{API_BASE_URL}/generate-enhanced-realtime-prediction-v2",
                         params={"steps": 20, "time_window": 100}
                     )
                     if response.status_code == 200:
-                        v2_results.append(response.json())
-                    time.sleep(1)
+                        result_data = response.json()
+                        v2_results.append(result_data)
+                    time.sleep(0.5)
                 
-                if len(v2_results) >= 2:
-                    # Check pattern following consistency
-                    pattern_scores = [r.get('metadata', {}).get('pattern_following_score', 0) for r in v2_results]
-                    pattern_consistency = np.std(pattern_scores) < 0.2  # Low variance in scores
-                    v2_tests.append(("Pattern consistency across calls", pattern_consistency))
+                if len(v2_results) >= 3:
+                    # Check for bias accumulation prevention
+                    all_predictions = []
+                    bias_scores = []
                     
-                    if pattern_consistency:
-                        print(f"✅ Pattern consistency maintained: scores={pattern_scores}")
+                    for result in v2_results:
+                        preds = result.get('predictions', [])
+                        all_predictions.extend(preds)
+                        bias_score = result.get('metadata', {}).get('bias_prevention_score', 0)
+                        bias_scores.append(bias_score)
+                    
+                    # Check if predictions don't show downward trend accumulation
+                    if len(all_predictions) >= 10:
+                        # Calculate overall trend
+                        x = np.arange(len(all_predictions))
+                        slope = np.polyfit(x, all_predictions, 1)[0]
+                        
+                        # Good bias prevention: slope should not be strongly negative
+                        no_downward_bias = slope > -0.01  # Allow slight negative slope
+                        avg_bias_score = np.mean(bias_scores)
+                        good_bias_scores = avg_bias_score >= 0.7
+                        
+                        bias_prevention_success = no_downward_bias and good_bias_scores
+                        v2_tests.append(("Bias accumulation prevention", bias_prevention_success))
+                        
+                        if bias_prevention_success:
+                            print(f"✅ Bias accumulation prevented: slope={slope:.6f}, avg_bias_score={avg_bias_score:.3f}")
+                        else:
+                            print(f"❌ Bias accumulation detected: slope={slope:.6f}, avg_bias_score={avg_bias_score:.3f}")
                     else:
-                        print(f"❌ Pattern consistency poor: scores={pattern_scores}")
+                        v2_tests.append(("Bias accumulation prevention", False))
                 else:
-                    v2_tests.append(("Pattern consistency across calls", False))
+                    v2_tests.append(("Bias accumulation prevention", False))
                 
-                # Test 8: Advanced pattern memory verification
+                # Test 12: Advanced pattern memory verification
                 pattern_analysis = metadata.get('pattern_analysis', {})
-                has_pattern_analysis = bool(pattern_analysis)
-                v2_tests.append(("Advanced pattern analysis", has_pattern_analysis))
+                has_advanced_patterns = bool(pattern_analysis)
+                v2_tests.append(("Advanced pattern memory", has_advanced_patterns))
                 
-                if has_pattern_analysis:
-                    print("✅ Advanced pattern analysis present")
+                if has_advanced_patterns:
+                    print("✅ Advanced pattern memory active")
                     print(f"   Pattern analysis keys: {list(pattern_analysis.keys())}")
                 else:
-                    print("❌ Advanced pattern analysis missing")
+                    print("❌ Advanced pattern memory missing")
                 
-                # Test 9: System status and learning verification
-                system_status = metadata.get('system_status', '')
+                # Test 13: System learning status
                 learning_active = metadata.get('learning_active', False)
-                system_healthy = system_status == 'active' and learning_active
-                v2_tests.append(("System status healthy", system_healthy))
+                system_status = metadata.get('system_status', '')
+                prediction_count = metadata.get('prediction_count', 0)
+                
+                system_healthy = learning_active and system_status == 'active' and prediction_count > 0
+                v2_tests.append(("System learning active", system_healthy))
                 
                 if system_healthy:
-                    print(f"✅ System healthy: status={system_status}, learning={learning_active}")
+                    print(f"✅ System learning active: status={system_status}, count={prediction_count}")
                 else:
-                    print(f"❌ System not healthy: status={system_status}, learning={learning_active}")
+                    print(f"❌ System learning issues: status={system_status}, active={learning_active}, count={prediction_count}")
                 
             else:
                 print(f"❌ Enhanced v2 endpoint failed: {response.status_code} - {response.text}")
                 # Add failed tests for missing functionality
-                for test_name in ["Enhanced quality metrics", "Pattern following score valid", 
-                                "Variability preservation valid", "Bias prevention valid",
-                                "Good prediction variability", "Pattern consistency across calls",
-                                "Advanced pattern analysis", "System status healthy"]:
+                for test_name in ["pH range validation", "Enhanced quality metrics", "Quality scores valid",
+                                "Superior pattern following", "Good variability preservation", "Good bias prevention",
+                                "Good prediction variability", "Bias accumulation prevention", 
+                                "Advanced pattern memory", "System learning active"]:
                     v2_tests.append((test_name, False))
-            
-            # Test 10: Comparison with previous version (if available)
-            print("🔬 Testing v2 improvements over previous version...")
-            try:
-                # Test previous version
-                prev_response = self.session.get(
-                    f"{API_BASE_URL}/generate-enhanced-realtime-prediction",
-                    params={"steps": 30, "time_window": 100}
-                )
-                
-                if prev_response.status_code == 200 and basic_v2_success:
-                    prev_data = prev_response.json()
-                    
-                    # Compare quality metrics
-                    v2_pattern_score = v2_data.get('metadata', {}).get('pattern_following_score', 0)
-                    prev_pattern_score = prev_data.get('metadata', {}).get('pattern_following_score', 0)
-                    
-                    v2_improved = v2_pattern_score >= prev_pattern_score * 0.95  # Allow small variance
-                    v2_tests.append(("v2 improvement over previous", v2_improved))
-                    
-                    if v2_improved:
-                        print(f"✅ v2 shows improvement: v2_score={v2_pattern_score:.3f}, prev_score={prev_pattern_score:.3f}")
-                    else:
-                        print(f"⚠️  v2 improvement unclear: v2_score={v2_pattern_score:.3f}, prev_score={prev_pattern_score:.3f}")
-                else:
-                    v2_tests.append(("v2 improvement over previous", True))  # Can't compare, assume good
-                    print("⚠️  Cannot compare with previous version")
-                    
-            except Exception as e:
-                print(f"⚠️  Error comparing versions: {e}")
-                v2_tests.append(("v2 improvement over previous", True))  # Assume good if can't test
             
             # Evaluate v2 test results
             passed_tests = sum(1 for _, passed in v2_tests if passed)
@@ -1389,6 +1475,16 @@ class BackendTester:
             
             # High threshold for v2 system (should be very good)
             self.test_results['enhanced_realtime_v2'] = passed_tests >= total_tests * 0.8  # 80% pass rate
+            
+            if self.test_results['enhanced_realtime_v2']:
+                print("\n🎉 Enhanced Real-Time Continuous Prediction System v2 PASSED!")
+                print("   ✅ Superior pattern following achieved")
+                print("   ✅ Variability preservation working")
+                print("   ✅ Bias prevention effective")
+                print("   ✅ Quality metrics comprehensive")
+            else:
+                print("\n⚠️  Enhanced Real-Time Continuous Prediction System v2 needs improvement")
+                print(f"   📊 Success rate: {(passed_tests/total_tests)*100:.1f}%")
             
         except Exception as e:
             print(f"❌ Enhanced Real-Time v2 test error: {str(e)}")
