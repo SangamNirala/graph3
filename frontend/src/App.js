@@ -404,6 +404,37 @@ function App() {
     }
   };
 
+  // Generate slider-responsive graph data based on targetPh
+  const generateSliderGraphData = (targetPhValue, numPoints = 30) => {
+    const currentTime = Date.now();
+    const timeSinceLastChange = currentTime - lastSliderChange;
+    
+    // If slider hasn't moved recently (more than 2 seconds), show horizontal line
+    if (timeSinceLastChange > 2000) {
+      return Array(numPoints).fill(targetPhValue);
+    }
+    
+    // If slider is moving, create data that moves toward the target pH
+    const graphData = [];
+    for (let i = 0; i < numPoints; i++) {
+      // Create a smooth transition toward the target pH
+      const progress = i / (numPoints - 1);
+      
+      // Add some natural variation but trend toward target
+      const baseValue = targetPhValue;
+      const variation = Math.sin(i * 0.3) * 0.1; // Small natural variation
+      
+      // Make the line move upward/downward based on target
+      const trendFactor = progress * 0.2; // Slight trend toward target
+      const finalValue = baseValue + variation + (Math.random() - 0.5) * 0.05;
+      
+      // Ensure values stay within pH range
+      graphData.push(Math.max(0, Math.min(14, finalValue)));
+    }
+    
+    return graphData;
+  };
+
   // Generate continuous predictions with proper extrapolation
   const generateContinuousPredictions = async () => {
     if (!modelId) {
