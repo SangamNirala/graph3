@@ -430,18 +430,26 @@ class EnhancedRealtimePredictionV3Tester:
             valid_results = [r for r in learning_results if r is not None]
             
             if len(valid_results) >= 3:
-                # Check if learning quality improves or remains stable
+                # Check if learning quality improves or remains stable (updated)
                 first_half = valid_results[:len(valid_results)//2]
                 second_half = valid_results[len(valid_results)//2:]
                 
-                avg_first = np.mean([r['learning_quality'] for r in first_half])
-                avg_second = np.mean([r['learning_quality'] for r in second_half])
+                avg_first_accuracy = np.mean([r['recent_accuracy'] for r in first_half])
+                avg_second_accuracy = np.mean([r['recent_accuracy'] for r in second_half])
                 
-                learning_improvement = avg_second >= avg_first - 0.1  # Allow small degradation
+                avg_first_stability = np.mean([r['pattern_stability'] for r in first_half])
+                avg_second_stability = np.mean([r['pattern_stability'] for r in second_half])
+                
+                learning_improvement = (
+                    avg_second_accuracy >= avg_first_accuracy - 0.1 and  # Allow small degradation
+                    avg_second_stability >= avg_first_stability - 0.1
+                )
                 
                 print(f"\n   Learning analysis:")
-                print(f"     First half avg quality: {avg_first:.3f}")
-                print(f"     Second half avg quality: {avg_second:.3f}")
+                print(f"     First half avg accuracy: {avg_first_accuracy:.3f}")
+                print(f"     Second half avg accuracy: {avg_second_accuracy:.3f}")
+                print(f"     First half avg stability: {avg_first_stability:.3f}")
+                print(f"     Second half avg stability: {avg_second_stability:.3f}")
                 print(f"     Learning stable/improving: {learning_improvement}")
                 
                 self.test_results['real_time_learning'] = learning_improvement
