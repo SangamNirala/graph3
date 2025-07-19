@@ -778,6 +778,27 @@ function App() {
       const interval = setInterval(async () => {
         try {
           if (isPredictingRef.current) {
+            // Use the new enhanced real-time prediction v3 for smoother continuous prediction (HIGHEST PRIORITY)
+            const extensionV3Response = await fetch(`${API}/generate-enhanced-realtime-prediction-v3?steps=5&time_window=${timeWindow}&maintain_patterns=true`);
+            if (extensionV3Response.ok) {
+              const extensionV3Data = await extensionV3Response.json();
+              
+              // Update predictions with enhanced v3 extension
+              setLstmPredictions(prev => {
+                const updated = [...prev, ...extensionV3Data.predictions];
+                return updated.slice(-timeWindow); // Keep within time window
+              });
+              
+              // Update prediction data for display
+              setPredictionData(extensionV3Data);
+              
+              // Log advanced metrics for monitoring
+              console.log('🔄 Continuous prediction v3 metrics:', {
+                pattern_score: extensionV3Data.metadata?.pattern_following_score,
+                system_confidence: extensionV3Data.metadata?.system_confidence,
+                learning_quality: extensionV3Data.metadata?.learning_quality
+              });
+            } else {
             // Use the new enhanced real-time prediction v2 for smoother continuous prediction
             const extensionV2Response = await fetch(`${API}/generate-enhanced-realtime-prediction-v2?steps=5&time_window=${timeWindow}&maintain_patterns=true`);
             if (extensionV2Response.ok) {
