@@ -30,6 +30,8 @@ function App() {
   const [sliderGraphData, setSliderGraphData] = useState([]);
   const [lastSliderChange, setLastSliderChange] = useState(Date.now());
   const [previousPh, setPreviousPh] = useState(7.6); // Track previous pH for smooth transitions
+  const [isSliderActive, setIsSliderActive] = useState(false); // Track if slider is being actively moved
+  const [sliderTransitionSpeed, setSliderTransitionSpeed] = useState(200); // Dynamic transition speed
   
   // Enhanced continuous prediction updates with visual buffering for smooth transitions
   const [predictionBuffer, setPredictionBuffer] = useState([]);
