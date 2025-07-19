@@ -48,6 +48,10 @@ from advanced_ph_prediction import AdvancedPhPredictionEngine
 from advanced_pattern_memory import AdvancedPatternMemory
 from enhanced_realtime_continuous_prediction import EnhancedRealTimeContinuousPrediction
 
+# Import new universal pattern learning and enhanced prediction systems
+from universal_pattern_learning import UniversalPatternLearning
+from enhanced_pattern_aware_prediction import EnhancedPatternAwarePredictionEngine
+
 # Import advanced noise reduction system
 from advanced_noise_reduction import AdvancedNoiseReductionSystem
 
