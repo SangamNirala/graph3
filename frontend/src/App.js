@@ -22,6 +22,10 @@ function App() {
   const [phData, setPhData] = useState({ current_ph: 7.0, target_ph: 7.6, status: 'Connected' });
   const [targetPh, setTargetPh] = useState(7.6);
   const [isAdjustingPh, setIsAdjustingPh] = useState(false);
+  const [realtimePhReadings, setRealtimePhReadings] = useState([]);
+  const [lstmPredictions, setLstmPredictions] = useState([]);
+  const [predictionConfidence, setPredictionConfidence] = useState(67);
+  
   // Enhanced continuous prediction updates with visual buffering for smooth transitions
   const [predictionBuffer, setPredictionBuffer] = useState([]);
   const [smoothTransition, setSmoothTransition] = useState(true);
