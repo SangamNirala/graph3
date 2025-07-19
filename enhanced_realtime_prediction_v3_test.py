@@ -398,21 +398,26 @@ class EnhancedRealtimePredictionV3Tester:
                 if response.status_code == 200:
                     data = response.json()
                     
-                    # Track learning quality over iterations
-                    learning_quality = data['metadata'].get('learning_quality', 0)
-                    system_confidence = data['metadata'].get('system_confidence', 0)
-                    pattern_following = data['metadata'].get('pattern_following_score', 0)
+                    # Track learning quality over iterations (updated for actual API response)
+                    system_metrics = data.get('system_metrics', {})
+                    
+                    learning_rate = system_metrics.get('learning_rate', 0)
+                    recent_accuracy = system_metrics.get('recent_accuracy', 0)
+                    pattern_stability = system_metrics.get('pattern_stability', 0)
+                    adaptation_events = system_metrics.get('adaptation_events', 0)
                     
                     learning_results.append({
                         'iteration': i+1,
-                        'learning_quality': learning_quality,
-                        'system_confidence': system_confidence,
-                        'pattern_following': pattern_following
+                        'learning_rate': learning_rate,
+                        'recent_accuracy': recent_accuracy,
+                        'pattern_stability': pattern_stability,
+                        'adaptation_events': adaptation_events
                     })
                     
-                    print(f"   Learning quality: {learning_quality:.3f}")
-                    print(f"   System confidence: {system_confidence:.3f}")
-                    print(f"   Pattern following: {pattern_following:.3f}")
+                    print(f"   Learning rate: {learning_rate:.3f}")
+                    print(f"   Recent accuracy: {recent_accuracy:.3f}")
+                    print(f"   Pattern stability: {pattern_stability:.3f}")
+                    print(f"   Adaptation events: {adaptation_events}")
                     
                     # Small delay to simulate real-time usage
                     time.sleep(0.5)
