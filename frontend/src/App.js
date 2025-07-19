@@ -604,6 +604,21 @@ function App() {
     }
   }, [timeWindow]);
 
+  // Update slider graph data when targetPh changes
+  useEffect(() => {
+    setLastSliderChange(Date.now());
+    const newGraphData = generateSliderGraphData(targetPh, timeWindow);
+    setSliderGraphData(newGraphData);
+    
+    // Update graph data after a short delay to show transition
+    const timer = setTimeout(() => {
+      const updatedGraphData = generateSliderGraphData(targetPh, timeWindow);
+      setSliderGraphData(updatedGraphData);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [targetPh, timeWindow]);
+
   // Enhanced smooth chart component for pH monitoring dashboard with advanced noise reduction
   const PhChart = ({ data, title, color = '#3B82F6', showAnimation = false, currentValue = null, smoothLevel = 'high' }) => {
     const canvasRef = React.useRef(null);
