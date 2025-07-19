@@ -679,6 +679,9 @@ function App() {
 
   // Update slider graph data when targetPh changes
   useEffect(() => {
+    // Update previous pH before changing
+    setPreviousPh(prev => prev); // Keep current previous value for this update
+    
     setLastSliderChange(Date.now());
     
     // Immediate update when slider moves
@@ -700,6 +703,8 @@ function App() {
       // Final update to ensure horizontal line
       const finalData = generateSliderGraphData(targetPh, timeWindow);
       setSliderGraphData(finalData);
+      // Update previous pH to current target for next transition
+      setPreviousPh(targetPh);
     }, 5000);
     
     return () => {
