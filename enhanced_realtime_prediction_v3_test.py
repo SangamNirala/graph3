@@ -155,18 +155,25 @@ class EnhancedRealtimePredictionV3Tester:
                 if response.status_code == 200:
                     data = response.json()
                     
-                    # Validate response structure
-                    required_fields = ['predictions', 'timestamps', 'metadata', 'quality_metrics']
+                    # Validate response structure (updated for actual API response)
+                    required_fields = ['predictions', 'timestamps', 'system_metrics']
                     if all(field in data for field in required_fields):
                         print(f"✅ Test case {i+1} passed")
                         print(f"   Predictions generated: {len(data['predictions'])}")
-                        print(f"   Pattern following score: {data['metadata'].get('pattern_following_score', 'N/A')}")
-                        print(f"   System confidence: {data['metadata'].get('system_confidence', 'N/A')}")
-                        print(f"   Advanced engine used: {data['metadata'].get('advanced_engine_used', 'N/A')}")
+                        
+                        # Extract metrics from system_metrics instead of metadata
+                        system_metrics = data.get('system_metrics', {})
+                        pattern_analysis = data.get('pattern_analysis', {})
+                        
+                        print(f"   Pattern stability: {system_metrics.get('pattern_stability', 'N/A')}")
+                        print(f"   Recent accuracy: {system_metrics.get('recent_accuracy', 'N/A')}")
+                        print(f"   Current pattern: {system_metrics.get('current_pattern', 'N/A')}")
+                        print(f"   Prediction method: {data.get('prediction_method', 'N/A')}")
                         success_count += 1
                     else:
                         print(f"❌ Test case {i+1} failed: Missing required fields")
                         print(f"   Available fields: {list(data.keys())}")
+                        print(f"   Required fields: {required_fields}")
                 else:
                     print(f"❌ Test case {i+1} failed: {response.status_code} - {response.text}")
             
