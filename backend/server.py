@@ -4077,6 +4077,26 @@ async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bo
             maintain_patterns=maintain_patterns
         )
         
+        # Apply comprehensive noise reduction for smooth initial predictions
+        raw_predictions = prediction_results['predictions']
+        print(f"Applying comprehensive noise reduction to {len(raw_predictions)} initial predictions")
+        
+        noise_reduction_result = noise_reduction_system.apply_comprehensive_smoothing(
+            predictions=raw_predictions,
+            historical_data=target_values.tolist()[-100:],  # Use recent historical data
+            previous_predictions=None  # This is initial prediction, no previous
+        )
+        
+        # Use smoothed predictions
+        smoothed_predictions = noise_reduction_result['smoothed_predictions']
+        noise_metrics = noise_reduction_result.get('quality_metrics', {})
+        
+        print(f"Initial prediction noise reduction applied: {noise_reduction_result['smoothing_applied']}")
+        print(f"Initial prediction noise reduction score: {noise_reduction_result['noise_reduction_score']:.3f}")
+        
+        # Update prediction results with smoothed predictions
+        prediction_results['predictions'] = smoothed_predictions
+        
         # Analyze prediction quality
         predictions_array = np.array(prediction_results['predictions'])
         quality_analysis = advanced_ph_engine.analyze_prediction_quality(predictions_array)
