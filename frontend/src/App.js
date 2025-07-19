@@ -446,61 +446,104 @@ function App() {
     }
   };
 
-  // Generate slider-responsive graph data based on targetPh
+  // Generate slider-responsive graph data based on targetPh and historical pattern
   const generateSliderGraphData = (targetPhValue, numPoints = 30) => {
     const currentTime = Date.now();
     const timeSinceLastChange = currentTime - lastSliderChange;
     
-    // If slider hasn't moved recently (more than 3 seconds), show horizontal line at target pH level
+    // Extract pattern from historical data if available
+    const getHistoricalPattern = () => {
+      if (!historicalData || !historicalData.values || historicalData.values.length === 0) {
+        // Default sine wave pattern if no historical data
+        return Array.from({ length: numPoints }, (_, i) => Math.sin(i * 0.2) * 0.5);
+      }
+      
+      const histValues = historicalData.values;
+      const histMean = histValues.reduce((sum, val) => sum + val, 0) / histValues.length;
+      
+      // Extract the pattern (deviation from mean) and normalize it
+      const pattern = histValues.map(val => val - histMean);
+      const maxDeviation = Math.max(...pattern.map(Math.abs));
+      const normalizedPattern = pattern.map(p => maxDeviation > 0 ? p / maxDeviation : 0);
+      
+      // Interpolate/resample to match numPoints
+      if (normalizedPattern.length === numPoints) {
+        return normalizedPattern;
+      }
+      
+      const resampledPattern = [];
+      for (let i = 0; i < numPoints; i++) {
+        const sourceIndex = (i / (numPoints - 1)) * (normalizedPattern.length - 1);
+        const lowerIndex = Math.floor(sourceIndex);
+        const upperIndex = Math.min(lowerIndex + 1, normalizedPattern.length - 1);
+        const fraction = sourceIndex - lowerIndex;
+        
+        const interpolatedValue = normalizedPattern[lowerIndex] * (1 - fraction) + 
+                                 normalizedPattern[upperIndex] * fraction;
+        resampledPattern.push(interpolatedValue);
+      }
+      
+      return resampledPattern;
+    };
+    
+    const basePattern = getHistoricalPattern();
+    
+    // If slider hasn't moved recently (more than 3 seconds), show stable pattern at target pH
     if (timeSinceLastChange > 3000) {
-      // Create horizontal line at the exact target pH level
-      return Array(numPoints).fill(targetPhValue);
+      // Apply the historical pattern scaled to the target pH level
+      const patternAmplitude = 0.3; // Reduced amplitude for stable state
+      return basePattern.map(patternValue => targetPhValue + (patternValue * patternAmplitude));
     }
     
-    // If slider is actively moving, create gradual transition toward target pH
+    // If slider is actively moving, create dynamic transition toward target pH with pattern
     const graphData = [];
-    const startPh = previousPh; // Use actual previous pH value for smooth transition
+    const startPh = previousPh;
     
     for (let i = 0; i < numPoints; i++) {
       const progress = i / (numPoints - 1); // 0 to 1
+      const patternValue = basePattern[i] || 0;
       
       if (timeSinceLastChange < 1000) {
-        // Very recent change - show gradual movement toward target pH
+        // Very recent change - show dramatic movement toward target pH following pattern
         const phDifference = targetPhValue - startPh;
         
-        // Create gradual upward or downward movement
-        let value;
-        if (Math.abs(phDifference) > 0.1) {
-          // Significant pH change - show clear directional movement
-          value = startPh + (phDifference * Math.pow(progress, 0.7)); // Slightly faster curve
-          
-          // Add natural variation that decreases as we approach target
-          const variationIntensity = (1 - progress) * 0.15;
-          value += Math.sin(i * 0.25) * variationIntensity;
-        } else {
-          // Small pH change - minimal movement
-          value = startPh + (phDifference * progress);
-          value += Math.sin(i * 0.2) * 0.05; // Very small variation
-        }
+        // Base transition value
+        let baseValue = startPh + (phDifference * Math.pow(progress, 0.7));
         
-        // Ensure final 20% of points smoothly approach target pH
+        // Apply historical pattern with increasing amplitude as we approach target
+        const patternAmplitude = 0.6 * progress; // Pattern becomes stronger as we progress
+        const patternContribution = patternValue * patternAmplitude;
+        
+        let value = baseValue + patternContribution;
+        
+        // Add some transitional variation that decreases as we approach target
+        const variationIntensity = (1 - progress) * 0.15;
+        value += Math.sin(i * 0.25) * variationIntensity;
+        
+        // Ensure final 20% of points smoothly approach target with full pattern
         if (i > numPoints * 0.8) {
           const finalProgress = (i - numPoints * 0.8) / (numPoints * 0.2);
-          value = value * (1 - finalProgress) + targetPhValue * finalProgress;
+          const targetWithPattern = targetPhValue + (patternValue * 0.4);
+          value = value * (1 - finalProgress) + targetWithPattern * finalProgress;
         }
         
         graphData.push(Math.max(0, Math.min(14, value)));
       } else {
-        // Recent change (1-3 seconds) - show gradual convergence to horizontal line
+        // Recent change (1-3 seconds) - show gradual convergence to pattern at target pH
         const convergenceFactor = (timeSinceLastChange - 1000) / 2000; // 0 to 1 over 2 seconds
-        const variation = 0.2 * (1 - convergenceFactor); // Decreasing variation over time
         
-        // Create values that gradually settle to target pH level
+        // Base value at target pH
         const baseValue = targetPhValue;
-        const oscillation = Math.sin(i * 0.3) * variation * Math.exp(-convergenceFactor * 3);
-        const randomNoise = (Math.random() - 0.5) * 0.08 * (1 - convergenceFactor);
         
-        const value = baseValue + oscillation + randomNoise;
+        // Apply historical pattern with decreasing random variation
+        const patternAmplitude = 0.4 + (0.2 * (1 - convergenceFactor)); // 0.4 to 0.6 amplitude
+        const patternContribution = patternValue * patternAmplitude;
+        
+        // Add diminishing random oscillation
+        const oscillation = Math.sin(i * 0.3) * 0.1 * (1 - convergenceFactor);
+        const randomNoise = (Math.random() - 0.5) * 0.05 * (1 - convergenceFactor);
+        
+        const value = baseValue + patternContribution + oscillation + randomNoise;
         graphData.push(Math.max(0, Math.min(14, value)));
       }
     }
