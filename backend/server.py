@@ -4106,9 +4106,9 @@ async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bo
 
 @api_router.get("/extend-advanced-ph-prediction")
 async def extend_advanced_ph_prediction(additional_steps: int = 5):
-    """Extend advanced pH predictions with additional steps"""
+    """Extend advanced pH predictions with additional steps and noise reduction"""
     try:
-        global advanced_ph_engine
+        global advanced_ph_engine, noise_reduction_system, current_model
         
         if advanced_ph_engine is None:
             raise HTTPException(status_code=400, detail="Advanced pH engine not initialized. Generate predictions first.")
@@ -4116,13 +4116,27 @@ async def extend_advanced_ph_prediction(additional_steps: int = 5):
         # Extend predictions
         extension_results = advanced_ph_engine.extend_predictions(additional_steps)
         
+        # Apply noise reduction for smooth continuous updates
+        raw_predictions = extension_results['predictions']
+        print(f"Applying real-time noise reduction to {len(raw_predictions)} extended predictions")
+        
+        # Use optimized real-time smoothing for extensions
+        smoothed_predictions = noise_reduction_system.apply_real_time_smoothing(
+            new_predictions=raw_predictions,
+            context_window=10
+        )
+        
+        print(f"Real-time smoothing applied to extended predictions")
+        
         return {
-            'predictions': extension_results['predictions'],
+            'predictions': smoothed_predictions,
             'timestamps': extension_results['timestamps'],
             'extension_info': extension_results['extension_info'],
             'prediction_info': {
-                'model_type': 'advanced_pattern_aware_lstm',
-                'additional_steps': additional_steps
+                'model_type': 'advanced_pattern_aware_lstm_with_noise_reduction',
+                'additional_steps': additional_steps,
+                'noise_reduction_applied': True,
+                'smoothing_type': 'real_time_optimized'
             }
         }
         
