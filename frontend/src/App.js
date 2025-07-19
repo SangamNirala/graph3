@@ -1456,6 +1456,21 @@ function App() {
                 <span>200 pts</span>
               </div>
             </div>
+
+            {/* Visual Smoothing Control */}
+            <div className="mt-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={smoothTransition}
+                  onChange={(e) => setSmoothTransition(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className="text-sm text-gray-700">
+                  🎛️ Enhanced Visual Smoothing (reduces noise in graph lines)
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* Right Panel - LSTM Predictions */}
