@@ -4226,6 +4226,122 @@ async def reset_advanced_ph_engine():
         logger.error(f"Error resetting advanced pH engine: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.get("/generate-enhanced-realtime-prediction-v3")
+async def generate_enhanced_realtime_prediction_v3(steps: int = 30, time_window: int = 100, 
+                                                   maintain_patterns: bool = True):
+    """
+    Generate enhanced real-time predictions v3 with advanced pattern learning system
+    Uses the new Enhanced Real-Time Prediction System with advanced ML algorithms
+    """
+    try:
+        global current_model, continuous_predictions, enhanced_realtime_system
+        
+        if current_model is None:
+            raise HTTPException(status_code=400, detail="No model trained")
+        
+        data = current_model['data']
+        target_col = current_model['target_col']
+        time_col = current_model['time_col']
+        
+        # Extract target values
+        target_values = data[target_col].values
+        timestamps = data[time_col].values if time_col in data.columns else None
+        
+        # Initialize enhanced real-time system with historical data if needed
+        if not enhanced_realtime_system.initialized:
+            initialization_result = enhanced_realtime_system.initialize_with_historical_data(
+                target_values, 
+                timestamps=timestamps
+            )
+            
+            if not initialization_result.get('initialized', False):
+                logger.error(f"Failed to initialize enhanced system: {initialization_result}")
+                raise HTTPException(status_code=500, detail="Failed to initialize enhanced prediction system")
+            
+            logger.info(f"Enhanced Real-Time System v3 initialized successfully")
+            logger.info(f"Learning quality: {initialization_result.get('learning_quality', 'Unknown')}")
+            logger.info(f"Patterns detected: {initialization_result.get('patterns_detected', 0)}")
+        
+        # Get previous predictions for continuity
+        previous_predictions = None
+        if continuous_predictions:
+            previous_predictions = continuous_predictions[-1].get('predictions', [])
+        
+        # Generate enhanced real-time predictions with advanced pattern learning
+        prediction_result = enhanced_realtime_system.generate_continuous_prediction(
+            steps=steps,
+            previous_predictions=previous_predictions,
+            real_time_feedback=None  # Can be extended for real-time feedback
+        )
+        
+        # Create timestamps for predictions
+        last_timestamp = data[time_col].iloc[-1]
+        if isinstance(last_timestamp, str):
+            last_timestamp = pd.to_datetime(last_timestamp)
+        
+        # Generate future timestamps
+        time_freq = pd.infer_freq(pd.to_datetime(data[time_col]))
+        if time_freq is None:
+            time_freq = 'D'  # Default to daily frequency
+        
+        future_timestamps = pd.date_range(
+            start=last_timestamp + pd.Timedelta(time_freq),
+            periods=steps,
+            freq=time_freq
+        )
+        
+        # Format result with enhanced metadata
+        result = {
+            'model_id': f"enhanced_realtime_v3_{len(continuous_predictions)}",
+            'predictions': prediction_result['predictions'],
+            'timestamps': [ts.isoformat() for ts in future_timestamps],
+            'confidence_intervals': prediction_result.get('confidence_intervals', []),
+            'metadata': {
+                'prediction_method': 'enhanced_realtime_v3_advanced_pattern_learning',
+                'pattern_following_score': prediction_result.get('pattern_following_score', 0.8),
+                'variability_preservation_score': prediction_result.get('variability_preservation_score', 0.8),
+                'bias_prevention_score': prediction_result.get('bias_prevention_score', 0.8),
+                'continuity_score': prediction_result.get('continuity_score', 0.8),
+                'prediction_confidence': prediction_result.get('pattern_confidence', 0.8),
+                'advanced_engine_used': enhanced_realtime_system.use_advanced_engine,
+                'patterns_active': prediction_result['metadata'].get('patterns_active', 0),
+                'learning_quality': prediction_result['metadata'].get('learning_quality', 0.7),
+                'system_confidence': prediction_result['metadata'].get('system_confidence', 0.8),
+                'steps': steps,
+                'time_window': time_window,
+                'maintain_patterns': maintain_patterns
+            },
+            'quality_metrics': prediction_result.get('quality_metrics', {}),
+            'pattern_analysis': prediction_result.get('pattern_analysis', {}),
+            'system_status': {
+                'initialized': enhanced_realtime_system.initialized,
+                'advanced_engine_available': enhanced_realtime_system.use_advanced_engine,
+                'prediction_count': prediction_result['metadata'].get('prediction_count', 0),
+                'learning_active': prediction_result['metadata'].get('learning_active', True)
+            }
+        }
+        
+        # Apply safe JSON serialization
+        result = safe_json_serialization(result)
+        
+        # Store prediction for continuous use
+        continuous_predictions.append(result)
+        
+        logger.info(f"Enhanced v3 prediction generated successfully")
+        logger.info(f"Pattern following score: {result['metadata']['pattern_following_score']:.3f}")
+        logger.info(f"System confidence: {result['metadata']['system_confidence']:.3f}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in enhanced realtime prediction v3: {e}")
+        # Fallback to previous version
+        try:
+            return await generate_enhanced_realtime_prediction_v2(steps, time_window, maintain_patterns)
+        except:
+            # Final fallback to standard continuous prediction
+            return await generate_continuous_prediction("fallback", steps, time_window)
+
 @api_router.get("/prediction-system-status")
 async def get_prediction_system_status():
     """Get current prediction system status"""
