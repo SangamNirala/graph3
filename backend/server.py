@@ -213,6 +213,9 @@ enhanced_continuous_predictor = EnhancedContinuousPredictionSystem()
 advanced_pattern_memory = AdvancedPatternMemory()
 enhanced_realtime_predictor = EnhancedRealTimeContinuousPrediction()
 
+# Advanced noise reduction system for smooth predictions
+noise_reduction_system = AdvancedNoiseReductionSystem()
+
 # Global flag to control which system to use
 use_industry_level_prediction = True  # Enable industry-level predictions
 use_advanced_pattern_following = True  # Enable advanced pattern following
