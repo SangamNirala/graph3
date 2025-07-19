@@ -221,6 +221,9 @@ enhanced_realtime_predictor = EnhancedRealTimeContinuousPrediction()
 advanced_pattern_memory_v2 = AdvancedPatternMemoryV2()
 enhanced_realtime_predictor_v2 = EnhancedRealtimeContinuousPredictionV2()
 
+# NEW: Enhanced Real-Time Prediction System with Advanced Pattern Learning
+enhanced_realtime_system = EnhancedRealTimePredictionSystem(sequence_length=50)
+
 # Global flag to control which system to use
 use_industry_level_prediction = True  # Enable industry-level predictions
 use_advanced_pattern_following = True  # Enable advanced pattern following
