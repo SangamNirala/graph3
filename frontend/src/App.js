@@ -846,20 +846,20 @@ function App() {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
       
-      // Draw grid
+      // Draw grid lines (adjusted for new margins)
       ctx.strokeStyle = '#e5e7eb';
       ctx.lineWidth = 1;
       ctx.setLineDash([2, 2]);
       for (let i = 0; i <= 10; i++) {
-        const x = 50 + (i / 10) * (width - 100);
-        const y = 50 + (i / 10) * (height - 100);
+        const x = 70 + (i / 10) * (width - 100);
+        const y = 30 + (i / 10) * (height - 100);
         ctx.beginPath();
-        ctx.moveTo(x, 50);
-        ctx.lineTo(x, height - 50);
+        ctx.moveTo(x, 30);
+        ctx.lineTo(x, height - 70);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(50, y);
-        ctx.lineTo(width - 50, y);
+        ctx.moveTo(70, y);
+        ctx.lineTo(width - 30, y);
         ctx.stroke();
       }
       ctx.setLineDash([]);
