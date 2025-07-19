@@ -1447,7 +1447,7 @@ class BackendTester:
         datasets = {}
         
         # Smooth data (minimal noise)
-        datasets['smooth'] = base_signal + np.random.normal(0, 0.05, len(base_signal))
+        datasets['smooth'] = (base_signal + np.random.normal(0, 0.05, len(base_signal))).tolist()
         
         # Data with spikes
         spike_signal = base_signal.copy()
