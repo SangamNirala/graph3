@@ -813,31 +813,32 @@ function App() {
                 // Update prediction data for display
                 setPredictionData(extensionV2Data);
               } else {
-              // Fallback to advanced pH prediction extension
-              const extensionResponse = await fetch(`${API}/extend-advanced-ph-prediction?additional_steps=5`);
-              if (extensionResponse.ok) {
-                const extensionData = await extensionResponse.json();
-                
-                // Update predictions with smooth extension
-                setLstmPredictions(prev => {
-                  const updated = [...prev, ...extensionData.predictions];
-                  return updated.slice(-timeWindow); // Keep within time window
-                });
-                
-                // Update prediction data for display
-                setPredictionData(extensionData);
-              } else {
-                // Fallback to standard extension
-                const fallbackResponse = await fetch(`${API}/extend-prediction?steps=5`);
-                if (fallbackResponse.ok) {
-                  const fallbackData = await fallbackResponse.json();
+                // Fallback to advanced pH prediction extension
+                const extensionResponse = await fetch(`${API}/extend-advanced-ph-prediction?additional_steps=5`);
+                if (extensionResponse.ok) {
+                  const extensionData = await extensionResponse.json();
                   
+                  // Update predictions with smooth extension
                   setLstmPredictions(prev => {
-                    const updated = [...prev, ...fallbackData.predictions];
-                    return updated.slice(-timeWindow);
+                    const updated = [...prev, ...extensionData.predictions];
+                    return updated.slice(-timeWindow); // Keep within time window
                   });
                   
-                  setPredictionData(fallbackData);
+                  // Update prediction data for display
+                  setPredictionData(extensionData);
+                } else {
+                  // Fallback to standard extension
+                  const fallbackResponse = await fetch(`${API}/extend-prediction?steps=5`);
+                  if (fallbackResponse.ok) {
+                    const fallbackData = await fallbackResponse.json();
+                    
+                    setLstmPredictions(prev => {
+                      const updated = [...prev, ...fallbackData.predictions];
+                      return updated.slice(-timeWindow);
+                    });
+                    
+                    setPredictionData(fallbackData);
+                  }
                 }
               }
             }
