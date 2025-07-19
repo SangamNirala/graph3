@@ -908,10 +908,7 @@ function App() {
               if (fallbackResponse.ok) {
                 const fallbackData = await fallbackResponse.json();
                 
-                setLstmPredictions(prev => {
-                  const updated = [...prev, ...fallbackData.predictions];
-                  return updated.slice(-timeWindow);
-                });
+                updatePredictionsSmooth(fallbackData);
                 
                 setPredictionData(fallbackData);
               }
