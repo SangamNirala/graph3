@@ -2199,6 +2199,13 @@ class BackendTester:
         # ENHANCED NEW FEATURE TESTS (from review request)
         self.test_ph_target_management()
         self.test_advanced_pattern_analysis()
+        
+        # V2 ENHANCED REAL-TIME PREDICTION SYSTEM TESTING
+        print("\n" + "="*60)
+        print("🎯 ENHANCED REAL-TIME CONTINUOUS PREDICTION SYSTEM V2 TESTING")
+        print("="*60)
+        self.test_enhanced_realtime_prediction_v2()
+        
         self.test_integration_flow()
         
         self.test_error_handling()
