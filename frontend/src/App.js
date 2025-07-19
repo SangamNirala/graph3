@@ -714,7 +714,7 @@ function App() {
   }, [targetPh, timeWindow]);
 
   // Enhanced smooth chart component for pH monitoring dashboard with advanced noise reduction
-  const PhChart = ({ data, title, color = '#3B82F6', showAnimation = false, currentValue = null, smoothLevel = 'high' }) => {
+  const PhChart = ({ data, title, color = '#3B82F6', showAnimation = false, currentValue = null, smoothLevel = 'high', useFixedScale = false }) => {
     const canvasRef = React.useRef(null);
     const [animationFrame, setAnimationFrame] = React.useState(0);
     const [visualBuffer, setVisualBuffer] = React.useState([]);
