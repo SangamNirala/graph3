@@ -947,10 +947,10 @@ function App() {
         
         console.log('Enhanced PhChart range:', { minVal, maxVal, range, smoothLevel, useFixedScale });
         
-        // Convert values to coordinate points
+        // Convert values to coordinate points (adjusted for new margins)
         const points = smoothedValues.map((value, index) => ({
-          x: 50 + (index / Math.max(smoothedValues.length - 1, 1)) * (width - 100),
-          y: height - 50 - ((value - minVal) / range) * (height - 100)
+          x: 70 + (index / Math.max(smoothedValues.length - 1, 1)) * (width - 100),
+          y: height - 70 - ((value - minVal) / range) * (height - 100)
         }));
         
         // Create interpolated points for extra smoothness
