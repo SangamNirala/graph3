@@ -83,7 +83,7 @@ function App() {
     
     try {
       // Set up test data to show the dashboard
-      setCurrentStep(3); // Go directly to prediction step
+      setCurrentStep('prediction'); // Go directly to prediction step (string, not number)
       setModelId('test-model');
       
       // Initialize with basic target pH
