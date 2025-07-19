@@ -29,6 +29,7 @@ function App() {
   // Slider-responsive graph data for right panel
   const [sliderGraphData, setSliderGraphData] = useState([]);
   const [lastSliderChange, setLastSliderChange] = useState(Date.now());
+  const [previousPh, setPreviousPh] = useState(7.6); // Track previous pH for smooth transitions
   
   // Enhanced continuous prediction updates with visual buffering for smooth transitions
   const [predictionBuffer, setPredictionBuffer] = useState([]);
