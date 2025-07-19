@@ -30,7 +30,7 @@ class V2SystemTester:
     def create_ph_test_data(self):
         """Create realistic pH test data for v2 system testing"""
         # Generate 48 hours of pH data (every 30 minutes = 96 data points)
-        timestamps = pd.date_range(start='2024-01-01 00:00:00', periods=96, freq='30T')
+        timestamps = pd.date_range(start='2024-01-01 00:00:00', periods=96, freq='30min')
         
         # Create realistic pH pattern (6.0-8.0 range with cyclical variations)
         time_hours = np.arange(96) * 0.5  # Convert to hours
