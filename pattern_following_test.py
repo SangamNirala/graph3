@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / 'frontend' / '.env')
 
 # Get backend URL from environment
-BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://5cde2487-8e11-465b-a17b-2936c09e8819.preview.emergentagent.com')
+BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://f54db828-52d2-4e14-b664-3ae23427df52.preview.emergentagent.com')
 API_BASE_URL = f"{BACKEND_URL}/api"
 
 print(f"Testing Enhanced Pattern Following System at: {API_BASE_URL}")
