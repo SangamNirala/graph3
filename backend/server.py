@@ -4110,12 +4110,17 @@ async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bo
             'pattern_analysis': convert_numpy_types(prediction_results['pattern_analysis']),
             'historical_continuity': convert_numpy_types(prediction_results['historical_continuity']),
             'prediction_info': {
-                'model_type': 'advanced_pattern_aware_lstm',
+                'model_type': 'advanced_pattern_aware_lstm_with_noise_reduction',
                 'steps': steps,
                 'maintain_patterns': maintain_patterns,
                 'data_points_used': len(target_values),
-                'target_column': target_col
-            }
+                'target_column': target_col,
+                'noise_reduction_applied': True,
+                'smoothing_methods': noise_reduction_result['smoothing_applied'],
+                'noise_reduction_score': noise_reduction_result['noise_reduction_score'],
+                'smoothness_score': noise_metrics.get('smoothness_score', 0.8)
+            },
+            'noise_reduction_metrics': noise_metrics
         }
         
         return convert_numpy_types(result)
