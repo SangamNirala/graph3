@@ -2432,6 +2432,100 @@ async def generate_enhanced_realtime_prediction(steps: int = 30, time_window: in
         # Fallback to standard continuous prediction
         return await generate_continuous_prediction("fallback", steps, time_window)
 
+@api_router.get("/generate-enhanced-realtime-prediction-v2")
+async def generate_enhanced_realtime_prediction_v2(steps: int = 30, time_window: int = 100, 
+                                                  maintain_patterns: bool = True):
+    """Generate enhanced real-time predictions v2 with superior pattern following"""
+    try:
+        global current_model, continuous_predictions, enhanced_realtime_predictor_v2
+        
+        if current_model is None:
+            raise HTTPException(status_code=400, detail="No model trained")
+        
+        data = current_model['data']
+        target_col = current_model['target_col']
+        time_col = current_model['time_col']
+        
+        # Extract target values
+        target_values = data[target_col].values
+        
+        # Initialize enhanced real-time predictor v2 with historical data if needed
+        if not hasattr(enhanced_realtime_predictor_v2, 'initialized') or not enhanced_realtime_predictor_v2.initialized:
+            initialization_result = enhanced_realtime_predictor_v2.initialize_with_historical_data(
+                target_values, 
+                timestamps=data[time_col].values if time_col in data.columns else None
+            )
+            enhanced_realtime_predictor_v2.initialized = True
+            print(f"Enhanced predictor v2 initialized: {initialization_result}")
+        
+        # Get previous predictions for continuity
+        previous_predictions = None
+        if continuous_predictions:
+            previous_predictions = continuous_predictions[-1].get('predictions', [])
+        
+        # Generate enhanced real-time predictions v2
+        prediction_result = enhanced_realtime_predictor_v2.generate_continuous_prediction(
+            steps=steps,
+            previous_predictions=previous_predictions,
+            real_time_feedback=None  # Can be extended for real-time feedback
+        )
+        
+        # Create timestamps for predictions
+        last_timestamp = data[time_col].iloc[-1]
+        if isinstance(last_timestamp, str):
+            last_timestamp = pd.to_datetime(last_timestamp)
+        
+        # Generate future timestamps
+        time_freq = pd.infer_freq(pd.to_datetime(data[time_col]))
+        if time_freq is None:
+            time_freq = 'D'  # Default to daily frequency
+        
+        future_timestamps = pd.date_range(
+            start=last_timestamp + pd.Timedelta(time_freq),
+            periods=steps,
+            freq=time_freq
+        )
+        
+        # Format result with enhanced quality metrics
+        result = {
+            'model_id': f"enhanced_realtime_v2_{len(continuous_predictions)}",
+            'predictions': [float(pred) for pred in prediction_result['predictions']],
+            'timestamps': [ts.isoformat() for ts in future_timestamps],
+            'confidence_intervals': [
+                {
+                    'lower': float(pred * 0.95),
+                    'upper': float(pred * 1.05),
+                    'std_error': float(abs(pred * 0.05))
+                } for pred in prediction_result['predictions']
+            ],
+            'metadata': {
+                'prediction_method': 'enhanced_realtime_v2',
+                'pattern_analysis': prediction_result['pattern_analysis'],
+                'quality_metrics': prediction_result['quality_metrics'],
+                'prediction_confidence': prediction_result['prediction_confidence'],
+                'pattern_following_score': prediction_result['pattern_following_score'],
+                'variability_preservation_score': prediction_result['variability_preservation_score'],
+                'bias_prevention_score': prediction_result['bias_prevention_score'],
+                'continuity_score': prediction_result['continuity_score'],
+                'system_status': prediction_result['metadata']['system_status'],
+                'learning_active': prediction_result['metadata']['learning_active'],
+                'prediction_count': prediction_result['metadata']['prediction_count']
+            }
+        }
+        
+        # Apply safe JSON serialization
+        result = safe_json_serialization(result)
+        
+        # Store prediction for continuous use
+        continuous_predictions.append(result)
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error in enhanced realtime prediction v2: {e}")
+        # Fallback to previous version
+        return await generate_enhanced_realtime_prediction(steps, time_window, maintain_patterns)
+
 async def generate_industry_level_continuous_prediction(model, model_type, data, time_col, target_col, steps, time_window):
     """Generate continuous predictions using enhanced pattern following system"""
     try:
