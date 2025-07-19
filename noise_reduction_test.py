@@ -110,14 +110,25 @@ class NoiseReductionTester:
             training_params = {
                 'data_id': self.data_id,
                 'model_type': 'arima',
-                'time_column': 'timestamp',
-                'target_column': 'pH',
                 'parameters': {
+                    'time_column': 'timestamp',
+                    'target_column': 'pH',
                     'order': [1, 1, 1]
                 }
             }
             
-            response = self.session.post(f"{API_BASE_URL}/train-model", json=training_params)
+            response = self.session.post(
+                f"{API_BASE_URL}/train-model",
+                params={
+                    'data_id': self.data_id,
+                    'model_type': 'arima'
+                },
+                json={
+                    'time_column': 'timestamp',
+                    'target_column': 'pH',
+                    'order': [1, 1, 1]
+                }
+            )
             
             if response.status_code == 200:
                 data = response.json()
