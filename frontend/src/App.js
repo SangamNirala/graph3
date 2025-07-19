@@ -79,19 +79,32 @@ function App() {
 
   // Initialize test mode for slider functionality demonstration
   const initializeTestMode = () => {
-    // Set up test data to show the dashboard
-    setCurrentStep(3); // Go directly to prediction step
-    setModelId('test-model');
+    console.log('🚀 Starting test mode initialization...');
     
-    // Initialize slider graph with test data
-    const testSliderData = generateSliderGraphData(7.6, 30);
-    setSliderGraphData(testSliderData);
-    
-    // Set some basic historical data for left panel
-    const testHistoricalData = Array.from({ length: 24 }, (_, i) => 7.0 + Math.sin(i * 0.5) * 0.3);
-    setHistoricalData({ values: testHistoricalData });
-    
-    console.log('✅ Test mode initialized - Dashboard ready');
+    try {
+      // Set up test data to show the dashboard
+      setCurrentStep(3); // Go directly to prediction step
+      setModelId('test-model');
+      
+      // Initialize with basic target pH
+      setTargetPh(7.6);
+      setPhData({ current_ph: 7.0, target_ph: 7.6, status: 'Connected' });
+      
+      // Initialize slider graph with test data
+      setTimeout(() => {
+        const testSliderData = generateSliderGraphData(7.6, 30);
+        setSliderGraphData(testSliderData);
+        console.log('📊 Slider graph data initialized:', testSliderData.length, 'points');
+      }, 100);
+      
+      // Set some basic historical data for left panel
+      const testHistoricalData = Array.from({ length: 24 }, (_, i) => 7.0 + Math.sin(i * 0.5) * 0.3);
+      setHistoricalData({ values: testHistoricalData });
+      
+      console.log('✅ Test mode initialized - Dashboard ready');
+    } catch (error) {
+      console.error('❌ Error in test mode initialization:', error);
+    }
   };
 
   // Initialize test mode on component mount for development/testing
