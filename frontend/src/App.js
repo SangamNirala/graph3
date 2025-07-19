@@ -26,6 +26,10 @@ function App() {
   const [lstmPredictions, setLstmPredictions] = useState([]);
   const [predictionConfidence, setPredictionConfidence] = useState(67);
   
+  // Slider-responsive graph data for right panel
+  const [sliderGraphData, setSliderGraphData] = useState([]);
+  const [lastSliderChange, setLastSliderChange] = useState(Date.now());
+  
   // Enhanced continuous prediction updates with visual buffering for smooth transitions
   const [predictionBuffer, setPredictionBuffer] = useState([]);
   const [smoothTransition, setSmoothTransition] = useState(true);
