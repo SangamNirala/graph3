@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / 'frontend' / '.env')
 
 # Get backend URL from environment
-BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://909a9d1c-9da6-4ed6-bd0a-ff6c4fb747bb.preview.emergentagent.com')
+BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://6292a650-5f0f-439b-bded-80d6a5caef50.preview.emergentagent.com')
 API_BASE_URL = f"{BACKEND_URL}/api"
 
 print(f"Testing advanced ML features at: {API_BASE_URL}")
