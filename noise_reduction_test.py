@@ -28,6 +28,8 @@ class NoiseReductionTester:
         self.session = requests.Session()
         self.test_results = {}
         self.data_uploaded = False
+        self.data_id = None
+        self.model_id = None
         
     def create_realistic_ph_data(self, num_points=50):
         """Create realistic pH data with various noise patterns for testing"""
