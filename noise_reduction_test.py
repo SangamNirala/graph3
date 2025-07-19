@@ -291,32 +291,49 @@ class NoiseReductionTester:
                 upload_response = self.session.post(f"{API_BASE_URL}/upload-data", files=files)
                 
                 if upload_response.status_code == 200:
-                    # Test enhanced prediction with this data
-                    pred_response = self.session.get(
-                        f"{API_BASE_URL}/generate-enhanced-realtime-prediction",
-                        params={'steps': 15, 'maintain_patterns': True}
-                    )
+                    upload_data = upload_response.json()
+                    temp_data_id = upload_data.get('data_id')
                     
-                    if pred_response.status_code == 200:
-                        data = pred_response.json()
-                        predictions = data.get('predictions', [])
+                    # Train a model with this data
+                    training_params = {
+                        'data_id': temp_data_id,
+                        'model_type': 'arima',
+                        'time_column': 'timestamp',
+                        'target_column': 'pH',
+                        'parameters': {'order': [1, 1, 1]}
+                    }
+                    
+                    train_response = self.session.post(f"{API_BASE_URL}/train-model", json=training_params)
+                    
+                    if train_response.status_code == 200:
+                        # Test enhanced prediction with this data
+                        pred_response = self.session.get(
+                            f"{API_BASE_URL}/generate-enhanced-realtime-prediction",
+                            params={'steps': 15, 'maintain_patterns': True}
+                        )
                         
-                        if len(predictions) > 0:
-                            # Analyze noise reduction effectiveness
-                            noise_reduction_score = self._analyze_noise_reduction_effectiveness(
-                                predictions, test_case['noise_type']
-                            )
+                        if pred_response.status_code == 200:
+                            data = pred_response.json()
+                            predictions = data.get('predictions', [])
                             
-                            print(f"   ✅ {test_case['name']}: Noise reduction score {noise_reduction_score:.3f}")
-                            
-                            if noise_reduction_score > 0.3:  # Threshold for effective noise reduction
-                                success_count += 1
+                            if len(predictions) > 0:
+                                # Analyze noise reduction effectiveness
+                                noise_reduction_score = self._analyze_noise_reduction_effectiveness(
+                                    predictions, test_case['noise_type']
+                                )
+                                
+                                print(f"   ✅ {test_case['name']}: Noise reduction score {noise_reduction_score:.3f}")
+                                
+                                if noise_reduction_score > 0.3:  # Threshold for effective noise reduction
+                                    success_count += 1
+                                else:
+                                    print(f"   ⚠️ Low noise reduction effectiveness for {test_case['name']}")
                             else:
-                                print(f"   ⚠️ Low noise reduction effectiveness for {test_case['name']}")
+                                print(f"   ❌ No predictions generated for {test_case['name']}")
                         else:
-                            print(f"   ❌ No predictions generated for {test_case['name']}")
+                            print(f"   ❌ Prediction failed for {test_case['name']}: {pred_response.status_code}")
                     else:
-                        print(f"   ❌ Prediction failed for {test_case['name']}")
+                        print(f"   ❌ Model training failed for {test_case['name']}")
                 else:
                     print(f"   ❌ Data upload failed for {test_case['name']}")
             
