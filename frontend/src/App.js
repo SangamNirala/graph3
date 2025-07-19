@@ -409,27 +409,37 @@ function App() {
     const currentTime = Date.now();
     const timeSinceLastChange = currentTime - lastSliderChange;
     
-    // If slider hasn't moved recently (more than 2 seconds), show horizontal line
-    if (timeSinceLastChange > 2000) {
+    // If slider hasn't moved recently (more than 3 seconds), show horizontal line at target pH
+    if (timeSinceLastChange > 3000) {
       return Array(numPoints).fill(targetPhValue);
     }
     
-    // If slider is moving, create data that moves toward the target pH
+    // If slider is actively moving, create dynamic data that moves toward the target pH
     const graphData = [];
     for (let i = 0; i < numPoints; i++) {
-      // Create a smooth transition toward the target pH
-      const progress = i / (numPoints - 1);
+      const progress = i / (numPoints - 1); // 0 to 1
       
-      // Add some natural variation but trend toward target
-      const baseValue = targetPhValue;
-      const variation = Math.sin(i * 0.3) * 0.1; // Small natural variation
+      // For dynamic movement, create a wave that converges to target pH
+      let value;
       
-      // Make the line move upward/downward based on target
-      const trendFactor = progress * 0.2; // Slight trend toward target
-      const finalValue = baseValue + variation + (Math.random() - 0.5) * 0.05;
+      if (timeSinceLastChange < 1000) {
+        // Very recent change - show dramatic movement toward target
+        const amplitude = Math.max(0.5, Math.abs(targetPhValue - 7.0)); // Bigger waves for larger pH changes
+        const frequency = 0.4;
+        const dampening = Math.exp(-progress * 2); // Dampen the wave over time
+        
+        value = targetPhValue + (Math.sin(i * frequency) * amplitude * dampening);
+      } else {
+        // Recent change - show gradual convergence to horizontal line
+        const baseVariation = 0.2;
+        const convergenceFactor = (timeSinceLastChange - 1000) / 2000; // 0 to 1 over 2 seconds
+        const variation = baseVariation * (1 - convergenceFactor);
+        
+        value = targetPhValue + (Math.sin(i * 0.2) * variation) + ((Math.random() - 0.5) * 0.1 * (1 - convergenceFactor));
+      }
       
-      // Ensure values stay within pH range
-      graphData.push(Math.max(0, Math.min(14, finalValue)));
+      // Ensure values stay within realistic pH range
+      graphData.push(Math.max(0, Math.min(14, value)));
     }
     
     return graphData;
