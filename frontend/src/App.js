@@ -617,16 +617,32 @@ function App() {
   // Update slider graph data when targetPh changes
   useEffect(() => {
     setLastSliderChange(Date.now());
-    const newGraphData = generateSliderGraphData(targetPh, timeWindow);
-    setSliderGraphData(newGraphData);
     
-    // Update graph data after a short delay to show transition
-    const timer = setTimeout(() => {
-      const updatedGraphData = generateSliderGraphData(targetPh, timeWindow);
-      setSliderGraphData(updatedGraphData);
-    }, 100);
+    // Immediate update when slider moves
+    const updateSliderGraph = () => {
+      const newGraphData = generateSliderGraphData(targetPh, timeWindow);
+      setSliderGraphData(newGraphData);
+    };
     
-    return () => clearTimeout(timer);
+    updateSliderGraph();
+    
+    // Set up interval to continuously update the graph for smooth transition
+    const interval = setInterval(() => {
+      updateSliderGraph();
+    }, 200); // Update every 200ms for smooth animation
+    
+    // Clear interval after 5 seconds (when graph should be settled)
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      // Final update to ensure horizontal line
+      const finalData = generateSliderGraphData(targetPh, timeWindow);
+      setSliderGraphData(finalData);
+    }, 5000);
+    
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, [targetPh, timeWindow]);
 
   // Enhanced smooth chart component for pH monitoring dashboard with advanced noise reduction
