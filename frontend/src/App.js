@@ -1266,6 +1266,7 @@ function App() {
                   title="Historical Data"
                   color="#3B82F6"
                   showAnimation={false}
+                  smoothLevel="medium"
                 />
               ) : realtimePhReadings.length > 0 ? (
                 <PhChart 
@@ -1274,6 +1275,7 @@ function App() {
                   color="#3B82F6"
                   showAnimation={isPredicting}
                   currentValue={phData.current_ph}
+                  smoothLevel="medium"
                 />
               ) : (
                 <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
