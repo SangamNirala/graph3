@@ -1120,6 +1120,30 @@ class UniversalPatternLearning:
             logger.error(f"Error in simple continuation strategy: {e}")
             return np.full(steps, data[-1] if len(data) > 0 else 0.0)
     
+    def _trend_continuation_strategy(self, data: np.ndarray, steps: int) -> np.ndarray:
+        """Trend continuation strategy"""
+        return self._simple_continuation_strategy(data, steps)
+    
+    def _seasonal_decomposition_strategy(self, data: np.ndarray, steps: int) -> np.ndarray:
+        """Seasonal decomposition strategy"""
+        return self._simple_continuation_strategy(data, steps)
+    
+    def _cyclical_extrapolation_strategy(self, data: np.ndarray, steps: int) -> np.ndarray:
+        """Cyclical extrapolation strategy"""
+        return self._simple_continuation_strategy(data, steps)
+    
+    def _pattern_matching_strategy(self, data: np.ndarray, steps: int) -> np.ndarray:
+        """Pattern matching strategy"""
+        return self._simple_continuation_strategy(data, steps)
+    
+    def _ensemble_strategy(self, data: np.ndarray, steps: int) -> np.ndarray:
+        """Ensemble strategy"""
+        return self._simple_continuation_strategy(data, steps)
+    
+    def _adaptive_strategy(self, data: np.ndarray, steps: int) -> np.ndarray:
+        """Adaptive strategy"""
+        return self._simple_continuation_strategy(data, steps)
+    
     # Placeholder methods for additional functionality
     def _create_minimal_pattern_analysis(self, data: np.ndarray) -> Dict[str, Any]:
         """Create minimal pattern analysis for short data"""
