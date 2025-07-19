@@ -1523,15 +1523,23 @@ function App() {
             </div>
           </div>
 
-          {/* Right Panel - LSTM Predictions */}
+          {/* Right Panel - Slider-Responsive Graph */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">LSTM Predictions</h2>
-              <span className="text-sm text-gray-600">Next 30 Steps</span>
+              <h2 className="text-lg font-semibold text-gray-800">Slider-Responsive Graph</h2>
+              <span className="text-sm text-gray-600">Follows pH Slider</span>
             </div>
             
             <div className="mb-4">
-              {lstmPredictions.length > 0 ? (
+              {sliderGraphData.length > 0 ? (
+                <PhChart 
+                  data={sliderGraphData} 
+                  title={`pH Level: ${targetPh.toFixed(1)}`}
+                  color="#10B981"
+                  showAnimation={true}
+                  smoothLevel="high"
+                />
+              ) : lstmPredictions.length > 0 ? (
                 <PhChart 
                   data={lstmPredictions.slice(-timeWindow)} 
                   title="LSTM Predictions"
@@ -1550,29 +1558,27 @@ function App() {
               ) : (
                 <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
                   <div className="text-center">
-                    <div className="text-6xl mb-2">🔮</div>
-                    <p>Click "Generate Predictions" to start</p>
+                    <div className="text-6xl mb-2">🎯</div>
+                    <p>Move the pH slider to see responsive graph</p>
                   </div>
                 </div>
               )}
             </div>
 
             <div className="text-center">
-              <div className="text-sm text-gray-600 mb-2">Prediction Confidence</div>
+              <div className="text-sm text-gray-600 mb-2">Current Target pH</div>
               <div className="text-2xl font-bold text-green-600">
-                {predictionConfidence}%
+                {targetPh.toFixed(1)}
               </div>
             </div>
 
             {/* Status Indicator */}
-            {isPredicting && (
-              <div className="mt-4 text-center">
-                <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                  Live Predictions Active
-                </div>
+            <div className="mt-4 text-center">
+              <div className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                Graph Synced with Slider
               </div>
-            )}
+            </div>
           </div>
         </div>
 
