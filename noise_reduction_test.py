@@ -80,7 +80,9 @@ class NoiseReductionTester:
             
             if response.status_code == 200:
                 data = response.json()
+                self.data_id = data.get('data_id')
                 print("✅ Test data uploaded successfully")
+                print(f"   Data ID: {self.data_id}")
                 print(f"   Data shape: {data['analysis']['data_shape']}")
                 print(f"   pH column detected: {'pH' in data['analysis']['numeric_columns']}")
                 self.data_uploaded = True
@@ -91,6 +93,42 @@ class NoiseReductionTester:
                 
         except Exception as e:
             print(f"❌ Error uploading data: {e}")
+            return False
+    
+    def train_basic_model(self):
+        """Train a basic model for testing predictions"""
+        print("\n=== 🤖 Training Basic Model ===")
+        
+        try:
+            if not self.data_id:
+                print("❌ No data ID available for training")
+                return False
+            
+            # Train ARIMA model (simpler and more reliable)
+            training_params = {
+                'data_id': self.data_id,
+                'model_type': 'arima',
+                'time_column': 'timestamp',
+                'target_column': 'pH',
+                'parameters': {
+                    'order': [1, 1, 1]
+                }
+            }
+            
+            response = self.session.post(f"{API_BASE_URL}/train-model", json=training_params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.model_id = data.get('model_id')
+                print("✅ Basic model trained successfully")
+                print(f"   Model ID: {self.model_id}")
+                return True
+            else:
+                print(f"❌ Model training failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error training model: {e}")
             return False
     
     def test_enhanced_realtime_prediction_endpoint(self):
