@@ -77,6 +77,34 @@ function App() {
     setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 5000);
   };
 
+  // Initialize test mode for slider functionality demonstration
+  const initializeTestMode = () => {
+    // Set up test data to show the dashboard
+    setCurrentStep(3); // Go directly to prediction step
+    setModelId('test-model');
+    
+    // Initialize slider graph with test data
+    const testSliderData = generateSliderGraphData(7.6, 30);
+    setSliderGraphData(testSliderData);
+    
+    // Set some basic historical data for left panel
+    const testHistoricalData = Array.from({ length: 24 }, (_, i) => 7.0 + Math.sin(i * 0.5) * 0.3);
+    setHistoricalData({ values: testHistoricalData });
+    
+    console.log('✅ Test mode initialized - Dashboard ready');
+  };
+
+  // Initialize test mode on component mount for development/testing
+  useEffect(() => {
+    // Check if we want to enable test mode (could be controlled by URL parameter or environment)
+    const urlParams = new URLSearchParams(window.location.search);
+    const testMode = urlParams.get('test') === 'true' || window.location.hostname === 'localhost';
+    
+    if (testMode) {
+      initializeTestMode();
+    }
+  }, []);
+
   // File upload handler
   const onDrop = useCallback(async (acceptedFiles) => {
     const file = acceptedFiles[0];
