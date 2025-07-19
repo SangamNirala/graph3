@@ -4238,6 +4238,40 @@ async def get_prediction_system_status():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"System status check failed: {str(e)}")
 
+@api_router.post("/test-noise-reduction")
+async def test_noise_reduction(request_data: dict):
+    """Test endpoint for noise reduction system"""
+    try:
+        global noise_reduction_system
+        
+        predictions = request_data.get('predictions', [])
+        test_type = request_data.get('test_type', 'general')
+        
+        if not predictions:
+            raise HTTPException(status_code=400, detail="No predictions provided")
+        
+        # Apply noise reduction
+        result = noise_reduction_system.apply_comprehensive_smoothing(
+            predictions=predictions,
+            historical_data=None,
+            previous_predictions=None
+        )
+        
+        return {
+            'status': 'success',
+            'test_type': test_type,
+            'original_predictions': predictions,
+            'smoothed_predictions': result['smoothed_predictions'],
+            'smoothing_applied': result['smoothing_applied'],
+            'noise_reduction_score': result['noise_reduction_score'],
+            'quality_metrics': result.get('quality_metrics', {}),
+            'noise_analysis': result.get('noise_analysis', {})
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in noise reduction test: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Include the router in the main app
 app.include_router(api_router)
 
