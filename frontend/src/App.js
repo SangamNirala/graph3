@@ -378,6 +378,21 @@ function App() {
     }
 
     try {
+      // Try new enhanced real-time prediction v3 first (highest priority - NEW ADVANCED SYSTEM)
+      const enhancedRealtimeV3Response = await fetch(`${API}/generate-enhanced-realtime-prediction-v3?steps=30&time_window=${timeWindow}&maintain_patterns=true`);
+      if (enhancedRealtimeV3Response.ok) {
+        const enhancedRealtimeV3Data = await enhancedRealtimeV3Response.json();
+        console.log('🚀 Enhanced real-time prediction v3 result:', enhancedRealtimeV3Data);
+        console.log('🎯 Pattern following score:', enhancedRealtimeV3Data.metadata?.pattern_following_score);
+        console.log('🔬 Variability preservation score:', enhancedRealtimeV3Data.metadata?.variability_preservation_score);
+        console.log('⚖️ Bias prevention score:', enhancedRealtimeV3Data.metadata?.bias_prevention_score);
+        console.log('🔗 Continuity score:', enhancedRealtimeV3Data.metadata?.continuity_score);
+        console.log('🧠 Advanced engine used:', enhancedRealtimeV3Data.metadata?.advanced_engine_used);
+        console.log('📊 Learning quality:', enhancedRealtimeV3Data.metadata?.learning_quality);
+        console.log('✨ System confidence:', enhancedRealtimeV3Data.metadata?.system_confidence);
+        console.log('🔍 Quality metrics:', enhancedRealtimeV3Data.quality_metrics);
+        return enhancedRealtimeV3Data;
+      }
       // Try new enhanced real-time prediction v2 first (highest priority)
       const enhancedRealtimeV2Response = await fetch(`${API}/generate-enhanced-realtime-prediction-v2?steps=30&time_window=${timeWindow}&maintain_patterns=true`);
       if (enhancedRealtimeV2Response.ok) {
