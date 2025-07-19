@@ -22,9 +22,35 @@ function App() {
   const [phData, setPhData] = useState({ current_ph: 7.0, target_ph: 7.6, status: 'Connected' });
   const [targetPh, setTargetPh] = useState(7.6);
   const [isAdjustingPh, setIsAdjustingPh] = useState(false);
-  const [realtimePhReadings, setRealtimePhReadings] = useState([]);
-  const [lstmPredictions, setLstmPredictions] = useState([]);
-  const [predictionConfidence, setPredictionConfidence] = useState(67);
+  // Enhanced continuous prediction updates with visual buffering for smooth transitions
+  const [predictionBuffer, setPredictionBuffer] = useState([]);
+  const [smoothTransition, setSmoothTransition] = useState(true);
+
+  // Buffer and smooth prediction updates
+  const updatePredictionsSmooth = (newPredictions) => {
+    if (!newPredictions || !newPredictions.predictions) return;
+    
+    setLstmPredictions(prev => {
+      // Smooth transition between old and new predictions
+      const updated = [...prev, ...newPredictions.predictions];
+      const windowed = updated.slice(-timeWindow);
+      
+      // Apply additional frontend smoothing for visual continuity
+      if (smoothTransition && prev.length > 0 && windowed.length > 5) {
+        // Create smooth transition between the last few old points and new points
+        const transitionZone = Math.min(3, Math.floor(windowed.length * 0.1));
+        for (let i = 0; i < transitionZone && i < windowed.length - 1; i++) {
+          const weight = (i + 1) / (transitionZone + 1);
+          const idx = windowed.length - transitionZone + i;
+          if (idx > 0) {
+            windowed[idx] = windowed[idx-1] * (1 - weight) + windowed[idx] * weight;
+          }
+        }
+      }
+      
+      return windowed;
+    });
+  };
   
   // Enhanced ML state
   const [supportedModels, setSupportedModels] = useState([]);
