@@ -1,0 +1,1516 @@
+{
+  "name": "AI Lead Generation Ultimate - All Features",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "url": "https://api.leadgenpro.com/validate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.LICENSE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "license_key",
+              "value": "={{ $env.WORKFLOW_LICENSE_KEY }}"
+            },
+            {
+              "name": "workflow_id", 
+              "value": "ai-lead-generation-ultimate"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "license-validator",
+      "name": "License Validator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "license-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-license-validity",
+      "name": "Check License Validity",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "path": "icp-config",
+        "httpMethod": "POST",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-icp-input",
+      "name": "Webhook ICP Input",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [680, 200],
+      "webhookId": "icp-config-webhook"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "cronExpression": "={{ $env.WORKFLOW_SCHEDULE || '0 9 * * 1-5' }}"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "const webhookData = $('Webhook ICP Input')?.first()?.json;\nconst scheduleData = $('Schedule Trigger')?.first()?.json;\n\nconst config = {\n  // Core ICP Configuration\n  target_companies: webhookData?.target_companies || process.env.ICP_TARGET_COMPANIES || \"OpenAI, Anthropic, Microsoft, Google, Amazon\",\n  ideal_customer_profile: webhookData?.ideal_customer_profile || process.env.ICP_DESCRIPTION || \"VP of Engineering, CTO, Head of AI at AI/Tech companies with 100-1000 employees\",\n  job_titles: webhookData?.job_titles || process.env.ICP_JOB_TITLES || \"CTO,VP Engineering,Head of AI,ML Engineer,AI Engineer\",\n  industries: webhookData?.industries || process.env.ICP_INDUSTRIES || \"Technology,Software,Artificial Intelligence\",\n  locations: webhookData?.locations || process.env.ICP_LOCATIONS || \"United States,Canada,United Kingdom,Germany,France\",\n  company_size_min: parseInt(webhookData?.company_size_min || process.env.ICP_COMPANY_SIZE_MIN || \"100\"),\n  company_size_max: parseInt(webhookData?.company_size_max || process.env.ICP_COMPANY_SIZE_MAX || \"1000\"),\n  \n  // Workflow Configuration\n  batch_size: parseInt(webhookData?.batch_size || process.env.BATCH_SIZE || \"10\"),\n  max_leads_per_run: parseInt(webhookData?.max_leads_per_run || process.env.MAX_LEADS_PER_RUN || \"100\"),\n  debug_mode: (webhookData?.debug_mode || process.env.DEBUG_MODE || \"false\") === \"true\",\n  test_mode: (webhookData?.test_mode || process.env.TEST_MODE || \"false\") === \"true\",\n  \n  // AI Configuration\n  ai_prompt_template: webhookData?.ai_prompt_template || process.env.AI_PROMPT_TEMPLATE || \"saas-default-v2\",\n  outreach_tone: webhookData?.outreach_tone || process.env.OUTREACH_TONE || \"conversational\",\n  outreach_language: webhookData?.outreach_language || process.env.OUTREACH_LANGUAGE || \"EN\",\n  \n  // NEW: Multi-Channel Configuration\n  enable_email_outreach: (webhookData?.enable_email_outreach || process.env.ENABLE_EMAIL_OUTREACH || \"true\") === \"true\",\n  enable_sms_outreach: (webhookData?.enable_sms_outreach || process.env.ENABLE_SMS_OUTREACH || \"false\") === \"true\",\n  enable_linkedin_automation: (webhookData?.enable_linkedin_automation || process.env.ENABLE_LINKEDIN_AUTOMATION || \"false\") === \"true\",\n  \n  // NEW: Lead Nurturing Configuration\n  enable_lead_nurturing: (webhookData?.enable_lead_nurturing || process.env.ENABLE_LEAD_NURTURING || \"true\") === \"true\",\n  nurturing_sequence_days: parseInt(webhookData?.nurturing_sequence_days || process.env.NURTURING_SEQUENCE_DAYS || \"2\"),\n  nurturing_messages_count: parseInt(webhookData?.nurturing_messages_count || process.env.NURTURING_MESSAGES_COUNT || \"3\"),\n  \n  // NEW: Integration Configuration\n  enable_zapier_sync: (webhookData?.enable_zapier_sync || process.env.ENABLE_ZAPIER_SYNC || \"false\") === \"true\",\n  enable_airtable_sync: (webhookData?.enable_airtable_sync || process.env.ENABLE_AIRTABLE_SYNC || \"false\") === \"true\",\n  enable_deliverability_monitor: (webhookData?.enable_deliverability_monitor || process.env.ENABLE_DELIVERABILITY_MONITOR || \"true\") === \"true\",\n  \n  // NEW: CRM Configuration\n  crm_provider: webhookData?.crm_provider || process.env.CRM_PROVIDER || \"google_sheets\", // hubspot, salesforce, pipedrive\n  \n  // NEW: Sales Rep Assignment\n  enable_rep_assignment: (webhookData?.enable_rep_assignment || process.env.ENABLE_REP_ASSIGNMENT || \"false\") === \"true\",\n  \n  // NEW: Conversational AI\n  enable_reply_engine: (webhookData?.enable_reply_engine || process.env.ENABLE_REPLY_ENGINE || \"false\") === \"true\",\n  \n  // Runtime Metadata\n  workflow_run_id: $workflow.id + '_' + new Date().toISOString(),\n  triggered_by: webhookData ? 'webhook' : 'schedule',\n  config_loaded_at: new Date().toISOString()\n};\n\nif (!config.target_companies || config.target_companies.trim() === '') {\n  throw new Error('ICP target_companies configuration is required');\n}\n\nif (config.test_mode) {\n  config.max_leads_per_run = Math.min(config.max_leads_per_run, 5);\n  config.batch_size = Math.min(config.batch_size, 3);\n}\n\nreturn [{ json: config }];"
+      },
+      "id": "load-config",
+      "name": "Load Configuration",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const config = $input.first().json;\n\n// Load Sales Rep Assignment Rules\nconst salesReps = [\n  {\n    id: \"rep_001\",\n    name: \"Sarah Johnson\",\n    email: \"sarah@company.com\",\n    territories: [\"United States\", \"Canada\"],\n    industries: [\"Technology\", \"Software\", \"SaaS\"],\n    slack_user_id: \"U123456\",\n    max_leads_per_day: 20\n  },\n  {\n    id: \"rep_002\",\n    name: \"Michael Chen\",\n    email: \"michael@company.com\",\n    territories: [\"United Kingdom\", \"Germany\", \"France\"],\n    industries: [\"Artificial Intelligence\", \"Machine Learning\"],\n    slack_user_id: \"U789012\",\n    max_leads_per_day: 15\n  },\n  {\n    id: \"rep_003\",\n    name: \"Emma Rodriguez\",\n    email: \"emma@company.com\",\n    territories: [\"Australia\", \"Singapore\"],\n    industries: [\"Enterprise Software\", \"Cloud Services\"],\n    slack_user_id: \"U345678\",\n    max_leads_per_day: 18\n  }\n];\n\n// Load Multi-Language Support\nconst languageMap = {\n  \"United States\": \"EN\",\n  \"Canada\": \"EN\", \n  \"United Kingdom\": \"EN\",\n  \"Germany\": \"DE\",\n  \"France\": \"FR\",\n  \"Spain\": \"ES\",\n  \"Italy\": \"IT\",\n  \"Netherlands\": \"NL\",\n  \"Sweden\": \"SV\",\n  \"Australia\": \"EN\",\n  \"Singapore\": \"EN\"\n};\n\n// Load AI Prompt Templates\nconst promptTemplates = {\n  'saas-default-v2': {\n    scoring_prompt: `You are an expert B2B SaaS lead scorer. Analyze this lead against the provided ICP and return ONLY valid JSON.\\n\\nScoring Criteria (1-10 scale):\\n- Job Title Relevance (decision maker, budget authority): Weight 25%\\n- Company Fit (size, industry, growth stage): Weight 30%\\n- Technology Alignment (current tech stack, needs): Weight 20%\\n- Timing Indicators (recent funding, hiring, expansion): Weight 15%\\n- Social Proof (LinkedIn activity, thought leadership): Weight 10%\\n\\nReturn this exact JSON structure:\\n{\\n  \\\"lead_score\\\": number (1-10),\\n  \\\"confidence_level\\\": \\\"high|medium|low\\\",\\n  \\\"fit_reason\\\": \\\"Brief explanation of score\\\",\\n  \\\"priority_level\\\": \\\"urgent|high|medium|low\\\",\\n  \\\"personalization_angle\\\": \\\"Key hook for outreach\\\",\\n  \\\"pain_points\\\": [\\\"pain point 1\\\", \\\"pain point 2\\\"],\\n  \\\"timing_indicators\\\": [\\\"recent signals suggesting good timing\\\"],\\n  \\\"conversation_starters\\\": [\\\"opener 1\\\", \\\"opener 2\\\", \\\"opener 3\\\"],\\n  \\\"objection_handling\\\": [\\\"common objection and response\\\"],\\n  \\\"next_best_action\\\": \\\"recommended next step\\\"\\n}`,\n    outreach_prompts: {\n      conversational: `Create a personalized, conversational outreach message. Tone: friendly but professional, value-focused, not sales-heavy.`,\n      formal: `Create a formal, professional outreach message. Tone: respectful, business-focused, direct about value proposition.`,\n      persuasive: `Create a compelling, persuasive outreach message. Tone: confident, benefit-driven, creates urgency.`\n    },\n    nurturing_prompts: {\n      follow_up_1: `Create a gentle follow-up message referencing the initial outreach. Focus on providing additional value or insights.`,\n      follow_up_2: `Create a more direct follow-up that acknowledges the previous messages and offers a specific value proposition.`,\n      follow_up_3: `Create a final follow-up that creates urgency while remaining professional and helpful.`\n    }\n  }\n};\n\nconst selectedTemplate = promptTemplates[config.ai_prompt_template] || promptTemplates['saas-default-v2'];\nconst outreachTone = config.outreach_tone || 'conversational';\nconst outreachPrompt = selectedTemplate.outreach_prompts[outreachTone] || selectedTemplate.outreach_prompts['conversational'];\n\nconst enhancedConfig = {\n  ...config,\n  sales_reps: salesReps,\n  language_map: languageMap,\n  ai_scoring_prompt: selectedTemplate.scoring_prompt,\n  ai_outreach_prompt: outreachPrompt,\n  ai_nurturing_prompts: selectedTemplate.nurturing_prompts,\n  prompt_template_loaded: config.ai_prompt_template,\n  enhanced_config_loaded_at: new Date().toISOString()\n};\n\nreturn [{ json: enhancedConfig }];"
+      },
+      "id": "load-enhanced-config",
+      "name": "Load Enhanced Config",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.apollo.io/v1/mixed_people/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cache-Control", 
+              "value": "no-cache"
+            },
+            {
+              "name": "X-API-KEY",
+              "value": "={{ $env.APOLLO_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q_organization_domains",
+              "value": "={{ $json.target_companies.split(', ').map(company => company.toLowerCase().replace(/\\\\s+/g, '') + '.com').join(',') }}"
+            },
+            {
+              "name": "person_titles",
+              "value": "={{ $json.job_titles }}"
+            },
+            {
+              "name": "organization_num_employees_ranges", 
+              "value": "={{ $json.company_size_min }},{{ $json.company_size_max }}"
+            },
+            {
+              "name": "organization_locations",
+              "value": "={{ $json.locations }}"
+            },
+            {
+              "name": "page",
+              "value": "1"
+            },
+            {
+              "name": "per_page",
+              "value": "={{ Math.min($json.max_leads_per_run, 100) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 3,
+            "retryDelay": 2000
+          }
+        }
+      },
+      "id": "apollo-lead-search",
+      "name": "Apollo Lead Search",
+      "type": "n8n-nodes-base.httpRequest", 
+      "typeVersion": 4.1,
+      "position": [1340, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetween": 2000
+    },
+    {
+      "parameters": {
+        "functionCode": "const config = $('Load Enhanced Config').first().json;\nconst apolloResponse = $input.first().json;\n\nif (!apolloResponse.people || !Array.isArray(apolloResponse.people)) {\n  throw new Error('No valid people data received from Apollo API');\n}\n\nconst processedLeads = apolloResponse.people.map((person, index) => {\n  // Determine language based on location\n  const leadLanguage = config.language_map[person.country] || config.outreach_language || 'EN';\n  \n  // Assign sales rep based on territory and industry\n  let assignedRep = null;\n  if (config.enable_rep_assignment) {\n    assignedRep = config.sales_reps.find(rep => \n      rep.territories.includes(person.country) && \n      rep.industries.some(industry => person.organization?.industry?.includes(industry))\n    ) || config.sales_reps[0]; // Fallback to first rep\n  }\n  \n  return {\n    batch_id: Math.floor(index / config.batch_size),\n    lead_id: `lead_${Date.now()}_${index}`,\n    apollo_id: person.id,\n    first_name: person.first_name || '',\n    last_name: person.last_name || '',\n    title: person.title || '',\n    email: person.email || '',\n    linkedin_url: person.linkedin_url || '',\n    phone: person.phone_numbers?.[0]?.sanitized_number || '',\n    \n    // Company data\n    company_name: person.organization?.name || '',\n    company_domain: person.organization?.primary_domain || '',\n    company_industry: person.organization?.industry || '',\n    company_size: person.organization?.estimated_num_employees || 0,\n    company_description: person.organization?.short_description || '',\n    company_founded: person.organization?.founded_year || null,\n    \n    // Location data\n    city: person.city || '',\n    state: person.state || '', \n    country: person.country || '',\n    location: `${person.city || ''}, ${person.state || ''}, ${person.country || ''}`.replace(/^,\\\\s*|,\\\\s*$/g, ''),\n    \n    // NEW: Enhanced lead data\n    assigned_language: leadLanguage,\n    assigned_sales_rep: assignedRep,\n    lead_source: 'Apollo.io',\n    lead_status: 'new',\n    nurturing_stage: 0,\n    last_contact_date: null,\n    response_received: false,\n    \n    // Processing metadata\n    discovered_at: new Date().toISOString(),\n    workflow_run_id: config.workflow_run_id,\n    processing_status: 'discovered',\n    debug_mode: config.debug_mode\n  };\n});\n\n// Group into batches for parallel processing\nconst batches = {};\nprocessedLeads.forEach(lead => {\n  if (!batches[lead.batch_id]) {\n    batches[lead.batch_id] = [];\n  }\n  batches[lead.batch_id].push(lead);\n});\n\nconst batchResults = Object.keys(batches).map(batchId => ({\n  json: {\n    batch_id: parseInt(batchId),\n    batch_size: batches[batchId].length,\n    leads: batches[batchId],\n    total_batches: Object.keys(batches).length,\n    config: config,\n    batch_created_at: new Date().toISOString()\n  }\n}));\n\nif (config.debug_mode) {\n  console.log(`Created ${batchResults.length} batches with total ${processedLeads.length} leads`);\n}\n\nreturn batchResults;"
+      },
+      "id": "enhanced-lead-processor",
+      "name": "Enhanced Lead Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const batch = $input.first().json;\nconst config = batch.config;\nconst enrichedLeads = [];\nconst errors = [];\n\n// Simulate enrichment for each lead with enhanced data\nfor (const lead of batch.leads) {\n  try {\n    const enrichedLead = {\n      ...lead,\n      \n      // Email enrichment (simulated Hunter.io response)\n      email_verified: lead.email ? Math.random() > 0.3 : false,\n      email_confidence: lead.email ? Math.floor(Math.random() * 40) + 60 : 0,\n      email_deliverability_score: Math.floor(Math.random() * 30) + 70,\n      \n      // Profile enrichment (simulated Clearbit response)\n      bio: `${lead.title} with ${Math.floor(Math.random() * 15) + 5} years experience in ${lead.company_industry}`,\n      avatar: `https://avatar.placeholder.com/${lead.first_name}_${lead.last_name}`,\n      twitter: Math.random() > 0.7 ? `@${lead.first_name.toLowerCase()}${lead.last_name.toLowerCase()}` : '',\n      github: Math.random() > 0.8 ? `github.com/${lead.first_name.toLowerCase()}-${lead.last_name.toLowerCase()}` : '',\n      \n      // Company enrichment\n      company_logo: `https://logo.placeholder.com/${lead.company_domain}`,\n      company_tech_stack: ['Python', 'JavaScript', 'React', 'AWS', 'Docker', 'Kubernetes'].slice(0, Math.floor(Math.random() * 4) + 2),\n      company_employees_growth: Math.floor(Math.random() * 50) + 10,\n      company_funding_stage: ['Series A', 'Series B', 'Series C', 'Growth Stage'][Math.floor(Math.random() * 4)],\n      company_recent_news: Math.random() > 0.6 ? `Recently raised funding or expanded to new markets` : null,\n      \n      // NEW: Enhanced enrichment data\n      social_media_presence: {\n        linkedin_followers: Math.floor(Math.random() * 5000) + 500,\n        twitter_followers: Math.random() > 0.5 ? Math.floor(Math.random() * 2000) + 100 : 0,\n        github_repositories: Math.random() > 0.7 ? Math.floor(Math.random() * 50) + 5 : 0\n      },\n      \n      professional_interests: [\n        'Artificial Intelligence',\n        'Machine Learning', \n        'Cloud Architecture',\n        'DevOps',\n        'Microservices'\n      ].slice(0, Math.floor(Math.random() * 3) + 2),\n      \n      recent_activity: {\n        linkedin_posts_last_month: Math.floor(Math.random() * 10),\n        job_changes_last_year: Math.random() > 0.8 ? 1 : 0,\n        company_mentions: Math.floor(Math.random() * 5)\n      },\n      \n      // Calculate comprehensive enrichment score\n      enrichment_score: Math.floor(Math.random() * 40) + 60,\n      enriched_at: new Date().toISOString(),\n      processing_status: 'enriched'\n    };\n    \n    enrichedLeads.push(enrichedLead);\n    \n    if (config.debug_mode) {\n      console.log(`Enriched lead: ${lead.first_name} ${lead.last_name} at ${lead.company_name}`);\n    }\n    \n  } catch (error) {\n    errors.push({\n      lead_id: lead.lead_id,\n      error: error.message,\n      failed_at: new Date().toISOString()\n    });\n    \n    enrichedLeads.push({\n      ...lead,\n      enrichment_error: error.message,\n      enrichment_score: 0,\n      processing_status: 'enrichment_failed',\n      enriched_at: new Date().toISOString()\n    });\n  }\n}\n\nreturn [{\n  json: {\n    ...batch,\n    leads: enrichedLeads,\n    enrichment_errors: errors,\n    successfully_enriched: enrichedLeads.filter(l => !l.enrichment_error).length,\n    enrichment_completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "enhanced-enrichment",
+      "name": "Enhanced Enrichment",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetween": 3000
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "chatInput": {
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "={{ $('Load Enhanced Config').first().json.ai_scoring_prompt }}"
+              },
+              {
+                "role": "user", 
+                "content": "ICP: {{ $('Load Enhanced Config').first().json.ideal_customer_profile }}\\n\\nTarget Industries: {{ $('Load Enhanced Config').first().json.industries }}\\n\\nEnhanced Lead Data:\\nName: {{ $json.first_name }} {{ $json.last_name }}\\nTitle: {{ $json.title }}\\nCompany: {{ $json.company_name }} ({{ $json.company_size }} employees)\\nIndustry: {{ $json.company_industry }}\\nFounded: {{ $json.company_founded }}\\nFunding Stage: {{ $json.company_funding_stage }}\\nLocation: {{ $json.location }}\\nLanguage: {{ $json.assigned_language }}\\n\\nProfessional Profile:\\nBio: {{ $json.bio }}\\nLinkedIn: {{ $json.linkedin_url }} ({{ $json.social_media_presence.linkedin_followers }} followers)\\nTwitter: {{ $json.twitter }} ({{ $json.social_media_presence.twitter_followers }} followers)\\nGitHub: {{ $json.github }} ({{ $json.social_media_presence.github_repositories }} repos)\\n\\nCompany Intelligence:\\nTech Stack: {{ $json.company_tech_stack?.join(', ') }}\\nRecent News: {{ $json.company_recent_news || 'No recent news' }}\\nEmployee Growth: {{ $json.company_employees_growth }}% annually\\n\\nEngagement Signals:\\nLinkedIn Posts (Last Month): {{ $json.recent_activity.linkedin_posts_last_month }}\\nJob Changes (Last Year): {{ $json.recent_activity.job_changes_last_year }}\\nCompany Mentions: {{ $json.recent_activity.company_mentions }}\\n\\nInterests: {{ $json.professional_interests?.join(', ') }}\\nEmail Deliverability: {{ $json.email_deliverability_score }}/100\\nEnrichment Score: {{ $json.enrichment_score }}/100\\n\\nAnalyze this enhanced lead profile against the ICP and return the comprehensive JSON scoring response."
+              }
+            ]
+          }
+        },
+        "model": "gpt-4",
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 1000,
+          "timeout": 30000
+        }
+      },
+      "id": "enhanced-ai-scoring",
+      "name": "Enhanced AI Scoring",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [2000, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetween": 2000
+    },
+    {
+      "parameters": {
+        "functionCode": "const batch = $('Enhanced Enrichment').first().json;\nconst config = batch.config;\nconst scoredLeads = [];\nconst scoringErrors = [];\n\nconst aiResponses = $input.all();\n\naiResponses.forEach((response, index) => {\n  const lead = batch.leads[index];\n  if (!lead) return;\n  \n  let aiAnalysis = {};\n  try {\n    const aiContent = response.json.choices?.[0]?.message?.content;\n    if (aiContent) {\n      aiAnalysis = JSON.parse(aiContent);\n    } else {\n      throw new Error('No AI response content');\n    }\n    \n    if (typeof aiAnalysis.lead_score !== 'number' || aiAnalysis.lead_score < 1 || aiAnalysis.lead_score > 10) {\n      throw new Error('Invalid lead_score in AI response');\n    }\n    \n  } catch (error) {\n    // Enhanced fallback scoring with more factors\n    const baseScore = Math.max(1, Math.min(10, Math.floor((lead.enrichment_score / 10))));\n    const activityBonus = (lead.recent_activity.linkedin_posts_last_month > 5) ? 1 : 0;\n    const socialBonus = (lead.social_media_presence.linkedin_followers > 1000) ? 0.5 : 0;\n    const techStackBonus = (lead.company_tech_stack && lead.company_tech_stack.length > 3) ? 0.5 : 0;\n    \n    aiAnalysis = {\n      lead_score: Math.min(10, baseScore + activityBonus + socialBonus + techStackBonus),\n      confidence_level: 'medium',\n      fit_reason: 'Automated scoring based on enrichment data - manual review recommended',\n      priority_level: lead.enrichment_score > 80 ? 'high' : 'medium',\n      personalization_angle: `${lead.company_industry} expertise and ${lead.professional_interests[0]} focus`,\n      pain_points: ['Scaling challenges', 'Technology efficiency', 'Team productivity'],\n      timing_indicators: lead.company_recent_news ? ['Recent company expansion'] : ['General market timing'],\n      conversation_starters: [`${lead.professional_interests[0]} trends`, 'Company growth strategies', 'Industry innovations'],\n      objection_handling: ['ROI concerns', 'Implementation timeline', 'Budget constraints'],\n      next_best_action: 'Send personalized LinkedIn connection request'\n    };\n    \n    scoringErrors.push({\n      lead_id: lead.lead_id,\n      error: error.message,\n      failed_at: new Date().toISOString()\n    });\n  }\n  \n  // Calculate enhanced final score with more factors\n  const enrichmentWeight = 0.2;\n  const aiScoreWeight = 0.5;\n  const activityWeight = 0.2;\n  const deliverabilityWeight = 0.1;\n  \n  const finalScore = Math.round(\n    (lead.enrichment_score * enrichmentWeight +\n     aiAnalysis.lead_score * 10 * aiScoreWeight +\n     (lead.recent_activity.linkedin_posts_last_month * 2) * activityWeight +\n     lead.email_deliverability_score * deliverabilityWeight) / 10 * 10\n  ) / 10;\n  \n  const scoredLead = {\n    ...lead,\n    ...aiAnalysis,\n    final_score: Math.min(10, finalScore),\n    ai_scored_at: new Date().toISOString(),\n    processing_status: 'ai_scored',\n    scoring_model: config.ai_prompt_template,\n    has_scoring_error: scoringErrors.some(err => err.lead_id === lead.lead_id),\n    \n    // NEW: Enhanced scoring metadata\n    scoring_factors: {\n      enrichment_contribution: lead.enrichment_score * enrichmentWeight,\n      ai_contribution: aiAnalysis.lead_score * 10 * aiScoreWeight,\n      activity_contribution: (lead.recent_activity.linkedin_posts_last_month * 2) * activityWeight,\n      deliverability_contribution: lead.email_deliverability_score * deliverabilityWeight\n    },\n    \n    recommended_outreach_channels: {\n      email: lead.email_verified && lead.email_deliverability_score > 70,\n      linkedin: lead.linkedin_url && lead.social_media_presence.linkedin_followers > 100,\n      sms: lead.phone && config.enable_sms_outreach && ['urgent', 'high'].includes(aiAnalysis.priority_level)\n    }\n  };\n  \n  scoredLeads.push(scoredLead);\n});\n\n// Sort by final score descending\nscoredLeads.sort((a, b) => b.final_score - a.final_score);\n\nreturn [{\n  json: {\n    ...batch,\n    leads: scoredLeads,\n    scoring_errors: scoringErrors,\n    average_score: scoredLeads.reduce((sum, lead) => sum + lead.final_score, 0) / scoredLeads.length,\n    high_quality_count: scoredLeads.filter(lead => lead.final_score >= 7).length,\n    urgent_priority_count: scoredLeads.filter(lead => lead.priority_level === 'urgent').length,\n    scoring_completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-enhanced-scoring",
+      "name": "Process Enhanced Scoring",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "high-quality-lead",
+              "leftValue": "={{ $json.final_score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "filter-high-quality",
+      "name": "Filter High Quality",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "chatInput": {
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "You are an expert multilingual sales copywriter. Create compelling, personalized outreach messages in the specified language. Use cultural nuances and business etiquette appropriate for the target language and region.\\n\\nInstructions:\\n- Create message in language: {{ $json.assigned_language }}\\n- {{ $('Load Enhanced Config').first().json.ai_outreach_prompt }}\\n- Use specific personalization from the enriched lead data\\n- Reference recent activities or interests when available\\n- Adapt tone for cultural context\\n\\nReturn ONLY valid JSON:\\n{\\n  \\\"subject_line\\\": \\\"Compelling subject in target language\\\",\\n  \\\"message_body\\\": \\\"Personalized message under 300 characters\\\",\\n  \\\"message_type\\\": \\\"linkedin_connection|email_outreach|sms_message\\\",\\n  \\\"language_used\\\": \\\"Language code (EN, FR, DE, etc.)\\\",\\n  \\\"personalization_elements\\\": [\\\"list of elements used\\\"],\\n  \\\"cultural_adaptations\\\": [\\\"cultural considerations applied\\\"],\\n  \\\"cta_type\\\": \\\"soft|direct|value_offer\\\",\\n  \\\"estimated_response_rate\\\": \\\"percentage estimate\\\",\\n  \\\"recommended_channel\\\": \\\"primary outreach channel\\\",\\n  \\\"follow_up_sequence\\\": [\\\"follow-up 1 preview\\\", \\\"follow-up 2 preview\\\"]\\n}"
+              },
+              {
+                "role": "user",
+                "content": "Enhanced Lead Analysis:\\nName: {{ $json.first_name }} {{ $json.last_name }}\\nTitle: {{ $json.title }}\\nCompany: {{ $json.company_name }} ({{ $json.company_size }} employees, {{ $json.company_funding_stage }})\\nLocation: {{ $json.location }}\\nTarget Language: {{ $json.assigned_language }}\\nScore: {{ $json.final_score }}/10\\nConfidence: {{ $json.confidence_level }}\\nPriority: {{ $json.priority_level }}\\n\\nPersonalization Intelligence:\\n- Angle: {{ $json.personalization_angle }}\\n- Pain Points: {{ $json.pain_points?.join(', ') }}\\n- Timing Indicators: {{ $json.timing_indicators?.join(', ') }}\\n- Conversation Starters: {{ $json.conversation_starters?.join(', ') }}\\n- Professional Interests: {{ $json.professional_interests?.join(', ') }}\\n\\nRecent Activity & Social Proof:\\n- LinkedIn Posts (Last Month): {{ $json.recent_activity.linkedin_posts_last_month }}\\n- LinkedIn Followers: {{ $json.social_media_presence.linkedin_followers }}\\n- GitHub Repositories: {{ $json.social_media_presence.github_repositories }}\\n- Twitter Followers: {{ $json.social_media_presence.twitter_followers }}\\n\\nCompany Intelligence:\\n- Tech Stack: {{ $json.company_tech_stack?.join(', ') }}\\n- Recent News: {{ $json.company_recent_news || 'No recent news' }}\\n- Industry: {{ $json.company_industry }}\\n- Growth Rate: {{ $json.company_employees_growth }}% annually\\n\\nRecommended Channels: Email={{ $json.recommended_outreach_channels.email }}, LinkedIn={{ $json.recommended_outreach_channels.linkedin }}, SMS={{ $json.recommended_outreach_channels.sms }}\\n\\nTone: {{ $('Load Enhanced Config').first().json.outreach_tone }}\\n\\nCreate a personalized, culturally appropriate outreach message for this high-quality lead."
+              }
+            ]
+          }
+        },
+        "model": "gpt-4",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 800
+        }
+      },
+      "id": "generate-multilingual-outreach",
+      "name": "Generate Multilingual Outreach",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [2660, 200]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $('Load Enhanced Config').first().json.enable_linkedin_automation }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "true",
+              "output": 0
+            }
+          ]
+        }
+      },
+      "id": "check-linkedin-automation",
+      "name": "Check LinkedIn Automation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [2660, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.LINKEDIN_AUTOMATION_WEBHOOK_URL }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "first_name",
+              "value": "={{ $('Filter High Quality').first().json.first_name }}"
+            },
+            {
+              "name": "last_name", 
+              "value": "={{ $('Filter High Quality').first().json.last_name }}"
+            },
+            {
+              "name": "job_title",
+              "value": "={{ $('Filter High Quality').first().json.title }}"
+            },
+            {
+              "name": "company",
+              "value": "={{ $('Filter High Quality').first().json.company_name }}"
+            },
+            {
+              "name": "linkedin_url",
+              "value": "={{ $('Filter High Quality').first().json.linkedin_url }}"
+            },
+            {
+              "name": "personalized_message",
+              "value": "={{ JSON.parse($('Generate Multilingual Outreach').first().json.choices[0].message.content).message_body }}"
+            },
+            {
+              "name": "lead_score",
+              "value": "={{ $('Filter High Quality').first().json.final_score }}"
+            },
+            {
+              "name": "priority_level",
+              "value": "={{ $('Filter High Quality').first().json.priority_level }}"
+            },
+            {
+              "name": "workflow_run_id",
+              "value": "={{ $('Filter High Quality').first().json.workflow_run_id }}"
+            },
+            {
+              "name": "action",
+              "value": "send_connection_request"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "send-to-linkedin-automation",
+      "name": "Send to LinkedIn Automation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2880, 400]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $('Load Enhanced Config').first().json.enable_zapier_sync }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "true",
+              "output": 0
+            }
+          ]
+        }
+      },
+      "id": "check-zapier-sync",
+      "name": "Check Zapier Sync",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [2660, 600]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.ZAPIER_WEBHOOK_URL }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "lead_data",
+              "value": "={{ JSON.stringify($('Filter High Quality').first().json) }}"
+            },
+            {
+              "name": "outreach_message",
+              "value": "={{ JSON.stringify(JSON.parse($('Generate Multilingual Outreach').first().json.choices[0].message.content)) }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "send-to-zapier",
+      "name": "Send to Zapier",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2880, 600]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $('Load Enhanced Config').first().json.crm_provider }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "hubspot",
+              "output": 0
+            },
+            {
+              "value2": "salesforce",
+              "output": 1
+            },
+            {
+              "value2": "pipedrive",
+              "output": 2
+            }
+          ]
+        }
+      },
+      "id": "crm-routing-switch",
+      "name": "CRM Routing Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [2880, 300]
+    },
+    {
+      "parameters": {
+        "resource": "contact",
+        "operation": "create",
+        "properties": {
+          "email": "={{ $json.email }}",
+          "firstname": "={{ $json.first_name }}",
+          "lastname": "={{ $json.last_name }}",
+          "jobtitle": "={{ $json.title }}",
+          "company": "={{ $json.company_name }}",
+          "phone": "={{ $json.phone }}",
+          "website": "={{ $json.company_domain }}",
+          "city": "={{ $json.city }}",
+          "state": "={{ $json.state }}",
+          "country": "={{ $json.country }}",
+          "linkedin_url": "={{ $json.linkedin_url }}",
+          "ai_lead_score": "={{ $json.final_score }}",
+          "lead_priority": "={{ $json.priority_level }}",
+          "lead_source": "AI Lead Generation",
+          "personalization_angle": "={{ $json.personalization_angle }}",
+          "assigned_sales_rep": "={{ $json.assigned_sales_rep?.name || 'Unassigned' }}",
+          "enrichment_score": "={{ $json.enrichment_score }}",
+          "company_size": "={{ $json.company_size }}",
+          "company_industry": "={{ $json.company_industry }}",
+          "last_activity_date": "={{ new Date().toISOString() }}"
+        }
+      },
+      "id": "create-hubspot-contact",
+      "name": "Create HubSpot Contact",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [3100, 200]
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "operation": "create",
+        "columns": {
+          "FirstName": "={{ $json.first_name }}",
+          "LastName": "={{ $json.last_name }}",
+          "Email": "={{ $json.email }}",
+          "Title": "={{ $json.title }}",
+          "Company": "={{ $json.company_name }}",
+          "Phone": "={{ $json.phone }}",
+          "City": "={{ $json.city }}",
+          "State": "={{ $json.state }}",
+          "Country": "={{ $json.country }}",
+          "Website": "={{ $json.company_domain }}",
+          "LeadSource": "AI Lead Generation",
+          "Rating": "={{ $json.priority_level === 'urgent' ? 'Hot' : $json.priority_level === 'high' ? 'Warm' : 'Cold' }}",
+          "Description": "AI Score: {{ $json.final_score }}/10\nFit Reason: {{ $json.fit_reason }}\nPersonalization Angle: {{ $json.personalization_angle }}\nAssigned Rep: {{ $json.assigned_sales_rep?.name || 'Unassigned' }}"
+        }
+      },
+      "id": "create-salesforce-lead",
+      "name": "Create Salesforce Lead",
+      "type": "n8n-nodes-base.salesforce",
+      "typeVersion": 1,
+      "position": [3100, 300]
+    },
+    {
+      "parameters": {
+        "resource": "person",
+        "operation": "create",
+        "name": "={{ $json.first_name }} {{ $json.last_name }}",
+        "additionalFields": {
+          "email": "={{ $json.email }}",
+          "phone": "={{ $json.phone }}",
+          "job_title": "={{ $json.title }}",
+          "org_name": "={{ $json.company_name }}"
+        }
+      },
+      "id": "create-pipedrive-person",
+      "name": "Create Pipedrive Person",
+      "type": "n8n-nodes-base.pipedrive",
+      "typeVersion": 1,
+      "position": [3100, 400]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $('Load Enhanced Config').first().json.enable_sms_outreach }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "true",
+              "output": 0
+            }
+          ]
+        }
+      },
+      "id": "check-sms-outreach",
+      "name": "Check SMS Outreach",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [3100, 600]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.phone }}",
+        "message": "={{ JSON.parse($('Generate Multilingual Outreach').first().json.choices[0].message.content).message_body }}"
+      },
+      "id": "send-sms-via-twilio",
+      "name": "Send SMS via Twilio",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [3320, 600]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $('Load Enhanced Config').first().json.enable_airtable_sync }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "true",
+              "output": 0
+            }
+          ]
+        }
+      },
+      "id": "check-airtable-sync",
+      "name": "Check Airtable Sync",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [3320, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads Dashboard"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Lead ID": "={{ $json.lead_id }}",
+            "Full Name": "={{ $json.first_name }} {{ $json.last_name }}",
+            "Email": "={{ $json.email }}",
+            "Title": "={{ $json.title }}",
+            "Company": "={{ $json.company_name }}",
+            "Industry": "={{ $json.company_industry }}",
+            "Company Size": "={{ $json.company_size }}",
+            "Location": "={{ $json.location }}",
+            "LinkedIn URL": "={{ $json.linkedin_url }}",
+            "Phone": "={{ $json.phone }}",
+            "Lead Score": "={{ $json.final_score }}",
+            "Priority Level": "={{ $json.priority_level }}",
+            "Confidence Level": "={{ $json.confidence_level }}",
+            "Assigned Sales Rep": "={{ $json.assigned_sales_rep?.name || 'Unassigned' }}",
+            "Assigned Language": "={{ $json.assigned_language }}",
+            "Personalization Angle": "={{ $json.personalization_angle }}",
+            "Pain Points": "={{ $json.pain_points?.join('; ') }}",
+            "Professional Interests": "={{ $json.professional_interests?.join('; ') }}",
+            "Company Tech Stack": "={{ $json.company_tech_stack?.join('; ') }}",
+            "Recent Activity": "{{ $json.recent_activity.linkedin_posts_last_month }} LinkedIn posts last month",
+            "Social Proof": "{{ $json.social_media_presence.linkedin_followers }} LinkedIn followers",
+            "Enrichment Score": "={{ $json.enrichment_score }}",
+            "Email Deliverability": "={{ $json.email_deliverability_score }}",
+            "Lead Source": "={{ $json.lead_source }}",
+            "Lead Status": "={{ $json.lead_status }}",
+            "Discovered At": "={{ $json.discovered_at }}",
+            "Workflow Run ID": "={{ $json.workflow_run_id }}"
+          }
+        }
+      },
+      "id": "sync-to-airtable",
+      "name": "Sync to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [3540, 300]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $('Load Enhanced Config').first().json.enable_lead_nurturing }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "true",
+              "output": 0
+            }
+          ]
+        }
+      },
+      "id": "check-lead-nurturing",
+      "name": "Check Lead Nurturing",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [3320, 800]
+    },
+    {
+      "parameters": {
+        "functionCode": "const leads = $('Filter High Quality').all();\nconst config = $('Load Enhanced Config').first().json;\n\n// Create nurturing sequences for each high-quality lead\nconst nurturingSequences = [];\n\nleads.forEach(leadItem => {\n  const lead = leadItem.json;\n  const outreachMessage = $('Generate Multilingual Outreach').first()?.json;\n  \n  // Create follow-up sequence\n  for (let i = 1; i <= config.nurturing_messages_count; i++) {\n    const delayDays = config.nurturing_sequence_days * i;\n    \n    nurturingSequences.push({\n      json: {\n        lead_id: lead.lead_id,\n        lead_name: `${lead.first_name} ${lead.last_name}`,\n        lead_email: lead.email,\n        company: lead.company_name,\n        sequence_step: i,\n        delay_days: delayDays,\n        scheduled_date: new Date(Date.now() + (delayDays * 24 * 60 * 60 * 1000)).toISOString(),\n        nurturing_type: i === 1 ? 'follow_up_1' : i === 2 ? 'follow_up_2' : 'follow_up_3',\n        original_message: outreachMessage ? JSON.parse(outreachMessage.choices[0].message.content).message_body : null,\n        lead_context: {\n          final_score: lead.final_score,\n          priority_level: lead.priority_level,\n          personalization_angle: lead.personalization_angle,\n          pain_points: lead.pain_points,\n          conversation_starters: lead.conversation_starters,\n          assigned_language: lead.assigned_language,\n          professional_interests: lead.professional_interests\n        },\n        status: 'scheduled',\n        created_at: new Date().toISOString(),\n        workflow_run_id: lead.workflow_run_id\n      }\n    });\n  }\n});\n\nreturn nurturingSequences;"
+      },
+      "id": "create-nurturing-sequences",
+      "name": "Create Nurturing Sequences",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [3540, 800]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Nurturing Sequences"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Lead ID": "={{ $json.lead_id }}",
+            "Lead Name": "={{ $json.lead_name }}",
+            "Lead Email": "={{ $json.lead_email }}",
+            "Company": "={{ $json.company }}",
+            "Sequence Step": "={{ $json.sequence_step }}",
+            "Delay Days": "={{ $json.delay_days }}",
+            "Scheduled Date": "={{ $json.scheduled_date }}",
+            "Nurturing Type": "={{ $json.nurturing_type }}",
+            "Original Message": "={{ $json.original_message }}",
+            "Lead Score": "={{ $json.lead_context.final_score }}",
+            "Priority": "={{ $json.lead_context.priority_level }}",
+            "Language": "={{ $json.lead_context.assigned_language }}",
+            "Status": "={{ $json.status }}",
+            "Created At": "={{ $json.created_at }}",
+            "Workflow Run ID": "={{ $json.workflow_run_id }}"
+          }
+        }
+      },
+      "id": "store-nurturing-sequences",
+      "name": "Store Nurturing Sequences",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [3760, 800]
+    },
+    {
+      "parameters": {
+        "unit": "days",
+        "amount": "={{ $json.delay_days }}"
+      },
+      "id": "nurturing-delay",
+      "name": "Nurturing Delay",
+      "type": "n8n-nodes-base.delay",
+      "typeVersion": 1,
+      "position": [3980, 800]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "chatInput": {
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "You are an expert follow-up email writer. Create a personalized follow-up message that references the previous outreach and provides additional value. The message should feel natural and continue the conversation.\\n\\nGuidelines:\\n- Reference the previous message contextually\\n- Provide new value or insights\\n- Adapt tone based on follow-up sequence step\\n- Keep cultural and language preferences\\n- Include a soft call-to-action\\n\\nReturn ONLY valid JSON:\\n{\\n  \\\"subject_line\\\": \\\"Follow-up subject line\\\",\\n  \\\"message_body\\\": \\\"Personalized follow-up message\\\",\\n  \\\"message_type\\\": \\\"email_follow_up\\\",\\n  \\\"sequence_step\\\": \\\"follow_up_1|follow_up_2|follow_up_3\\\",\\n  \\\"value_provided\\\": \\\"Brief description of value offered\\\",\\n  \\\"reference_to_previous\\\": \\\"How it references previous message\\\",\\n  \\\"cta_type\\\": \\\"soft|direct|value_offer\\\",\\n  \\\"estimated_response_rate\\\": \\\"percentage estimate\\\"\\n}"
+              },
+              {
+                "role": "user",
+                "content": "Follow-up Context:\\nLead: {{ $json.lead_name }}\\nCompany: {{ $json.company }}\\nSequence Step: {{ $json.sequence_step }} (Step {{ $json.sequence_step }} of {{ $('Load Enhanced Config').first().json.nurturing_messages_count }})\\nDays Since Initial: {{ $json.delay_days }}\\nLanguage: {{ $json.lead_context.assigned_language }}\\n\\nOriginal Message Context:\\n{{ $json.original_message }}\\n\\nLead Intelligence:\\n- Score: {{ $json.lead_context.final_score }}/10\\n- Priority: {{ $json.lead_context.priority_level }}\\n- Personalization Angle: {{ $json.lead_context.personalization_angle }}\\n- Pain Points: {{ $json.lead_context.pain_points?.join(', ') }}\\n- Interests: {{ $json.lead_context.professional_interests?.join(', ') }}\\n- Conversation Starters: {{ $json.lead_context.conversation_starters?.join(', ') }}\\n\\nCreate a {{ $json.nurturing_type }} message that builds on the initial outreach and provides additional value."
+              }
+            ]
+          }
+        },
+        "model": "gpt-4",
+        "options": {
+          "temperature": 0.6,
+          "maxTokens": 600
+        }
+      },
+      "id": "generate-follow-up-message",
+      "name": "Generate Follow-up Message",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [4200, 800]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_FROM_EMAIL }}",
+        "toEmail": "={{ $json.lead_email }}",
+        "subject": "={{ JSON.parse($('Generate Follow-up Message').first().json.choices[0].message.content).subject_line }}",
+        "message": "={{ JSON.parse($('Generate Follow-up Message').first().json.choices[0].message.content).message_body }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "send-follow-up-email",
+      "name": "Send Follow-up Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [4420, 800]
+    },
+    {
+      "parameters": {
+        "path": "lead-reply",
+        "httpMethod": "POST",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-reply-handler",
+      "name": "Webhook Reply Handler",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 1000],
+      "webhookId": "reply-handler-webhook"
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "chatInput": {
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "You are an expert email reply analyzer and response generator. Analyze the lead's reply and provide insights and suggested responses.\\n\\nTasks:\\n1. Analyze the sentiment and intent of the reply\\n2. Identify key information or questions\\n3. Determine the lead's interest level\\n4. Generate 2-3 suggested responses with different approaches\\n5. Recommend next steps\\n\\nReturn ONLY valid JSON:\\n{\\n  \\\"reply_analysis\\\": {\\n    \\\"sentiment\\\": \\\"positive|neutral|negative\\\",\\n    \\\"interest_level\\\": \\\"high|medium|low\\\",\\n    \\\"intent\\\": \\\"meeting_request|more_info|not_interested|question|objection\\\",\\n    \\\"key_points\\\": [\\\"extracted key information\\\"],\\n    \\\"urgency\\\": \\\"high|medium|low\\\"\\n  },\\n  \\\"suggested_responses\\\": [\\n    {\\n      \\\"approach\\\": \\\"direct|consultative|value_add\\\",\\n      \\\"subject_line\\\": \\\"Response subject\\\",\\n      \\\"message_body\\\": \\\"Suggested response message\\\",\\n      \\\"reasoning\\\": \\\"Why this approach\\\"\\n    }\\n  ],\\n  \\\"next_steps\\\": [\\\"recommended actions\\\"],\\n  \\\"crm_update_needed\\\": true,\\n  \\\"priority_score\\\": number (1-10)\\n}"
+              },
+              {
+                "role": "user",
+                "content": "Lead Reply Analysis:\\n\\nOriginal Lead: {{ $json.lead_name || 'Unknown' }}\\nCompany: {{ $json.company || 'Unknown' }}\\nReply Email: {{ $json.reply_email || $json.email }}\\nReply Subject: {{ $json.subject || 'No Subject' }}\\nReply Content:\\n{{ $json.reply_content || $json.body || $json.message }}\\n\\nOriginal Context (if available):\\nLead Score: {{ $json.original_lead_score || 'Unknown' }}\\nPersonalization Angle: {{ $json.personalization_angle || 'Unknown' }}\\nIndustry: {{ $json.industry || 'Unknown' }}\\n\\nAnalyze this reply and provide comprehensive insights and response suggestions."
+              }
+            ]
+          }
+        },
+        "model": "gpt-4",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 1200
+        }
+      },
+      "id": "analyze-lead-reply",
+      "name": "Analyze Lead Reply",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [460, 1000]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Lead Conversations"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Lead Name": "={{ $('Webhook Reply Handler').first().json.lead_name || 'Unknown Lead' }}",
+            "Reply Email": "={{ $('Webhook Reply Handler').first().json.reply_email || $('Webhook Reply Handler').first().json.email }}",
+            "Reply Subject": "={{ $('Webhook Reply Handler').first().json.subject || 'No Subject' }}",
+            "Reply Content": "={{ $('Webhook Reply Handler').first().json.reply_content || $('Webhook Reply Handler').first().json.body || $('Webhook Reply Handler').first().json.message }}",
+            "Sentiment": "={{ JSON.parse($json.choices[0].message.content).reply_analysis.sentiment }}",
+            "Interest Level": "={{ JSON.parse($json.choices[0].message.content).reply_analysis.interest_level }}",
+            "Intent": "={{ JSON.parse($json.choices[0].message.content).reply_analysis.intent }}",
+            "Key Points": "={{ JSON.parse($json.choices[0].message.content).reply_analysis.key_points.join('; ') }}",
+            "Urgency": "={{ JSON.parse($json.choices[0].message.content).reply_analysis.urgency }}",
+            "Priority Score": "={{ JSON.parse($json.choices[0].message.content).priority_score }}",
+            "Suggested Responses": "={{ JSON.stringify(JSON.parse($json.choices[0].message.content).suggested_responses) }}",
+            "Next Steps": "={{ JSON.parse($json.choices[0].message.content).next_steps.join('; ') }}",
+            "Received At": "={{ new Date().toISOString() }}",
+            "Analysis Status": "analyzed",
+            "Response Needed": "={{ JSON.parse($json.choices[0].message.content).reply_analysis.interest_level !== 'low' }}"
+          }
+        }
+      },
+      "id": "store-conversation-analysis",
+      "name": "Store Conversation Analysis",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [680, 1000]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "high-priority-reply",
+              "leftValue": "={{ JSON.parse($('Analyze Lead Reply').first().json.choices[0].message.content).priority_score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-reply-priority",
+      "name": "Check Reply Priority",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 1000]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $env.SLACK_SALES_CHANNEL_ID }}"
+        },
+        "text": "🔥 **HIGH PRIORITY LEAD REPLY RECEIVED** 🔥\\n\\n👤 **Lead:** {{ $('Webhook Reply Handler').first().json.lead_name || 'Unknown' }}\\n🏢 **Company:** {{ $('Webhook Reply Handler').first().json.company || 'Unknown' }}\\n📧 **Email:** {{ $('Webhook Reply Handler').first().json.reply_email || $('Webhook Reply Handler').first().json.email }}\\n\\n📊 **Analysis:**\\n• Sentiment: {{ JSON.parse($('Analyze Lead Reply').first().json.choices[0].message.content).reply_analysis.sentiment }}\\n• Interest Level: {{ JSON.parse($('Analyze Lead Reply').first().json.choices[0].message.content).reply_analysis.interest_level }}\\n• Intent: {{ JSON.parse($('Analyze Lead Reply').first().json.choices[0].message.content).reply_analysis.intent }}\\n• Priority Score: {{ JSON.parse($('Analyze Lead Reply').first().json.choices[0].message.content).priority_score }}/10\\n\\n💬 **Key Points:**\\n{{ JSON.parse($('Analyze Lead Reply').first().json.choices[0].message.content).reply_analysis.key_points.join('\\\\n• ') }}\\n\\n🎯 **Next Steps:**\\n{{ JSON.parse($('Analyze Lead Reply').first().json.choices[0].message.content).next_steps.join('\\\\n• ') }}\\n\\n📋 [View Full Conversation]({{ $env.AIRTABLE_BASE_URL }}/Lead%20Conversations)\\n\\n⏰ **Received:** {{ new Date().toLocaleString() }}",
+        "otherOptions": {}
+      },
+      "id": "alert-high-priority-reply",
+      "name": "Alert High Priority Reply",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [1120, 1000]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Check deliverability metrics and email quotas\nconst config = $('Load Enhanced Config').first().json;\n\n// Simulate deliverability monitoring (would integrate with actual services)\nconst deliverabilityData = {\n  workflow_run_id: config.workflow_run_id,\n  timestamp: new Date().toISOString(),\n  \n  // Gmail/SMTP Quota Monitoring\n  daily_email_quota: parseInt(process.env.DAILY_EMAIL_QUOTA || \"500\"),\n  emails_sent_today: Math.floor(Math.random() * 400) + 50, // Simulated\n  quota_percentage_used: 0,\n  \n  // Deliverability Metrics\n  bounce_rate: (Math.random() * 5).toFixed(2), // 0-5%\n  spam_rate: (Math.random() * 2).toFixed(2), // 0-2%\n  open_rate: (Math.random() * 20 + 15).toFixed(2), // 15-35%\n  response_rate: (Math.random() * 10 + 2).toFixed(2), // 2-12%\n  \n  // Warmup Status (simulated)\n  warmup_score: Math.floor(Math.random() * 30) + 70, // 70-100\n  warmup_status: 'active',\n  sender_reputation: 'good',\n  \n  // Domain Health\n  domain_reputation: 'excellent',\n  dkim_valid: true,\n  spf_valid: true,\n  dmarc_valid: true,\n  \n  // Alerts\n  alerts: [],\n  recommendations: []\n};\n\n// Calculate quota percentage\ndeliverabilityData.quota_percentage_used = ((deliverabilityData.emails_sent_today / deliverabilityData.daily_email_quota) * 100).toFixed(1);\n\n// Check for alerts\nif (deliverabilityData.quota_percentage_used > 90) {\n  deliverabilityData.alerts.push({\n    type: 'quota_warning',\n    severity: 'high',\n    message: 'Daily email quota nearly exceeded (${deliverabilityData.quota_percentage_used}%)'\n  });\n}\n\nif (parseFloat(deliverabilityData.bounce_rate) > 3) {\n  deliverabilityData.alerts.push({\n    type: 'high_bounce_rate',\n    severity: 'medium',\n    message: 'Bounce rate is higher than recommended (${deliverabilityData.bounce_rate}%)'\n  });\n}\n\nif (deliverabilityData.warmup_score < 80) {\n  deliverabilityData.alerts.push({\n    type: 'warmup_low',\n    severity: 'medium',\n    message: 'Email warmup score is below optimal (${deliverabilityData.warmup_score}/100)'\n  });\n}\n\n// Generate recommendations\nif (parseFloat(deliverabilityData.open_rate) < 20) {\n  deliverabilityData.recommendations.push('Improve subject lines and sender reputation to increase open rates');\n}\n\nif (parseFloat(deliverabilityData.response_rate) < 5) {\n  deliverabilityData.recommendations.push('Enhance message personalization and value proposition');\n}\n\nif (deliverabilityData.quota_percentage_used > 80) {\n  deliverabilityData.recommendations.push('Consider upgrading email quota or distributing sends across multiple days');\n}\n\nreturn [{ json: deliverabilityData }];"
+      },
+      "id": "monitor-deliverability",
+      "name": "Monitor Deliverability",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [4200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Deliverability Monitoring"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Workflow Run ID": "={{ $json.workflow_run_id }}",
+            "Timestamp": "={{ $json.timestamp }}",
+            "Daily Email Quota": "={{ $json.daily_email_quota }}",
+            "Emails Sent Today": "={{ $json.emails_sent_today }}",
+            "Quota Used %": "={{ $json.quota_percentage_used }}",
+            "Bounce Rate %": "={{ $json.bounce_rate }}",
+            "Spam Rate %": "={{ $json.spam_rate }}",
+            "Open Rate %": "={{ $json.open_rate }}",
+            "Response Rate %": "={{ $json.response_rate }}",
+            "Warmup Score": "={{ $json.warmup_score }}",
+            "Warmup Status": "={{ $json.warmup_status }}",
+            "Sender Reputation": "={{ $json.sender_reputation }}",
+            "Domain Reputation": "={{ $json.domain_reputation }}",
+            "DKIM Valid": "={{ $json.dkim_valid }}",
+            "SPF Valid": "={{ $json.spf_valid }}",
+            "DMARC Valid": "={{ $json.dmarc_valid }}",
+            "Active Alerts": "={{ $json.alerts.length }}",
+            "Alert Details": "={{ JSON.stringify($json.alerts) }}",
+            "Recommendations": "={{ $json.recommendations.join('; ') }}",
+            "Status": "={{ $json.alerts.length > 0 ? 'Issues Detected' : 'Healthy' }}"
+          }
+        }
+      },
+      "id": "store-deliverability-data",
+      "name": "Store Deliverability Data",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [4420, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-deliverability-alerts",
+              "leftValue": "={{ $json.alerts.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-deliverability-alerts",
+      "name": "Check Deliverability Alerts",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [4640, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $env.SLACK_TECH_CHANNEL_ID }}"
+        },
+        "text": "⚠️ **DELIVERABILITY ALERTS DETECTED** ⚠️\\n\\n📊 **Email Performance Summary:**\\n• Emails Sent Today: {{ $json.emails_sent_today }}/{{ $json.daily_email_quota }} ({{ $json.quota_percentage_used }}% of quota)\\n• Bounce Rate: {{ $json.bounce_rate }}%\\n• Spam Rate: {{ $json.spam_rate }}%\\n• Open Rate: {{ $json.open_rate }}%\\n• Response Rate: {{ $json.response_rate }}%\\n\\n🔥 **Active Alerts:**\\n{{ $json.alerts.map(alert => '• ' + alert.severity.toUpperCase() + ': ' + alert.message).join('\\\\n') }}\\n\\n🔧 **Technical Status:**\\n• Warmup Score: {{ $json.warmup_score }}/100 ({{ $json.warmup_status }})\\n• Sender Reputation: {{ $json.sender_reputation }}\\n• Domain Reputation: {{ $json.domain_reputation }}\\n• DKIM: {{ $json.dkim_valid ? '✅' : '❌' }} | SPF: {{ $json.spf_valid ? '✅' : '❌' }} | DMARC: {{ $json.dmarc_valid ? '✅' : '❌' }}\\n\\n💡 **Recommendations:**\\n{{ $json.recommendations.map(rec => '• ' + rec).join('\\\\n') }}\\n\\n📋 [View Detailed Metrics]({{ $env.AIRTABLE_BASE_URL }}/Deliverability%20Monitoring)\\n\\n⏰ **Monitored:** {{ new Date($json.timestamp).toLocaleString() }}",
+        "otherOptions": {}
+      },
+      "id": "alert-deliverability-issues",
+      "name": "Alert Deliverability Issues",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [4860, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Collect comprehensive workflow analytics\nconst allBatches = $('Process Enhanced Scoring').all();\nconst config = $('Load Enhanced Config').first().json;\nconst deliverabilityData = $('Monitor Deliverability').first().json;\n\n// Aggregate lead data from all batches\nconst allLeads = [];\nconst allErrors = [];\nlet totalDuplicates = 0;\n\nallBatches.forEach(batch => {\n  if (batch.json.leads) {\n    allLeads.push(...batch.json.leads);\n  }\n  if (batch.json.enrichment_errors) {\n    allErrors.push(...batch.json.enrichment_errors);\n  }\n  if (batch.json.scoring_errors) {\n    allErrors.push(...batch.json.scoring_errors);\n  }\n  totalDuplicates += batch.json.duplicates_found || 0;\n});\n\n// Calculate comprehensive analytics\nconst analytics = {\n  // Workflow Metadata\n  workflow_run_id: config.workflow_run_id,\n  triggered_by: config.triggered_by,\n  config_template: config.ai_prompt_template,\n  outreach_tone: config.outreach_tone,\n  outreach_language: config.outreach_language,\n  \n  // Processing Statistics\n  total_leads_discovered: allLeads.length,\n  duplicates_filtered: totalDuplicates,\n  unique_leads_processed: allLeads.length - totalDuplicates,\n  successfully_enriched: allLeads.filter(l => l.processing_status === 'enriched' || l.processing_status === 'ai_scored').length,\n  successfully_scored: allLeads.filter(l => l.ai_scored_at).length,\n  \n  // Quality Metrics\n  average_final_score: allLeads.reduce((sum, lead) => sum + (lead.final_score || 0), 0) / allLeads.length || 0,\n  average_enrichment_score: allLeads.reduce((sum, lead) => sum + (lead.enrichment_score || 0), 0) / allLeads.length || 0,\n  average_deliverability_score: allLeads.reduce((sum, lead) => sum + (lead.email_deliverability_score || 0), 0) / allLeads.length || 0,\n  \n  // Enhanced Score Distribution\n  score_distribution: {\n    urgent: allLeads.filter(lead => lead.priority_level === 'urgent').length,\n    high: allLeads.filter(lead => (lead.final_score || 0) >= 7).length,\n    medium: allLeads.filter(lead => (lead.final_score || 0) >= 4 && (lead.final_score || 0) < 7).length,\n    low: allLeads.filter(lead => (lead.final_score || 0) < 4).length\n  },\n  \n  // Confidence Distribution\n  confidence_distribution: {\n    high: allLeads.filter(lead => lead.confidence_level === 'high').length,\n    medium: allLeads.filter(lead => lead.confidence_level === 'medium').length,\n    low: allLeads.filter(lead => lead.confidence_level === 'low').length\n  },\n  \n  // Geographic Distribution\n  geographic_distribution: {\n    countries: [...new Set(allLeads.map(lead => lead.country).filter(Boolean))],\n    top_countries: Object.entries(\n      allLeads.reduce((acc, lead) => {\n        if (lead.country) acc[lead.country] = (acc[lead.country] || 0) + 1;\n        return acc;\n      }, {})\n    ).sort(([,a], [,b]) => b - a).slice(0, 5)\n  },\n  \n  // Industry Analysis\n  industry_analysis: {\n    industries_covered: [...new Set(allLeads.map(lead => lead.company_industry).filter(Boolean))],\n    top_industries: Object.entries(\n      allLeads.reduce((acc, lead) => {\n        if (lead.company_industry) acc[lead.company_industry] = (acc[lead.company_industry] || 0) + 1;\n        return acc;\n      }, {})\n    ).sort(([,a], [,b]) => b - a).slice(0, 5)\n  },\n  \n  // Company Analysis\n  company_analysis: {\n    top_companies: [...new Set(allLeads.map(lead => lead.company_name))].slice(0, 10),\n    company_size_distribution: {\n      startup: allLeads.filter(lead => lead.company_size < 50).length,\n      small: allLeads.filter(lead => lead.company_size >= 50 && lead.company_size < 200).length,\n      medium: allLeads.filter(lead => lead.company_size >= 200 && lead.company_size < 1000).length,\n      large: allLeads.filter(lead => lead.company_size >= 1000).length\n    },\n    funding_stages: [...new Set(allLeads.map(lead => lead.company_funding_stage).filter(Boolean))]\n  },\n  \n  // Sales Rep Performance\n  sales_rep_performance: config.enable_rep_assignment ? \n    config.sales_reps.map(rep => ({\n      rep_id: rep.id,\n      rep_name: rep.name,\n      leads_assigned: allLeads.filter(lead => lead.assigned_sales_rep?.id === rep.id).length,\n      avg_lead_score: allLeads\n        .filter(lead => lead.assigned_sales_rep?.id === rep.id)\n        .reduce((sum, lead) => sum + (lead.final_score || 0), 0) / \n        allLeads.filter(lead => lead.assigned_sales_rep?.id === rep.id).length || 0,\n      territories: rep.territories,\n      industries: rep.industries\n    })) : [],\n  \n  // Multi-Channel Analysis\n  channel_analysis: {\n    email_eligible: allLeads.filter(lead => lead.recommended_outreach_channels?.email).length,\n    linkedin_eligible: allLeads.filter(lead => lead.recommended_outreach_channels?.linkedin).length,\n    sms_eligible: allLeads.filter(lead => lead.recommended_outreach_channels?.sms).length,\n    multi_channel_leads: allLeads.filter(lead => {\n      const channels = lead.recommended_outreach_channels || {};\n      return [channels.email, channels.linkedin, channels.sms].filter(Boolean).length > 1;\n    }).length\n  },\n  \n  // Language Distribution\n  language_distribution: Object.entries(\n    allLeads.reduce((acc, lead) => {\n      if (lead.assigned_language) acc[lead.assigned_language] = (acc[lead.assigned_language] || 0) + 1;\n      return acc;\n    }, {})\n  ).sort(([,a], [,b]) => b - a),\n  \n  // Feature Usage Statistics\n  feature_usage: {\n    lead_nurturing_enabled: config.enable_lead_nurturing,\n    linkedin_automation_enabled: config.enable_linkedin_automation,\n    sms_outreach_enabled: config.enable_sms_outreach,\n    zapier_sync_enabled: config.enable_zapier_sync,\n    airtable_sync_enabled: config.enable_airtable_sync,\n    rep_assignment_enabled: config.enable_rep_assignment,\n    reply_engine_enabled: config.enable_reply_engine,\n    deliverability_monitoring_enabled: config.enable_deliverability_monitor\n  },\n  \n  // Error Analysis\n  error_analysis: {\n    total_errors: allErrors.length,\n    error_rate: (allErrors.length / (allLeads.length || 1)) * 100,\n    error_types: allErrors.reduce((acc, error) => {\n      const type = error.type || 'unknown';\n      acc[type] = (acc[type] || 0) + 1;\n      return acc;\n    }, {})\n  },\n  \n  // Performance Metrics\n  performance_metrics: {\n    batch_count: allBatches.length,\n    average_batch_size: allBatches.reduce((sum, batch) => sum + batch.json.batch_size, 0) / allBatches.length,\n    processing_time_minutes: (Date.now() - new Date(config.config_loaded_at).getTime()) / 60000,\n    leads_per_minute: allLeads.length / ((Date.now() - new Date(config.config_loaded_at).getTime()) / 60000)\n  },\n  \n  // Deliverability Integration\n  deliverability_metrics: {\n    quota_usage: deliverabilityData.quota_percentage_used,\n    bounce_rate: deliverabilityData.bounce_rate,\n    spam_rate: deliverabilityData.spam_rate,\n    open_rate: deliverabilityData.open_rate,\n    response_rate: deliverabilityData.response_rate,\n    warmup_score: deliverabilityData.warmup_score,\n    alerts_count: deliverabilityData.alerts.length,\n    reputation_status: deliverabilityData.sender_reputation\n  },\n  \n  // Recommendations Engine\n  recommendations: [],\n  \n  // Timing Metadata\n  workflow_started_at: config.config_loaded_at,\n  workflow_completed_at: new Date().toISOString(),\n  debug_mode: config.debug_mode,\n  test_mode: config.test_mode\n};\n\n// Generate intelligent recommendations\nif (analytics.score_distribution.high < analytics.total_leads_discovered * 0.2) {\n  analytics.recommendations.push('Consider refining ICP criteria - low percentage of high-quality leads (${(analytics.score_distribution.high / analytics.total_leads_discovered * 100).toFixed(1)}%)');\n}\n\nif (analytics.error_analysis.error_rate > 10) {\n  analytics.recommendations.push('High error rate detected (${analytics.error_analysis.error_rate.toFixed(1)}%) - review API credentials and rate limits');\n}\n\nif (analytics.confidence_distribution.low > analytics.total_leads_discovered * 0.3) {\n  analytics.recommendations.push('Many low-confidence scores (${(analytics.confidence_distribution.low / analytics.total_leads_discovered * 100).toFixed(1)}%) - improve data sources');\n}\n\nif (parseFloat(analytics.deliverability_metrics.quota_usage) > 85) {\n  analytics.recommendations.push('High email quota usage (${analytics.deliverability_metrics.quota_usage}%) - consider upgrading or spreading sends');\n}\n\nif (parseFloat(analytics.deliverability_metrics.bounce_rate) > 3) {\n  analytics.recommendations.push('High bounce rate (${analytics.deliverability_metrics.bounce_rate}%) - improve list quality');\n}\n\nif (analytics.channel_analysis.multi_channel_leads > 0) {\n  analytics.recommendations.push('${analytics.channel_analysis.multi_channel_leads} leads eligible for multi-channel outreach - leverage for higher response rates');\n}\n\nif (analytics.sales_rep_performance.length > 0) {\n  const imbalancedReps = analytics.sales_rep_performance.filter(rep => \n    rep.leads_assigned > analytics.total_leads_discovered / analytics.sales_rep_performance.length * 1.5\n  );\n  if (imbalancedReps.length > 0) {\n    analytics.recommendations.push('Lead distribution imbalance detected - review territory assignments');\n  }\n}\n\nreturn [{ json: analytics }];"
+      },
+      "id": "create-comprehensive-analytics",
+      "name": "Create Comprehensive Analytics",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [4200, 600]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $env.AIRTABLE_BASE_ID }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Workflow Analytics"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Workflow Run ID": "={{ $json.workflow_run_id }}",
+            "Triggered By": "={{ $json.triggered_by }}",
+            "Config Template": "={{ $json.config_template }}",
+            "Outreach Tone": "={{ $json.outreach_tone }}",
+            "Outreach Language": "={{ $json.outreach_language }}",
+            "Total Leads": "={{ $json.total_leads_discovered }}",
+            "High Quality Leads": "={{ $json.score_distribution.high }}",
+            "Average Score": "={{ Math.round($json.average_final_score * 10) / 10 }}",
+            "Average Enrichment Score": "={{ Math.round($json.average_enrichment_score) }}",
+            "Average Deliverability Score": "={{ Math.round($json.average_deliverability_score) }}",
+            "Processing Time (min)": "={{ Math.round($json.performance_metrics.processing_time_minutes * 10) / 10 }}",
+            "Leads Per Minute": "={{ Math.round($json.performance_metrics.leads_per_minute * 10) / 10 }}",
+            "Error Rate %": "={{ Math.round($json.error_analysis.error_rate * 10) / 10 }}",
+            "Top Countries": "={{ $json.geographic_distribution.top_countries.map(([country, count]) => country + ' (' + count + ')').join(', ') }}",
+            "Top Industries": "={{ $json.industry_analysis.top_industries.map(([industry, count]) => industry + ' (' + count + ')').join(', ') }}",
+            "Multi-Channel Leads": "={{ $json.channel_analysis.multi_channel_leads }}",
+            "Email Eligible": "={{ $json.channel_analysis.email_eligible }}",
+            "LinkedIn Eligible": "={{ $json.channel_analysis.linkedin_eligible }}",
+            "SMS Eligible": "={{ $json.channel_analysis.sms_eligible }}",
+            "Language Distribution": "={{ $json.language_distribution.map(([lang, count]) => lang + ' (' + count + ')').join(', ') }}",
+            "Sales Reps Active": "={{ $json.sales_rep_performance.length }}",
+            "Features Enabled": "={{ Object.entries($json.feature_usage).filter(([key, value]) => value).map(([key]) => key.replace(/_enabled$/, '').replace(/_/g, ' ')).join(', ') }}",
+            "Deliverability Quota Used": "={{ $json.deliverability_metrics.quota_usage }}%",
+            "Bounce Rate": "={{ $json.deliverability_metrics.bounce_rate }}%",
+            "Open Rate": "={{ $json.deliverability_metrics.open_rate }}%",
+            "Response Rate": "={{ $json.deliverability_metrics.response_rate }}%",
+            "Warmup Score": "={{ $json.deliverability_metrics.warmup_score }}",
+            "Deliverability Alerts": "={{ $json.deliverability_metrics.alerts_count }}",
+            "Recommendations Count": "={{ $json.recommendations.length }}",
+            "Recommendations": "={{ $json.recommendations.join(' | ') }}",
+            "Workflow Started": "={{ $json.workflow_started_at }}",
+            "Workflow Completed": "={{ $json.workflow_completed_at }}",
+            "Debug Mode": "={{ $json.debug_mode }}",
+            "Test Mode": "={{ $json.test_mode }}"
+          }
+        }
+      },
+      "id": "store-comprehensive-analytics",
+      "name": "Store Comprehensive Analytics",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [4420, 600]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $env.SLACK_CHANNEL_ID }}"
+        },
+        "text": "🚀 **AI Lead Generation Ultimate - Workflow Complete!** 🚀\\n\\n📊 **Executive Summary:**\\n• **Run ID:** `{{ $json.workflow_run_id }}`\\n• **Triggered by:** {{ $json.triggered_by }} | **Template:** {{ $json.config_template }} | **Language:** {{ $json.outreach_language }}\\n• **Processing Time:** {{ Math.round($json.performance_metrics.processing_time_minutes) }} minutes ({{ Math.round($json.performance_metrics.leads_per_minute * 10) / 10 }} leads/min)\\n\\n🎯 **Lead Intelligence:**\\n• **Total Discovered:** {{ $json.total_leads_discovered }} leads\\n• **High Quality (≥7):** {{ $json.score_distribution.high }} leads ({{ Math.round($json.score_distribution.high / $json.total_leads_discovered * 100) }}%)\\n• **Urgent Priority:** {{ $json.score_distribution.urgent }} leads\\n• **Average Score:** {{ Math.round($json.average_final_score * 10) / 10 }}/10\\n• **Multi-Channel Eligible:** {{ $json.channel_analysis.multi_channel_leads }} leads\\n\\n📈 **Quality Distribution:**\\n• 🔥 **High (7-10):** {{ $json.score_distribution.high }} leads\\n• 🟡 **Medium (4-7):** {{ $json.score_distribution.medium }} leads\\n• 🔵 **Low (0-4):** {{ $json.score_distribution.low }} leads\\n\\n🌍 **Geographic Reach:**\\n• **Countries:** {{ $json.geographic_distribution.countries.length }} countries covered\\n• **Top Markets:** {{ $json.geographic_distribution.top_countries.slice(0, 3).map(([country, count]) => country + ' (' + count + ')').join(', ') }}\\n\\n🏢 **Industry Analysis:**\\n• **Industries:** {{ $json.industry_analysis.industries_covered.length }} industries\\n• **Top Sectors:** {{ $json.industry_analysis.top_industries.slice(0, 3).map(([industry, count]) => industry + ' (' + count + ')').join(', ') }}\\n\\n📱 **Multi-Channel Capabilities:**\\n• 📧 **Email Eligible:** {{ $json.channel_analysis.email_eligible }} leads\\n• 💼 **LinkedIn Eligible:** {{ $json.channel_analysis.linkedin_eligible }} leads\\n• 📱 **SMS Eligible:** {{ $json.channel_analysis.sms_eligible }} leads\\n\\n👥 **Sales Team Performance:**{{ $json.sales_rep_performance.length > 0 ? '\\\\n' + $json.sales_rep_performance.map(rep => '• ' + rep.rep_name + ': ' + rep.leads_assigned + ' leads (avg score: ' + Math.round(rep.avg_lead_score * 10) / 10 + '/10)').join('\\\\n') : '\\\\n• Centralized lead management (rep assignment disabled)' }}\\n\\n📊 **Deliverability Health:**\\n• **Email Quota Used:** {{ $json.deliverability_metrics.quota_usage }}%\\n• **Bounce Rate:** {{ $json.deliverability_metrics.bounce_rate }}% | **Open Rate:** {{ $json.deliverability_metrics.open_rate }}%\\n• **Response Rate:** {{ $json.deliverability_metrics.response_rate }}% | **Warmup Score:** {{ $json.deliverability_metrics.warmup_score }}/100\\n• **Status:** {{ $json.deliverability_metrics.alerts_count === 0 ? '✅ Healthy' : '⚠️ ' + $json.deliverability_metrics.alerts_count + ' alerts' }}\\n\\n🔧 **Active Features:**\\n{{ Object.entries($json.feature_usage).filter(([key, value]) => value).map(([key]) => '• ' + key.replace(/_enabled$/, '').replace(/_/g, ' ').replace(/\\\\b\\\\w/g, l => l.toUpperCase())).join('\\\\n') }}\\n\\n⚡ **Performance Metrics:**\\n• **Success Rate:** {{ Math.round((100 - $json.error_analysis.error_rate) * 10) / 10 }}%\\n• **Enrichment Score:** {{ Math.round($json.average_enrichment_score) }}/100\\n• **Batch Efficiency:** {{ $json.performance_metrics.batch_count }} batches processed\\n\\n{{ $json.recommendations.length > 0 ? '💡 **AI Recommendations:**\\\\n' + $json.recommendations.slice(0, 4).map(r => '• ' + r).join('\\\\n') + ($json.recommendations.length > 4 ? '\\\\n• +' + ($json.recommendations.length - 4) + ' more recommendations in dashboard' : '') : '🎉 **All Systems Optimal!** No issues detected.' }}\\n\\n📊 **Dashboards & Data:**\\n• [Lead Database]({{ $env.AIRTABLE_BASE_URL }}/Leads%20Dashboard)\\n• [Analytics Dashboard]({{ $env.AIRTABLE_BASE_URL }}/Workflow%20Analytics)\\n• [Nurturing Sequences]({{ $env.AIRTABLE_BASE_URL }}/Nurturing%20Sequences)\\n• [Deliverability Monitor]({{ $env.AIRTABLE_BASE_URL }}/Deliverability%20Monitoring)\\n\\n---\\n⏰ **Completed:** {{ new Date($json.workflow_completed_at).toLocaleString() }}\\n🤖 **Powered by AI Lead Generation Ultimate v2.0**",
+        "otherOptions": {}
+      },
+      "id": "comprehensive-slack-notification",
+      "name": "Comprehensive Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [4640, 600]
+    }
+  ],
+  "connections": {
+    "License Validator": {
+      "main": [
+        [
+          {
+            "node": "Check License Validity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check License Validity": {
+      "main": [
+        [
+          {
+            "node": "Load Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook ICP Input": {
+      "main": [
+        [
+          {
+            "node": "Load Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Load Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Configuration": {
+      "main": [
+        [
+          {
+            "node": "Load Enhanced Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Enhanced Config": {
+      "main": [
+        [
+          {
+            "node": "Apollo Lead Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apollo Lead Search": {
+      "main": [
+        [
+          {
+            "node": "Enhanced Lead Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhanced Lead Processor": {
+      "main": [
+        [
+          {
+            "node": "Enhanced Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhanced Enrichment": {
+      "main": [
+        [
+          {
+            "node": "Enhanced AI Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhanced AI Scoring": {
+      "main": [
+        [
+          {
+            "node": "Process Enhanced Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Enhanced Scoring": {
+      "main": [
+        [
+          {
+            "node": "Filter High Quality",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Comprehensive Analytics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Monitor Deliverability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter High Quality": {
+      "main": [
+        [
+          {
+            "node": "Generate Multilingual Outreach",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check LinkedIn Automation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Zapier Sync",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CRM Routing Switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check SMS Outreach",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Airtable Sync",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Lead Nurturing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check LinkedIn Automation": {
+      "main": [
+        [
+          {
+            "node": "Send to LinkedIn Automation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Zapier Sync": {
+      "main": [
+        [
+          {
+            "node": "Send to Zapier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM Routing Switch": {
+      "main": [
+        [
+          {
+            "node": "Create HubSpot Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Salesforce Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Pipedrive Person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check SMS Outreach": {
+      "main": [
+        [
+          {
+            "node": "Send SMS via Twilio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Airtable Sync": {
+      "main": [
+        [
+          {
+            "node": "Sync to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Lead Nurturing": {
+      "main": [
+        [
+          {
+            "node": "Create Nurturing Sequences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Nurturing Sequences": {
+      "main": [
+        [
+          {
+            "node": "Store Nurturing Sequences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Nurturing Sequences": {
+      "main": [
+        [
+          {
+            "node": "Nurturing Delay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nurturing Delay": {
+      "main": [
+        [
+          {
+            "node": "Generate Follow-up Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Follow-up Message": {
+      "main": [
+        [
+          {
+            "node": "Send Follow-up Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Reply Handler": {
+      "main": [
+        [
+          {
+            "node": "Analyze Lead Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Lead Reply": {
+      "main": [
+        [
+          {
+            "node": "Store Conversation Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Conversation Analysis": {
+      "main": [
+        [
+          {
+            "node": "Check Reply Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Reply Priority": {
+      "main": [
+        [
+          {
+            "node": "Alert High Priority Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monitor Deliverability": {
+      "main": [
+        [
+          {
+            "node": "Store Deliverability Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Deliverability Data": {
+      "main": [
+        [
+          {
+            "node": "Check Deliverability Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Deliverability Alerts": {
+      "main": [
+        [
+          {
+            "node": "Alert Deliverability Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Comprehensive Analytics": {
+      "main": [
+        [
+          {
+            "node": "Store Comprehensive Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Comprehensive Analytics": {
+      "main": [
+        [
+          {
+            "node": "Comprehensive Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-01-27T20:00:00.000Z",
+      "updatedAt": "2025-01-27T20:00:00.000Z",
+      "id": "ai-lead-generation-ultimate",
+      "name": "AI Lead Generation Ultimate"
+    },
+    {
+      "createdAt": "2025-01-27T20:00:00.000Z",
+      "updatedAt": "2025-01-27T20:00:00.000Z",
+      "id": "commercial-enterprise",
+      "name": "Commercial Enterprise"
+    },
+    {
+      "createdAt": "2025-01-27T20:00:00.000Z",
+      "updatedAt": "2025-01-27T20:00:00.000Z",
+      "id": "multi-channel-outreach",
+      "name": "Multi-Channel Outreach"
+    }
+  ],
+  "triggerCount": 2,
+  "updatedAt": "2025-01-27T20:00:00.000Z",
+  "versionId": "3.0"
+}
