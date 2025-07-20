@@ -1,0 +1,522 @@
+{
+  "name": "AI Lead Generation - Simplified Import Version",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "cronExpression": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "target_companies",
+              "value": "OpenAI, Anthropic, Microsoft, Google, Amazon"
+            },
+            {
+              "name": "ideal_customer_profile",
+              "value": "VP of Engineering, CTO, Head of AI, Machine Learning Engineer at AI/Tech companies with 100-1000 employees"
+            },
+            {
+              "name": "search_keywords",
+              "value": "artificial intelligence, machine learning, AI engineering"
+            }
+          ]
+        }
+      },
+      "id": "set-icp-criteria",
+      "name": "Set ICP Criteria",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.apollo.io/v1/mixed_people/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "X-API-KEY",
+              "value": "YOUR_APOLLO_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q_organization_domains",
+              "value": "={{ $json.target_companies.split(', ').map(company => company.toLowerCase().replace(/\\s+/g, '') + '.com').join(',') }}"
+            },
+            {
+              "name": "person_titles",
+              "value": "CTO,VP Engineering,Head of AI,ML Engineer,AI Engineer"
+            },
+            {
+              "name": "organization_num_employees_ranges",
+              "value": "100,1000"
+            },
+            {
+              "name": "page",
+              "value": "1"
+            },
+            {
+              "name": "per_page",
+              "value": "25"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 3,
+            "retryDelay": 2000
+          }
+        }
+      },
+      "id": "apollo-lead-search",
+      "name": "Apollo Lead Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const items = [];\nconst input = $input.first().json;\n\nif (input.people && Array.isArray(input.people)) {\n  for (const person of input.people) {\n    const leadData = {\n      id: person.id,\n      first_name: person.first_name,\n      last_name: person.last_name,\n      title: person.title,\n      email: person.email,\n      linkedin_url: person.linkedin_url,\n      company_name: person.organization?.name || '',\n      company_domain: person.organization?.primary_domain || '',\n      company_industry: person.organization?.industry || '',\n      company_size: person.organization?.estimated_num_employees || 0,\n      company_description: person.organization?.short_description || '',\n      location: person.city + ', ' + person.state + ', ' + person.country,\n      phone: person.phone_numbers?.[0]?.sanitized_number || '',\n      source: 'Apollo.io',\n      discovered_at: new Date().toISOString()\n    };\n    \n    items.push({ json: leadData });\n  }\n}\n\nreturn items;"
+      },
+      "id": "process-apollo-data",
+      "name": "Process Apollo Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.hunter.io/v2/email-finder",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "domain",
+              "value": "={{ $json.company_domain }}"
+            },
+            {
+              "name": "first_name",
+              "value": "={{ $json.first_name }}"
+            },
+            {
+              "name": "last_name",
+              "value": "={{ $json.last_name }}"
+            },
+            {
+              "name": "api_key",
+              "value": "YOUR_HUNTER_API_KEY"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 2,
+            "retryDelay": 1500
+          }
+        }
+      },
+      "id": "hunter-email-finder",
+      "name": "Hunter Email Finder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const apolloData = $('Process Apollo Data').first().json;\nconst hunterData = $('Hunter Email Finder').first().json;\n\nconst enrichedLead = {\n  ...apolloData,\n  email_verified: hunterData.data?.email || apolloData.email,\n  email_confidence: hunterData.data?.confidence || null,\n  email_score: hunterData.data?.score || null,\n  enrichment_score: (\n    (apolloData.email ? 20 : 0) +\n    (hunterData.data?.email ? 25 : 0) +\n    (apolloData.linkedin_url ? 15 : 0) +\n    (apolloData.phone ? 10 : 0) + 30\n  ),\n  enriched_at: new Date().toISOString()\n};\n\nreturn [{ json: enrichedLead }];"
+      },
+      "id": "merge-enriched-data",
+      "name": "Merge Enriched Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "chatInput": {
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "You are an AI lead scoring expert. Analyze the provided lead data and score them against the Ideal Customer Profile (ICP). Return a JSON response with the following structure: {\"lead_score\": number (1-10), \"fit_reason\": \"Brief explanation\", \"priority_level\": \"high|medium|low\", \"personalization_angle\": \"Key angle for outreach\", \"pain_points\": [\"pain point 1\", \"pain point 2\"], \"conversation_starters\": [\"starter 1\", \"starter 2\"]}. Only respond with valid JSON, no additional text."
+              },
+              {
+                "role": "user",
+                "content": "ICP: {{ $('Set ICP Criteria').first().json.ideal_customer_profile }}\n\nLead Data:\nName: {{ $json.first_name }} {{ $json.last_name }}\nTitle: {{ $json.title }}\nCompany: {{ $json.company_name }}\nIndustry: {{ $json.company_industry }}\nCompany Size: {{ $json.company_size }} employees\nLocation: {{ $json.location }}\nLinkedIn: {{ $json.linkedin_url }}\nEnrichment Score: {{ $json.enrichment_score }}/100\n\nPlease score this lead and provide insights."
+              }
+            ]
+          }
+        },
+        "model": "gpt-4",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 1000
+        }
+      },
+      "id": "openai-lead-scoring",
+      "name": "OpenAI Lead Scoring",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const leadData = $('Merge Enriched Data').first().json;\nconst aiResponse = $input.first().json;\n\nlet aiAnalysis = {};\ntry {\n  aiAnalysis = JSON.parse(aiResponse.choices[0].message.content);\n} catch (e) {\n  console.error('Failed to parse AI response:', e);\n  aiAnalysis = {\n    lead_score: 5,\n    fit_reason: 'Unable to analyze - manual review required',\n    priority_level: 'medium',\n    personalization_angle: 'General industry expertise',\n    pain_points: ['Scaling challenges', 'Tech efficiency'],\n    conversation_starters: ['Industry expertise', 'Company growth']\n  };\n}\n\nconst scoredLead = {\n  ...leadData,\n  ...aiAnalysis,\n  ai_scored_at: new Date().toISOString(),\n  final_score: Math.round((leadData.enrichment_score * 0.3 + aiAnalysis.lead_score * 10 * 0.7) / 10 * 10) / 10\n};\n\nreturn [{ json: scoredLead }];"
+      },
+      "id": "process-ai-scoring",
+      "name": "Process AI Scoring",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "high-quality-lead",
+              "leftValue": "={{ $json.final_score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "filter-high-quality-leads",
+      "name": "Filter High Quality Leads",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "chatInput": {
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "You are an expert sales copywriter. Create a personalized LinkedIn connection request based on the lead data provided. Return JSON: {\"subject_line\": \"Connection request title\", \"message_body\": \"Personalized message under 300 characters\", \"message_type\": \"linkedin_connection\", \"personalization_used\": [\"elements used\"]}. Only respond with valid JSON."
+              },
+              {
+                "role": "user",
+                "content": "Lead: {{ $json.first_name }} {{ $json.last_name }}\nTitle: {{ $json.title }}\nCompany: {{ $json.company_name }}\nPersonalization Angle: {{ $json.personalization_angle }}\nFit Reason: {{ $json.fit_reason }}\nPain Points: {{ $json.pain_points.join(', ') }}\nConversation Starters: {{ $json.conversation_starters.join(', ') }}\n\nCreate a personalized LinkedIn connection request."
+              }
+            ]
+          }
+        },
+        "model": "gpt-4",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 500
+        }
+      },
+      "id": "generate-outreach-copy",
+      "name": "Generate Outreach Copy",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [2220, 200]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_GOOGLE_SHEETS_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "High Quality Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "first_name": "={{ $json.first_name }}",
+            "last_name": "={{ $json.last_name }}",
+            "email": "={{ $json.email_verified }}",
+            "title": "={{ $json.title }}",
+            "company_name": "={{ $json.company_name }}",
+            "company_size": "={{ $json.company_size }}",
+            "industry": "={{ $json.company_industry }}",
+            "location": "={{ $json.location }}",
+            "linkedin_url": "={{ $json.linkedin_url }}",
+            "phone": "={{ $json.phone }}",
+            "lead_score": "={{ $json.lead_score }}",
+            "final_score": "={{ $json.final_score }}",
+            "priority_level": "={{ $json.priority_level }}",
+            "fit_reason": "={{ $json.fit_reason }}",
+            "personalization_angle": "={{ $json.personalization_angle }}",
+            "pain_points": "={{ $json.pain_points.join('; ') }}",
+            "conversation_starters": "={{ $json.conversation_starters.join('; ') }}",
+            "source": "={{ $json.source }}",
+            "discovered_at": "={{ $json.discovered_at }}",
+            "enriched_at": "={{ $json.enriched_at }}",
+            "scored_at": "={{ $json.ai_scored_at }}"
+          }
+        }
+      },
+      "id": "save-to-google-sheets",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_GOOGLE_SHEETS_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Outreach Messages"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lead_id": "={{ $('Filter High Quality Leads').first().json.id }}",
+            "lead_name": "={{ $('Filter High Quality Leads').first().json.first_name }} {{ $('Filter High Quality Leads').first().json.last_name }}",
+            "company": "={{ $('Filter High Quality Leads').first().json.company_name }}",
+            "subject_line": "={{ JSON.parse($json.choices[0].message.content).subject_line }}",
+            "message_body": "={{ JSON.parse($json.choices[0].message.content).message_body }}",
+            "message_type": "={{ JSON.parse($json.choices[0].message.content).message_type }}",
+            "personalization_used": "={{ JSON.parse($json.choices[0].message.content).personalization_used.join('; ') }}",
+            "created_at": "={{ new Date().toISOString() }}",
+            "status": "ready_to_send"
+          }
+        }
+      },
+      "id": "save-outreach-messages",
+      "name": "Save Outreach Messages",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2440, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "const allLeads = $('Process AI Scoring').all();\nconst highQualityLeads = $('Filter High Quality Leads').all();\n\nconst summary = {\n  total_leads_found: allLeads.length,\n  high_quality_leads: highQualityLeads.length,\n  average_score: allLeads.reduce((sum, lead) => sum + (lead.json.final_score || 0), 0) / allLeads.length || 0,\n  score_distribution: {\n    high: allLeads.filter(lead => (lead.json.final_score || 0) >= 7).length,\n    medium: allLeads.filter(lead => (lead.json.final_score || 0) >= 4 && (lead.json.final_score || 0) < 7).length,\n    low: allLeads.filter(lead => (lead.json.final_score || 0) < 4).length\n  },\n  companies_analyzed: [...new Set(allLeads.map(lead => lead.json.company_name))],\n  industries: [...new Set(allLeads.map(lead => lead.json.company_industry).filter(Boolean))],\n  workflow_completed_at: new Date().toISOString()\n};\n\nreturn [{ json: summary }];"
+      },
+      "id": "create-summary",
+      "name": "Create Summary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2000, 500]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_SLACK_CHANNEL_ID"
+        },
+        "text": "🎯 **Lead Generation Workflow Complete!**\n\n📊 **Summary:**\n• Total Leads Found: {{ $json.total_leads_found }}\n• High Quality Leads: {{ $json.high_quality_leads }}\n• Average Score: {{ Math.round($json.average_score * 10) / 10 }}/10\n\n📈 **Score Distribution:**\n• High (7-10): {{ $json.score_distribution.high }} leads\n• Medium (4-7): {{ $json.score_distribution.medium }} leads  \n• Low (0-4): {{ $json.score_distribution.low }} leads\n\n🏢 **Companies Analyzed:** {{ $json.companies_analyzed.slice(0, 5).join(', ') }}{{ $json.companies_analyzed.length > 5 ? ' and ' + ($json.companies_analyzed.length - 5) + ' more' : '' }}\n\n📋 **Next Steps:**\n• Review high-quality leads in Google Sheets\n• Check personalized outreach messages\n• Begin targeted outreach campaigns\n\n_Workflow completed at {{ new Date($json.workflow_completed_at).toLocaleString() }}_",
+        "otherOptions": {}
+      },
+      "id": "slack-notification",
+      "name": "Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [2220, 500]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set ICP Criteria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set ICP Criteria": {
+      "main": [
+        [
+          {
+            "node": "Apollo Lead Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apollo Lead Search": {
+      "main": [
+        [
+          {
+            "node": "Process Apollo Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Apollo Data": {
+      "main": [
+        [
+          {
+            "node": "Hunter Email Finder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hunter Email Finder": {
+      "main": [
+        [
+          {
+            "node": "Merge Enriched Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Enriched Data": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Lead Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Lead Scoring": {
+      "main": [
+        [
+          {
+            "node": "Process AI Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process AI Scoring": {
+      "main": [
+        [
+          {
+            "node": "Filter High Quality Leads",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter High Quality Leads": {
+      "main": [
+        [
+          {
+            "node": "Generate Outreach Copy",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Outreach Copy": {
+      "main": [
+        [
+          {
+            "node": "Save Outreach Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Summary": {
+      "main": [
+        [
+          {
+            "node": "Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-01-27T15:00:00.000Z",
+      "updatedAt": "2025-01-27T15:00:00.000Z",
+      "id": "lead-generation",
+      "name": "Lead Generation"
+    },
+    {
+      "createdAt": "2025-01-27T15:00:00.000Z", 
+      "updatedAt": "2025-01-27T15:00:00.000Z",
+      "id": "ai-automation",
+      "name": "AI Automation"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-27T15:00:00.000Z",
+  "versionId": "1.0"
+}
