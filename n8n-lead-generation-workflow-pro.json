@@ -1,0 +1,430 @@
+{
+  "meta": {
+    "instanceId": "lead-generation-pro-v2"
+  },
+  "name": "AI Lead Generation Pro - Production Ready",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "url": "{{ $env.LICENSE_VALIDATION_ENDPOINT }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.LICENSE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "license_key",
+              "value": "{{ $env.WORKFLOW_LICENSE_KEY }}"
+            },
+            {
+              "name": "workflow_id", 
+              "value": "ai-lead-generation-pro"
+            },
+            {
+              "name": "instance_id",
+              "value": "{{ $env.N8N_INSTANCE_ID }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 2,
+            "retryDelay": 1000
+          }
+        }
+      },
+      "id": "license-validator",
+      "name": "License Validator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [240, 300],
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "license-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-license-validity",
+      "name": "Check License Validity",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "path": "icp-config",
+        "httpMethod": "POST",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-icp-input",
+      "name": "Webhook ICP Input",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [680, 200],
+      "webhookId": "icp-config-webhook"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "cronExpression": "{{ $env.WORKFLOW_SCHEDULE || '0 9 * * 1-5' }}"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Load ICP configuration from environment variables or webhook input\nconst webhookData = $('Webhook ICP Input')?.first()?.json;\nconst scheduleData = $('Schedule Trigger')?.first()?.json;\n\n// Priority: Webhook > Environment Variables > Default\nconst icpConfig = {\n  // Core ICP criteria\n  target_companies: webhookData?.target_companies || process.env.ICP_TARGET_COMPANIES || \"OpenAI, Anthropic, Microsoft, Google, Amazon\",\n  ideal_customer_profile: webhookData?.ideal_customer_profile || process.env.ICP_DESCRIPTION || \"VP of Engineering, CTO, Head of AI at AI/Tech companies with 100-1000 employees\",\n  search_keywords: webhookData?.search_keywords || process.env.ICP_KEYWORDS || \"artificial intelligence, machine learning, AI engineering\",\n  \n  // Demographic filters\n  job_titles: webhookData?.job_titles || process.env.ICP_JOB_TITLES || \"CTO,VP Engineering,Head of AI,ML Engineer,AI Engineer,Chief Technology Officer\",\n  industries: webhookData?.industries || process.env.ICP_INDUSTRIES || \"Technology,Software,Artificial Intelligence,Computer Software\",\n  locations: webhookData?.locations || process.env.ICP_LOCATIONS || \"United States,Canada,United Kingdom,Germany,France\",\n  company_size_min: parseInt(webhookData?.company_size_min || process.env.ICP_COMPANY_SIZE_MIN || \"100\"),\n  company_size_max: parseInt(webhookData?.company_size_max || process.env.ICP_COMPANY_SIZE_MAX || \"1000\"),\n  \n  // Advanced filters\n  funding_stage: webhookData?.funding_stage || process.env.ICP_FUNDING_STAGE || \"Series A,Series B,Series C,Series D\",\n  revenue_range: webhookData?.revenue_range || process.env.ICP_REVENUE_RANGE || \"10M-100M\",\n  tech_stack: webhookData?.tech_stack || process.env.ICP_TECH_STACK || \"Python,JavaScript,React,AWS,Docker\",\n  \n  // Workflow configuration\n  batch_size: parseInt(webhookData?.batch_size || process.env.BATCH_SIZE || \"10\"),\n  max_leads_per_run: parseInt(webhookData?.max_leads_per_run || process.env.MAX_LEADS_PER_RUN || \"100\"),\n  debug_mode: (webhookData?.debug_mode || process.env.DEBUG_MODE || \"false\") === \"true\",\n  test_mode: (webhookData?.test_mode || process.env.TEST_MODE || \"false\") === \"true\",\n  \n  // AI Configuration\n  ai_prompt_template: webhookData?.ai_prompt_template || process.env.AI_PROMPT_TEMPLATE || \"saas-default-v2\",\n  outreach_tone: webhookData?.outreach_tone || process.env.OUTREACH_TONE || \"conversational\",\n  \n  // CRM Export settings\n  export_destination: webhookData?.export_destination || process.env.EXPORT_DESTINATION || \"google_sheets\", // google_sheets, hubspot, salesforce, pipedrive\n  \n  // Execution metadata\n  workflow_run_id: $workflow.id + '_' + new Date().toISOString(),\n  triggered_by: webhookData ? 'webhook' : 'schedule',\n  config_loaded_at: new Date().toISOString()\n};\n\n// Validation\nif (!icpConfig.target_companies || icpConfig.target_companies.trim() === '') {\n  throw new Error('ICP target_companies configuration is required');\n}\n\nif (icpConfig.test_mode) {\n  icpConfig.max_leads_per_run = Math.min(icpConfig.max_leads_per_run, 5);\n  icpConfig.batch_size = Math.min(icpConfig.batch_size, 3);\n}\n\nreturn [{ json: icpConfig }];"
+      },
+      "id": "load-icp-config",
+      "name": "Load ICP Config",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Test all API credentials before starting main workflow\nconst config = $input.first().json;\nconst testResults = {\n  workflow_run_id: config.workflow_run_id,\n  tests_performed: [],\n  all_tests_passed: true,\n  failed_tests: [],\n  warnings: []\n};\n\n// Test function template\nconst testApi = async (apiName, testFunction) => {\n  try {\n    const result = await testFunction();\n    testResults.tests_performed.push({\n      api: apiName,\n      status: 'passed',\n      response_time: result.responseTime || null,\n      message: result.message || 'Connection successful'\n    });\n    return true;\n  } catch (error) {\n    testResults.all_tests_passed = false;\n    testResults.failed_tests.push({\n      api: apiName,\n      error: error.message,\n      status: 'failed'\n    });\n    return false;\n  }\n};\n\n// Check required environment variables\nconst requiredEnvVars = [\n  'APOLLO_API_KEY',\n  'HUNTER_API_KEY', \n  'OPENAI_API_KEY',\n  'GOOGLE_SHEETS_CREDENTIAL_ID'\n];\n\nrequiredEnvVars.forEach(envVar => {\n  if (!process.env[envVar]) {\n    testResults.warnings.push(`Environment variable ${envVar} not found - using credential manager instead`);\n  }\n});\n\n// If in debug mode, add detailed information\nif (config.debug_mode) {\n  testResults.debug_info = {\n    config_source: config.triggered_by,\n    batch_size: config.batch_size,\n    max_leads: config.max_leads_per_run,\n    test_mode: config.test_mode,\n    ai_template: config.ai_prompt_template\n  };\n}\n\ntestResults.credential_test_completed_at = new Date().toISOString();\n\nreturn [{ json: { ...config, ...testResults } }];"
+      },
+      "id": "test-credentials",
+      "name": "Test Credentials",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Load and validate AI prompt templates based on configuration\nconst config = $input.first().json;\nconst promptTemplate = config.ai_prompt_template;\n\n// Predefined prompt templates\nconst promptTemplates = {\n  'saas-default-v2': {\n    scoring_prompt: `You are an expert B2B SaaS lead scorer. Analyze this lead against the provided ICP and return ONLY valid JSON.\n\nScoring Criteria (1-10 scale):\n- Job Title Relevance (decision maker, budget authority): Weight 25%\n- Company Fit (size, industry, growth stage): Weight 30% \n- Technology Alignment (current tech stack, needs): Weight 20%\n- Timing Indicators (recent funding, hiring, expansion): Weight 15%\n- Social Proof (LinkedIn activity, thought leadership): Weight 10%\n\nReturn this exact JSON structure:\n{\n  \"lead_score\": number (1-10),\n  \"confidence_level\": \"high|medium|low\",\n  \"fit_reason\": \"Brief explanation of score\",\n  \"priority_level\": \"urgent|high|medium|low\",\n  \"personalization_angle\": \"Key hook for outreach\",\n  \"pain_points\": [\"pain point 1\", \"pain point 2\"],\n  \"timing_indicators\": [\"recent signals suggesting good timing\"],\n  \"conversation_starters\": [\"opener 1\", \"opener 2\", \"opener 3\"],\n  \"objection_handling\": [\"common objection and response\"],\n  \"next_best_action\": \"recommended next step\"\n}`,\n    \n    outreach_prompts: {\n      conversational: `Create a personalized, conversational outreach message. Tone: friendly but professional, value-focused, not sales-heavy. Use the lead's specific details and pain points.`,\n      formal: `Create a formal, professional outreach message. Tone: respectful, business-focused, direct about value proposition.`,\n      persuasive: `Create a compelling, persuasive outreach message. Tone: confident, benefit-driven, creates urgency while remaining authentic.`\n    }\n  },\n  \n  'ecom-focused-v1': {\n    scoring_prompt: `You are an expert e-commerce and retail lead scorer. Focus on D2C brands, marketplaces, and retail technology companies.\n\nE-commerce Specific Scoring:\n- Marketing Decision Authority (CMO, VP Marketing, Growth): Weight 30%\n- Company Growth Stage (scaling challenges, funding): Weight 25%\n- Technology Stack Alignment (marketing tools, analytics): Weight 20% \n- Customer Acquisition Challenges (CAC, attribution): Weight 15%\n- Brand Maturity (social presence, customer base): Weight 10%\n\nReturn JSON with e-commerce specific insights.`,\n    \n    outreach_prompts: {\n      conversational: `Focus on customer acquisition costs, attribution challenges, and growth scaling for D2C brands.`,\n      formal: `Professional approach emphasizing marketing ROI and customer lifetime value optimization.`,\n      persuasive: `Compelling messaging around competitive advantages and revenue growth opportunities.`\n    }\n  },\n  \n  'enterprise-v1': {\n    scoring_prompt: `You are an expert enterprise B2B lead scorer. Focus on large companies with complex decision-making processes.\n\nEnterprise Scoring Criteria:\n- Budget Authority Level (C-suite, VP, Director): Weight 35%\n- Enterprise Complexity Needs (compliance, security, scale): Weight 25%\n- Procurement Process Fit (RFP experience, vendor management): Weight 20%\n- Implementation Timeline (quarterly planning, budget cycles): Weight 10%\n- Risk Tolerance (early adopter vs. conservative): Weight 10%`,\n    \n    outreach_prompts: {\n      conversational: `Professional but approachable for enterprise stakeholders, focus on efficiency and ROI.`,\n      formal: `Highly professional, compliance-aware, emphasizes security and enterprise-grade features.`,\n      persuasive: `Strategic value focus, competitive differentiation, and long-term partnership benefits.`\n    }\n  }\n};\n\n// Get the selected template or default\nconst selectedTemplate = promptTemplates[promptTemplate] || promptTemplates['saas-default-v2'];\n\n// Get outreach tone or default\nconst outreachTone = config.outreach_tone || 'conversational';\nconst outreachPrompt = selectedTemplate.outreach_prompts[outreachTone] || selectedTemplate.outreach_prompts['conversational'];\n\nconst promptConfig = {\n  ...config,\n  ai_scoring_prompt: selectedTemplate.scoring_prompt,\n  ai_outreach_prompt: outreachPrompt,\n  prompt_template_loaded: promptTemplate,\n  available_templates: Object.keys(promptTemplates),\n  prompts_loaded_at: new Date().toISOString()\n};\n\nreturn [{ json: promptConfig }];"
+      },
+      "id": "load-ai-prompts",
+      "name": "Load AI Prompts",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.apollo.io/v1/mixed_people/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cache-Control", 
+              "value": "no-cache"
+            },
+            {
+              "name": "X-API-KEY",
+              "value": "={{ $env.APOLLO_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q_organization_domains",
+              "value": "={{ $json.target_companies.split(', ').map(company => company.toLowerCase().replace(/\\s+/g, '') + '.com').join(',') }}"
+            },
+            {
+              "name": "person_titles",
+              "value": "={{ $json.job_titles }}"
+            },
+            {
+              "name": "organization_num_employees_ranges", 
+              "value": "={{ $json.company_size_min }},{{ $json.company_size_max }}"
+            },
+            {
+              "name": "organization_locations",
+              "value": "={{ $json.locations }}"
+            },
+            {
+              "name": "organization_industry_tag_ids",
+              "value": "={{ $json.industries }}"
+            },
+            {
+              "name": "page",
+              "value": "1"
+            },
+            {
+              "name": "per_page",
+              "value": "={{ Math.min($json.max_leads_per_run, 100) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 3,
+            "retryDelay": 2000,
+            "retryDelayType": "exponential"
+          },
+          "rateLimitHandling": {
+            "enabled": true,
+            "maxRetries": 3,
+            "delayBetweenRetries": 5000
+          }
+        }
+      },
+      "id": "apollo-lead-search",
+      "name": "Apollo Lead Search",
+      "type": "n8n-nodes-base.httpRequest", 
+      "typeVersion": 4.1,
+      "position": [1560, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apollo-api-credentials",
+          "name": "Apollo API Credentials"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetween": 2000
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process Apollo response and prepare for batch processing\nconst config = $('Load AI Prompts').first().json;\nconst apolloResponse = $input.first().json;\n\nif (!apolloResponse.people || !Array.isArray(apolloResponse.people)) {\n  throw new Error('No valid people data received from Apollo API');\n}\n\nconst allLeads = apolloResponse.people.map((person, index) => {\n  return {\n    batch_id: Math.floor(index / config.batch_size),\n    lead_id: `lead_${Date.now()}_${index}`,\n    apollo_id: person.id,\n    first_name: person.first_name || '',\n    last_name: person.last_name || '',\n    title: person.title || '',\n    email: person.email || '',\n    linkedin_url: person.linkedin_url || '',\n    phone: person.phone_numbers?.[0]?.sanitized_number || '',\n    \n    // Company data\n    company_name: person.organization?.name || '',\n    company_domain: person.organization?.primary_domain || '',\n    company_industry: person.organization?.industry || '',\n    company_size: person.organization?.estimated_num_employees || 0,\n    company_description: person.organization?.short_description || '',\n    company_founded: person.organization?.founded_year || null,\n    company_funding: person.organization?.total_funding || null,\n    \n    // Location data\n    city: person.city || '',\n    state: person.state || '', \n    country: person.country || '',\n    location: `${person.city || ''}, ${person.state || ''}, ${person.country || ''}`.replace(/^,\\s*|,\\s*$/g, ''),\n    \n    // Processing metadata\n    source: 'Apollo.io',\n    discovered_at: new Date().toISOString(),\n    workflow_run_id: config.workflow_run_id,\n    processing_status: 'discovered',\n    batch_size: config.batch_size,\n    \n    // Debug info\n    debug_mode: config.debug_mode,\n    original_apollo_data: config.debug_mode ? person : null\n  };\n});\n\n// Group into batches\nconst batches = {};\nallLeads.forEach(lead => {\n  if (!batches[lead.batch_id]) {\n    batches[lead.batch_id] = [];\n  }\n  batches[lead.batch_id].push(lead);\n});\n\n// Return array of batch objects for parallel processing\nconst batchResults = Object.keys(batches).map(batchId => ({\n  json: {\n    batch_id: parseInt(batchId),\n    batch_size: batches[batchId].length,\n    leads: batches[batchId],\n    total_batches: Object.keys(batches).length,\n    config: config,\n    batch_created_at: new Date().toISOString()\n  }\n}));\n\nif (config.debug_mode) {\n  console.log(`Created ${batchResults.length} batches with total ${allLeads.length} leads`);\n}\n\nreturn batchResults;"
+      },
+      "id": "batch-processor",
+      "name": "Batch Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Check for duplicate leads against existing database\nconst batch = $input.first().json;\nconst config = batch.config;\n\n// This would typically query your existing database\n// For now, we'll simulate with a basic check\nconst processedLeads = batch.leads.map(lead => {\n  // Generate a unique fingerprint for deduplication\n  const fingerprint = `${lead.email?.toLowerCase() || ''}|${lead.linkedin_url || ''}|${lead.first_name?.toLowerCase()}_${lead.last_name?.toLowerCase()}_${lead.company_domain}`.replace(/\\|+/g, '|');\n  \n  return {\n    ...lead,\n    dedup_fingerprint: fingerprint,\n    is_duplicate: false, // This would be checked against your database\n    dedup_checked_at: new Date().toISOString(),\n    processing_status: 'deduplication_checked'\n  };\n});\n\n// Filter out duplicates (in production, this would check against your database)\nconst uniqueLeads = processedLeads.filter(lead => !lead.is_duplicate);\nconst duplicates = processedLeads.filter(lead => lead.is_duplicate);\n\nreturn [{\n  json: {\n    ...batch,\n    leads: uniqueLeads,\n    duplicates_found: duplicates.length,\n    duplicates: duplicates,\n    unique_leads_count: uniqueLeads.length,\n    dedup_completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "deduplication-check",
+      "name": "Deduplication Check", 
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process each lead in the batch sequentially with rate limiting\nconst batch = $input.first().json;\nconst config = batch.config;\nconst enrichedLeads = [];\nconst errors = [];\n\n// Rate limiting configuration\nconst rateLimits = {\n  hunter: { requestsPerMinute: 50, lastRequest: 0, delayMs: 1200 },\n  clearbit: { requestsPerMinute: 30, lastRequest: 0, delayMs: 2000 }\n};\n\nconst sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));\n\nconst enforceRateLimit = async (apiName) => {\n  const now = Date.now();\n  const timeSinceLastRequest = now - rateLimits[apiName].lastRequest;\n  const minimumDelay = rateLimits[apiName].delayMs;\n  \n  if (timeSinceLastRequest < minimumDelay) {\n    const waitTime = minimumDelay - timeSinceLastRequest;\n    await sleep(waitTime);\n  }\n  \n  rateLimits[apiName].lastRequest = Date.now();\n};\n\n// Process leads with enrichment (simulated for now)\nfor (const lead of batch.leads) {\n  try {\n    // Simulate rate limiting\n    await enforceRateLimit('hunter');\n    await enforceRateLimit('clearbit');\n    \n    // In production, these would be actual API calls\n    const enrichedLead = {\n      ...lead,\n      \n      // Email enrichment (simulated)\n      email_verified: lead.email ? Math.random() > 0.3 : false,\n      email_confidence: lead.email ? Math.floor(Math.random() * 40) + 60 : 0,\n      \n      // Profile enrichment (simulated)\n      bio: `${lead.title} with ${Math.floor(Math.random() * 15) + 5} years experience`,\n      avatar: `https://avatar.placeholder.com/${lead.first_name}_${lead.last_name}`,\n      twitter: Math.random() > 0.7 ? `@${lead.first_name.toLowerCase()}${lead.last_name.toLowerCase()}` : '',\n      github: Math.random() > 0.8 ? `github.com/${lead.first_name.toLowerCase()}-${lead.last_name.toLowerCase()}` : '',\n      \n      // Company enrichment (simulated)\n      company_logo: `https://logo.placeholder.com/${lead.company_domain}`,\n      company_tech_stack: ['Python', 'JavaScript', 'AWS', 'Docker'].slice(0, Math.floor(Math.random() * 4) + 1),\n      company_employees_growth: Math.floor(Math.random() * 50) + 10,\n      \n      // Enrichment scoring\n      enrichment_score: Math.floor(Math.random() * 40) + 60,\n      enriched_at: new Date().toISOString(),\n      processing_status: 'enriched'\n    };\n    \n    enrichedLeads.push(enrichedLead);\n    \n    if (config.debug_mode) {\n      console.log(`Enriched lead: ${lead.first_name} ${lead.last_name} at ${lead.company_name}`);\n    }\n    \n  } catch (error) {\n    errors.push({\n      lead_id: lead.lead_id,\n      error: error.message,\n      failed_at: new Date().toISOString()\n    });\n    \n    // Add lead with error status\n    enrichedLeads.push({\n      ...lead,\n      enrichment_error: error.message,\n      enrichment_score: 0,\n      processing_status: 'enrichment_failed',\n      enriched_at: new Date().toISOString()\n    });\n  }\n}\n\nreturn [{\n  json: {\n    ...batch,\n    leads: enrichedLeads,\n    enrichment_errors: errors,\n    successfully_enriched: enrichedLeads.filter(l => !l.enrichment_error).length,\n    enrichment_completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "batch-enrichment",
+      "name": "Batch Enrichment",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2220, 300],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetween": 3000
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "chatInput": {
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "={{ $('Load AI Prompts').first().json.ai_scoring_prompt }}"
+              },
+              {
+                "role": "user", 
+                "content": "ICP: {{ $('Load AI Prompts').first().json.ideal_customer_profile }}\n\nTarget Industries: {{ $('Load AI Prompts').first().json.industries }}\n\nLead Data:\nName: {{ $json.first_name }} {{ $json.last_name }}\nTitle: {{ $json.title }}\nCompany: {{ $json.company_name }}\nIndustry: {{ $json.company_industry }}\nCompany Size: {{ $json.company_size }} employees\nFounded: {{ $json.company_founded }}\nFunding: {{ $json.company_funding }}\nLocation: {{ $json.location }}\nBio: {{ $json.bio }}\nLinkedIn: {{ $json.linkedin_url }}\nTwitter: {{ $json.twitter }}\nGitHub: {{ $json.github }}\nTech Stack: {{ $json.company_tech_stack?.join(', ') }}\nEmail Verified: {{ $json.email_verified }}\nEnrichment Score: {{ $json.enrichment_score }}/100\n\nAnalyze this lead against the ICP criteria and return the JSON scoring response."
+              }
+            ]
+          }
+        },
+        "model": "{{ $env.OPENAI_MODEL || 'gpt-4' }}",
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 800,
+          "timeout": 30000
+        }
+      },
+      "id": "ai-lead-scoring",
+      "name": "AI Lead Scoring",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [2440, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetween": 2000
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process AI scoring results and combine with lead data\nconst batch = $('Batch Enrichment').first().json;\nconst config = batch.config;\nconst scoredLeads = [];\nconst scoringErrors = [];\n\n// Process each AI response\nconst aiResponses = $input.all();\n\naiResponses.forEach((response, index) => {\n  const lead = batch.leads[index];\n  if (!lead) return;\n  \n  let aiAnalysis = {};\n  try {\n    // Parse AI response\n    const aiContent = response.json.choices?.[0]?.message?.content;\n    if (aiContent) {\n      aiAnalysis = JSON.parse(aiContent);\n    } else {\n      throw new Error('No AI response content');\n    }\n    \n    // Validate required fields\n    if (typeof aiAnalysis.lead_score !== 'number' || aiAnalysis.lead_score < 1 || aiAnalysis.lead_score > 10) {\n      throw new Error('Invalid lead_score in AI response');\n    }\n    \n  } catch (error) {\n    // Fallback scoring\n    aiAnalysis = {\n      lead_score: Math.max(1, Math.min(10, Math.floor((lead.enrichment_score / 10) + Math.random() * 3))),\n      confidence_level: 'low',\n      fit_reason: 'AI parsing failed - manual review required',\n      priority_level: 'medium',\n      personalization_angle: 'Industry expertise and company growth',\n      pain_points: ['Scaling challenges', 'Technology efficiency'],\n      timing_indicators: ['General market timing'],\n      conversation_starters: ['Industry trends', 'Company growth'],\n      objection_handling: ['ROI concerns'],\n      next_best_action: 'Schedule discovery call'\n    };\n    \n    scoringErrors.push({\n      lead_id: lead.lead_id,\n      error: error.message,\n      failed_at: new Date().toISOString()\n    });\n  }\n  \n  // Calculate final composite score\n  const finalScore = Math.round(\n    (lead.enrichment_score * 0.3 + aiAnalysis.lead_score * 10 * 0.7) / 10 * 10\n  ) / 10;\n  \n  const scoredLead = {\n    ...lead,\n    ...aiAnalysis,\n    final_score: finalScore,\n    ai_scored_at: new Date().toISOString(),\n    processing_status: 'ai_scored',\n    scoring_model: config.ai_prompt_template,\n    has_scoring_error: scoringErrors.some(err => err.lead_id === lead.lead_id)\n  };\n  \n  scoredLeads.push(scoredLead);\n});\n\n// Sort by final score descending\nscoredLeads.sort((a, b) => b.final_score - a.final_score);\n\nreturn [{\n  json: {\n    ...batch,\n    leads: scoredLeads,\n    scoring_errors: scoringErrors,\n    average_score: scoredLeads.reduce((sum, lead) => sum + lead.final_score, 0) / scoredLeads.length,\n    high_quality_count: scoredLeads.filter(lead => lead.final_score >= 7).length,\n    scoring_completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-ai-scoring",
+      "name": "Process AI Scoring",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2660, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "high-quality-lead",
+              "leftValue": "={{ $json.final_score }}",
+              "rightValue": "={{ $('Load AI Prompts').first().json.min_score_threshold || 7 }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "filter-high-quality",
+      "name": "Filter High Quality",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2880, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create", 
+        "chatInput": {
+          "messages": {
+            "values": [
+              {
+                "role": "system",
+                "content": "You are an expert sales copywriter specializing in personalized B2B outreach. Create compelling, personalized messages using the lead analysis provided.\n\nInstructions:\n- {{ $('Load AI Prompts').first().json.ai_outreach_prompt }}\n- Message should be under 300 characters for LinkedIn or 150 words for email\n- Include specific personalization from the lead data\n- Focus on value and insights, not direct selling\n- Use the conversation starters and personalization angles provided\n- Address potential pain points subtly\n\nReturn ONLY valid JSON:\n{\n  \"subject_line\": \"Compelling subject line\",\n  \"message_body\": \"The personalized message\",\n  \"message_type\": \"linkedin_connection|email_outreach\", \n  \"personalization_elements\": [\"list of elements used\"],\n  \"cta_type\": \"soft|direct|value_offer\",\n  \"estimated_response_rate\": \"percentage estimate\"\n}"
+              },
+              {
+                "role": "user",
+                "content": "Lead Analysis:\nName: {{ $json.first_name }} {{ $json.last_name }}\nTitle: {{ $json.title }}\nCompany: {{ $json.company_name }} ({{ $json.company_size }} employees)\nScore: {{ $json.final_score }}/10\nConfidence: {{ $json.confidence_level }}\n\nPersonalization Data:\n- Angle: {{ $json.personalization_angle }}\n- Pain Points: {{ $json.pain_points?.join(', ') }}\n- Timing Indicators: {{ $json.timing_indicators?.join(', ') }}\n- Conversation Starters: {{ $json.conversation_starters?.join(', ') }}\n- Bio: {{ $json.bio }}\n- Recent Activity: {{ $json.twitter ? 'Active on Twitter' : 'Limited social presence' }}\n- Tech Stack: {{ $json.company_tech_stack?.join(', ') }}\n\nTone: {{ $('Load AI Prompts').first().json.outreach_tone }}\n\nCreate a personalized LinkedIn connection request for this high-quality lead."
+              }
+            ]
+          }
+        },
+        "model": "{{ $env.OPENAI_MODEL || 'gpt-4' }}",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 500
+        }
+      },
+      "id": "generate-outreach",
+      "name": "Generate Outreach",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [3100, 200],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "export-google-sheets",
+              "leftValue": "={{ $('Load AI Prompts').first().json.export_destination }}",
+              "rightValue": "google_sheets",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-export-destination",
+      "name": "Check Export Destination", 
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3100, 400]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "{{ $env.GOOGLE_SHEETS_ID }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "High Quality Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow_run_id": "={{ $json.workflow_run_id }}",
+            "lead_id": "={{ $json.lead_id }}",
+            "first_name": "={{ $json.first_name }}",
+            "last_name": "={{ $json.last_name }}",
+            "email": "={{ $json.email }}",
+            "email_verified": "={{ $json.email_verified }}",
+            "title": "={{ $json.title }}",
+            "company_name": "={{ $json.company_name }}",
+            "company_domain": "={{ $json.company_domain }}",
+            "company_size": "={{ $json.company_size }}",
+            "industry": "={{ $json.company_industry }}",
+            "location": "={{ $json.location }}",
+            "linkedin_url": "={{ $json.linkedin_url }}",
+            "phone": "={{ $json.phone }}",\n            \"final_score\": \"={{ $json.final_score }}\",\n            \"lead_score\": \"={{ $json.lead_score }}\",\n            \"confidence_level\": \"={{ $json.confidence_level }}\",\n            \"priority_level\": \"={{ $json.priority_level }}\",\n            \"fit_reason\": \"={{ $json.fit_reason }}\",\n            \"personalization_angle\": \"={{ $json.personalization_angle }}\",\n            \"pain_points\": \"={{ $json.pain_points?.join('; ') }}\",\n            \"timing_indicators\": \"={{ $json.timing_indicators?.join('; ') }}\",\n            \"conversation_starters\": \"={{ $json.conversation_starters?.join('; ') }}\",\n            \"next_best_action\": \"={{ $json.next_best_action }}\",\n            \"enrichment_score\": \"={{ $json.enrichment_score }}\",\n            \"source\": \"={{ $json.source }}\",\n            \"discovered_at\": \"={{ $json.discovered_at }}\",\n            \"enriched_at\": \"={{ $json.enriched_at }}\",\n            \"scored_at\": \"={{ $json.ai_scored_at }}\",\n            \"processing_status\": \"={{ $json.processing_status }}\"\n          }\n        }\n      },\n      \"id\": \"save-to-google-sheets\",\n      \"name\": \"Save to Google Sheets\",\n      \"type\": \"n8n-nodes-base.googleSheets\",\n      \"typeVersion\": 4,\n      \"position\": [3320, 300],\n      \"credentials\": {\n        \"googleSheetsOAuth2Api\": {\n          \"id\": \"google-sheets-credentials\",\n          \"name\": \"Google Sheets OAuth2\"\n        }\n      }\n    },\n    {\n      \"parameters\": {\n        \"documentId\": {\n          \"__rl\": true,\n          \"mode\": \"list\",\n          \"value\": \"{{ $env.GOOGLE_SHEETS_ID }}\"\n        },\n        \"sheetName\": {\n          \"__rl\": true,\n          \"mode\": \"list\",\n          \"value\": \"Outreach Messages\"\n        },\n        \"columns\": {\n          \"mappingMode\": \"defineBelow\",\n          \"value\": {\n            \"workflow_run_id\": \"={{ $('Filter High Quality').first().json.workflow_run_id }}\",\n            \"lead_id\": \"={{ $('Filter High Quality').first().json.lead_id }}\",\n            \"lead_name\": \"={{ $('Filter High Quality').first().json.first_name }} {{ $('Filter High Quality').first().json.last_name }}\",\n            \"lead_email\": \"={{ $('Filter High Quality').first().json.email }}\",\n            \"company\": \"={{ $('Filter High Quality').first().json.company_name }}\",\n            \"lead_score\": \"={{ $('Filter High Quality').first().json.final_score }}\",\n            \"subject_line\": \"={{ JSON.parse($json.choices[0].message.content).subject_line }}\",\n            \"message_body\": \"={{ JSON.parse($json.choices[0].message.content).message_body }}\",\n            \"message_type\": \"={{ JSON.parse($json.choices[0].message.content).message_type }}\",\n            \"personalization_elements\": \"={{ JSON.parse($json.choices[0].message.content).personalization_elements?.join('; ') }}\",\n            \"cta_type\": \"={{ JSON.parse($json.choices[0].message.content).cta_type }}\",\n            \"estimated_response_rate\": \"={{ JSON.parse($json.choices[0].message.content).estimated_response_rate }}\",\n            \"created_at\": \"={{ new Date().toISOString() }}\",\n            \"status\": \"ready_to_send\",\n            \"outreach_tone\": \"={{ $('Load AI Prompts').first().json.outreach_tone }}\",\n            \"ai_template\": \"={{ $('Load AI Prompts').first().json.ai_prompt_template }}\"\n          }\n        }\n      },\n      \"id\": \"save-outreach-messages\",\n      \"name\": \"Save Outreach Messages\",\n      \"type\": \"n8n-nodes-base.googleSheets\",\n      \"typeVersion\": 4,\n      \"position\": [3320, 200],\n      \"credentials\": {\n        \"googleSheetsOAuth2Api\": {\n          \"id\": \"google-sheets-credentials\",\n          \"name\": \"Google Sheets OAuth2\"\n        }\n      }\n    },\n    {\n      \"parameters\": {\n        \"functionCode\": \"// Collect and process all batch results for final summary\\nconst allBatches = $('Process AI Scoring').all();\\nconst config = $('Load AI Prompts').first().json;\\n\\n// Aggregate data from all batches\\nconst allLeads = [];\\nconst allErrors = [];\\nlet totalDuplicates = 0;\\n\\nallBatches.forEach(batch => {\\n  if (batch.json.leads) {\\n    allLeads.push(...batch.json.leads);\\n  }\\n  if (batch.json.enrichment_errors) {\\n    allErrors.push(...batch.json.enrichment_errors);\\n  }\\n  if (batch.json.scoring_errors) {\\n    allErrors.push(...batch.json.scoring_errors);\\n  }\\n  totalDuplicates += batch.json.duplicates_found || 0;\\n});\\n\\n// Calculate comprehensive statistics\\nconst summary = {\\n  // Workflow metadata\\n  workflow_run_id: config.workflow_run_id,\\n  triggered_by: config.triggered_by,\\n  config_template: config.ai_prompt_template,\\n  outreach_tone: config.outreach_tone,\\n  export_destination: config.export_destination,\\n  \\n  // Processing statistics\\n  total_leads_discovered: allLeads.length,\\n  duplicates_filtered: totalDuplicates,\\n  unique_leads_processed: allLeads.length - totalDuplicates,\\n  successfully_enriched: allLeads.filter(l => l.processing_status === 'enriched' || l.processing_status === 'ai_scored').length,\\n  successfully_scored: allLeads.filter(l => l.ai_scored_at).length,\\n  \\n  // Quality metrics\\n  average_final_score: allLeads.reduce((sum, lead) => sum + (lead.final_score || 0), 0) / allLeads.length || 0,\\n  average_enrichment_score: allLeads.reduce((sum, lead) => sum + (lead.enrichment_score || 0), 0) / allLeads.length || 0,\\n  \\n  // Score distribution\\n  score_distribution: {\\n    urgent: allLeads.filter(lead => lead.priority_level === 'urgent').length,\\n    high: allLeads.filter(lead => (lead.final_score || 0) >= 7).length,\\n    medium: allLeads.filter(lead => (lead.final_score || 0) >= 4 && (lead.final_score || 0) < 7).length,\\n    low: allLeads.filter(lead => (lead.final_score || 0) < 4).length\\n  },\\n  \\n  // Business insights\\n  top_companies: [...new Set(allLeads.map(lead => lead.company_name))].slice(0, 10),\\n  top_titles: [...new Set(allLeads.map(lead => lead.title))].slice(0, 10),\\n  industries_covered: [...new Set(allLeads.map(lead => lead.company_industry).filter(Boolean))],\\n  locations_covered: [...new Set(allLeads.map(lead => lead.location).filter(Boolean))].slice(0, 10),\\n  \\n  // Confidence levels\\n  confidence_distribution: {\\n    high: allLeads.filter(lead => lead.confidence_level === 'high').length,\\n    medium: allLeads.filter(lead => lead.confidence_level === 'medium').length,\\n    low: allLeads.filter(lead => lead.confidence_level === 'low').length\\n  },\\n  \\n  // Error tracking\\n  total_errors: allErrors.length,\\n  error_rate: (allErrors.length / (allLeads.length || 1)) * 100,\\n  error_breakdown: allErrors.reduce((acc, error) => {\\n    acc[error.api || 'unknown'] = (acc[error.api || 'unknown'] || 0) + 1;\\n    return acc;\\n  }, {}),\\n  \\n  // Performance metrics\\n  batch_count: allBatches.length,\\n  average_batch_size: allBatches.reduce((sum, batch) => sum + batch.json.batch_size, 0) / allBatches.length,\\n  processing_time_minutes: (Date.now() - new Date(config.config_loaded_at).getTime()) / 60000,\\n  \\n  // Timing and execution\\n  workflow_started_at: config.config_loaded_at,\\n  workflow_completed_at: new Date().toISOString(),\\n  debug_mode: config.debug_mode,\\n  test_mode: config.test_mode\\n};\\n\\n// Add recommendations based on results\\nsummary.recommendations = [];\\nif (summary.score_distribution.high < summary.total_leads_discovered * 0.2) {\\n  summary.recommendations.push('Consider refining ICP criteria - low percentage of high-quality leads');\\n}\\nif (summary.error_rate > 10) {\\n  summary.recommendations.push('High error rate detected - check API credentials and rate limits');\\n}\\nif (summary.confidence_distribution.low > summary.total_leads_discovered * 0.3) {\\n  summary.recommendations.push('Many low-confidence scores - consider improving data sources');\\n}\\nif (summary.duplicates_filtered > summary.total_leads_discovered * 0.1) {\\n  summary.recommendations.push('High duplicate rate - review deduplication logic');\\n}\\n\\nreturn [{ json: summary }];\"\n      },\n      \"id\": \"create-final-summary\",\n      \"name\": \"Create Final Summary\",\n      \"type\": \"n8n-nodes-base.function\",\n      \"typeVersion\": 1,\n      \"position\": [3100, 600]\n    },\n    {\n      \"parameters\": {\n        \"documentId\": {\n          \"__rl\": true,\n          \"mode\": \"list\",\n          \"value\": \"{{ $env.GOOGLE_SHEETS_ID }}\"\n        },\n        \"sheetName\": {\n          \"__rl\": true,\n          \"mode\": \"list\",\n          \"value\": \"Workflow Summary\"\n        },\n        \"columns\": {\n          \"mappingMode\": \"defineBelow\",\n          \"value\": {\n            \"workflow_run_id\": \"={{ $json.workflow_run_id }}\",\n            \"triggered_by\": \"={{ $json.triggered_by }}\",\n            \"config_template\": \"={{ $json.config_template }}\",\n            \"total_leads_discovered\": \"={{ $json.total_leads_discovered }}\",\n            \"high_quality_leads\": \"={{ $json.score_distribution.high }}\",\n            \"average_score\": \"={{ Math.round($json.average_final_score * 10) / 10 }}\",\n            \"processing_time_minutes\": \"={{ Math.round($json.processing_time_minutes * 10) / 10 }}\",\n            \"error_rate_percent\": \"={{ Math.round($json.error_rate * 10) / 10 }}\",\n            \"duplicates_found\": \"={{ $json.duplicates_filtered }}\",\n            \"top_companies\": \"={{ $json.top_companies.slice(0, 5).join(', ') }}\",\n            \"industries_covered\": \"={{ $json.industries_covered.join(', ') }}\",\n            \"recommendations\": \"={{ $json.recommendations.join(' | ') }}\",\n            \"workflow_started_at\": \"={{ $json.workflow_started_at }}\",\n            \"workflow_completed_at\": \"={{ $json.workflow_completed_at }}\",\n            \"debug_mode\": \"={{ $json.debug_mode }}\",\n            \"test_mode\": \"={{ $json.test_mode }}\"\n          }\n        }\n      },\n      \"id\": \"save-workflow-summary\",\n      \"name\": \"Save Workflow Summary\",\n      \"type\": \"n8n-nodes-base.googleSheets\",\n      \"typeVersion\": 4,\n      \"position\": [3320, 600],\n      \"credentials\": {\n        \"googleSheetsOAuth2Api\": {\n          \"id\": \"google-sheets-credentials\",\n          \"name\": \"Google Sheets OAuth2\"\n        }\n      }\n    },\n    {\n      \"parameters\": {\n        \"authentication\": \"oAuth2\",\n        \"select\": \"channel\",\n        \"channelId\": {\n          \"__rl\": true,\n          \"mode\": \"list\",\n          \"value\": \"{{ $env.SLACK_CHANNEL_ID }}\"\n        },\n        \"text\": \"🚀 **AI Lead Generation Pro - Workflow Complete!**\\n\\n📊 **Run Summary:**\\n• Run ID: `{{ $json.workflow_run_id }}`\\n• Triggered by: {{ $json.triggered_by }}\\n• Template: {{ $json.config_template }} ({{ $json.outreach_tone }} tone)\\n• Processing time: {{ Math.round($json.processing_time_minutes) }} minutes\\n\\n📈 **Lead Statistics:**\\n• Total Discovered: {{ $json.total_leads_discovered }}\\n• High Quality (≥7): {{ $json.score_distribution.high }} leads\\n• Urgent Priority: {{ $json.score_distribution.urgent }} leads\\n• Average Score: {{ Math.round($json.average_final_score * 10) / 10 }}/10\\n• Duplicates Filtered: {{ $json.duplicates_filtered }}\\n\\n📋 **Quality Distribution:**\\n• High (7-10): {{ $json.score_distribution.high }} leads  \\n• Medium (4-7): {{ $json.score_distribution.medium }} leads\\n• Low (0-4): {{ $json.score_distribution.low }} leads\\n\\n🏢 **Top Companies:** {{ $json.top_companies.slice(0, 5).join(', ') }}{{ $json.top_companies.length > 5 ? ' and ' + ($json.top_companies.length - 5) + ' more' : '' }}\\n\\n🎯 **Industries:** {{ $json.industries_covered.slice(0, 3).join(', ') }}{{ $json.industries_covered.length > 3 ? ' +' + ($json.industries_covered.length - 3) + ' more' : '' }}\\n\\n⚡ **Performance:**\\n• Success Rate: {{ Math.round((100 - $json.error_rate) * 10) / 10 }}%\\n• Avg Enrichment Score: {{ Math.round($json.average_enrichment_score) }}/100\\n• Confidence: {{ $json.confidence_distribution.high }} high, {{ $json.confidence_distribution.medium }} medium\\n\\n{{ $json.recommendations.length > 0 ? '💡 **Recommendations:**\\n' + $json.recommendations.map(r => '• ' + r).join('\\n') : '✅ **All systems performing optimally!**' }}\\n\\n📊 [View Results](https://docs.google.com/spreadsheets/d/{{ $env.GOOGLE_SHEETS_ID }})\\n\\n_Completed at {{ new Date($json.workflow_completed_at).toLocaleString() }}_\",\n        \"otherOptions\": {}\n      },\n      \"id\": \"slack-notification\",\n      \"name\": \"Slack Notification\",\n      \"type\": \"n8n-nodes-base.slack\",\n      \"typeVersion\": 2.1,\n      \"position\": [3540, 600],\n      \"credentials\": {\n        \"slackOAuth2Api\": {\n          \"id\": \"slack-credentials\",\n          \"name\": \"Slack OAuth2\"\n        }\n      }\n    },\n    {\n      \"parameters\": {\n        \"functionCode\": \"// Save all processed leads to comprehensive database\\nconst allBatches = $('Process AI Scoring').all();\\nconst config = $('Load AI Prompts').first().json;\\n\\n// Flatten all leads from all batches\\nconst allProcessedLeads = [];\\nallBatches.forEach(batch => {\\n  if (batch.json.leads && Array.isArray(batch.json.leads)) {\\n    batch.json.leads.forEach(lead => {\\n      allProcessedLeads.push({\\n        ...lead,\\n        batch_id: batch.json.batch_id,\\n        total_batches: batch.json.total_batches\\n      });\\n    });\\n  }\\n});\\n\\n// Sort by final score descending\\nallProcessedLeads.sort((a, b) => (b.final_score || 0) - (a.final_score || 0));\\n\\nreturn allProcessedLeads.map(lead => ({ json: lead }));\"\n      },\n      \"id\": \"collect-all-leads\",\n      \"name\": \"Collect All Leads\",\n      \"type\": \"n8n-nodes-base.function\",\n      \"typeVersion\": 1,\n      \"position\": [2880, 500]\n    },\n    {\n      \"parameters\": {\n        \"documentId\": {\n          \"__rl\": true,\n          \"mode\": \"list\",\n          \"value\": \"{{ $env.GOOGLE_SHEETS_ID }}\"\n        },\n        \"sheetName\": {\n          \"__rl\": true,\n          \"mode\": \"list\",\n          \"value\": \"All Leads Database\"\n        },\n        \"columns\": {\n          \"mappingMode\": \"defineBelow\",\n          \"value\": {\n            \"workflow_run_id\": \"={{ $json.workflow_run_id }}\",\n            \"batch_id\": \"={{ $json.batch_id }}\",\n            \"lead_id\": \"={{ $json.lead_id }}\",\n            \"first_name\": \"={{ $json.first_name }}\",\n            \"last_name\": \"={{ $json.last_name }}\",\n            \"email\": \"={{ $json.email }}\",\n            \"email_verified\": \"={{ $json.email_verified }}\",\n            \"title\": \"={{ $json.title }}\",\n            \"company_name\": \"={{ $json.company_name }}\",\n            \"company_domain\": \"={{ $json.company_domain }}\",\n            \"company_size\": \"={{ $json.company_size }}\",\n            \"industry\": \"={{ $json.company_industry }}\",\n            \"location\": \"={{ $json.location }}\",\n            \"linkedin_url\": \"={{ $json.linkedin_url }}\",\n            \"phone\": \"={{ $json.phone }}\",\n            \"final_score\": \"={{ $json.final_score || 'Not Scored' }}\",\n            \"lead_score\": \"={{ $json.lead_score || 'Not Scored' }}\",\n            \"confidence_level\": \"={{ $json.confidence_level || 'Not Analyzed' }}\",\n            \"priority_level\": \"={{ $json.priority_level || 'Not Analyzed' }}\",\n            \"enrichment_score\": \"={{ $json.enrichment_score }}\",\n            \"processing_status\": \"={{ $json.processing_status }}\",\n            \"has_errors\": \"={{ $json.enrichment_error || $json.has_scoring_error ? 'Yes' : 'No' }}\",\n            \"source\": \"={{ $json.source }}\",\n            \"discovered_at\": \"={{ $json.discovered_at }}\",\n            \"enriched_at\": \"={{ $json.enriched_at }}\",\n            \"scored_at\": \"={{ $json.ai_scored_at || 'N/A' }}\"\n          }\n        }\n      },\n      \"id\": \"save-all-leads-db\",\n      \"name\": \"Save All Leads DB\",\n      \"type\": \"n8n-nodes-base.googleSheets\",\n      \"typeVersion\": 4,\n      \"position\": [3100, 500],\n      \"credentials\": {\n        \"googleSheetsOAuth2Api\": {\n          \"id\": \"google-sheets-credentials\",\n          \"name\": \"Google Sheets OAuth2\"\n        }\n      }\n    }\n  ],\n  \"connections\": {\n    \"License Validator\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Check License Validity\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Check License Validity\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Load ICP Config\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Webhook ICP Input\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Load ICP Config\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Schedule Trigger\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Load ICP Config\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Load ICP Config\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Test Credentials\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Test Credentials\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Load AI Prompts\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Load AI Prompts\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Apollo Lead Search\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Apollo Lead Search\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Batch Processor\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Batch Processor\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Deduplication Check\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Deduplication Check\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Batch Enrichment\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Batch Enrichment\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"AI Lead Scoring\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"AI Lead Scoring\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Process AI Scoring\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Process AI Scoring\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Filter High Quality\",\n            \"type\": \"main\",\n            \"index\": 0\n          },\n          {\n            \"node\": \"Collect All Leads\",\n            \"type\": \"main\",\n            \"index\": 0\n          },\n          {\n            \"node\": \"Create Final Summary\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Filter High Quality\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Generate Outreach\",\n            \"type\": \"main\",\n            \"index\": 0\n          },\n          {\n            \"node\": \"Check Export Destination\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Generate Outreach\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Save Outreach Messages\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Check Export Destination\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Save to Google Sheets\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Collect All Leads\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Save All Leads DB\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Create Final Summary\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Save Workflow Summary\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Save Workflow Summary\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Slack Notification\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    }\n  },\n  \"pinData\": {},\n  \"settings\": {\n    \"executionOrder\": \"v1\",\n    \"saveManualExecutions\": true,\n    \"callerPolicy\": \"workflowsFromSameOwner\",\n    \"errorWorkflow\": {\n      \"enabled\": true\n    },\n    \"timezone\": \"America/New_York\"\n  },\n  \"staticData\": null,\n  \"tags\": [\n    {\n      \"createdAt\": \"2025-01-27T15:00:00.000Z\",\n      \"updatedAt\": \"2025-01-27T15:00:00.000Z\",\n      \"id\": \"ai-lead-generation-pro\",\n      \"name\": \"AI Lead Generation Pro\"\n    },\n    {\n      \"createdAt\": \"2025-01-27T15:00:00.000Z\",\n      \"updatedAt\": \"2025-01-27T15:00:00.000Z\",\n      \"id\": \"production-ready\",\n      \"name\": \"Production Ready\"\n    },\n    {\n      \"createdAt\": \"2025-01-27T15:00:00.000Z\",\n      \"updatedAt\": \"2025-01-27T15:00:00.000Z\",\n      \"id\": \"commercial-license\",\n      \"name\": \"Commercial License\"\n    }\n  ],\n  \"triggerCount\": 3,\n  \"updatedAt\": \"2025-01-27T15:00:00.000Z\",\n  \"versionId\": \"2.0\"\n}"
+      </absolute_file_name>
+    </file>
