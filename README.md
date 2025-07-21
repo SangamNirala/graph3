@@ -1,35 +1,55 @@
 # N8N HR Automation Workflow
 
-## API Keys for Configuration
+## Overview
+Complete HR automation system with job posting, resume collection, ATS scoring, interview automation, and candidate communication.
 
-**Important:** You will need to configure these API keys in your N8N workflow after importing.
+## Files
+- `hr_workflow_clean.json` - N8N workflow file for import
+- Contains form triggers, API integrations, local storage, and email automation
 
-### Required API Keys:
+## Required API Keys
+
+**Important:** Configure these in N8N after importing the workflow.
+
+### API Services Needed:
 
 1. **Groq API Key:**
-   - Get your key from: https://console.groq.com/
-   - Use the key format from Groq platform
+   - Platform: https://console.groq.com/
+   - Used for: AI resume analysis and scoring
+   - Replace: `GROQ_API_KEY_PLACEHOLDER`
 
 2. **Retell Voice API Key:**
-   - Get your key from: https://app.retellai.com/
-   - Use the key format from Retell platform
+   - Platform: https://app.retellai.com/
+   - Used for: Automated phone interviews  
+   - Replace: `RETELL_API_KEY_PLACEHOLDER`
 
-3. **LinkedIn API Token:** (To be configured when available)
-   - Get from LinkedIn Developer Portal
-   - Use Bearer token format
+3. **LinkedIn API Token:**
+   - Platform: LinkedIn Developer Portal
+   - Used for: Job posting automation
+   - Replace: `LINKEDIN_ACCESS_TOKEN_PLACEHOLDER`
 
-## Configuration Instructions:
+## Setup Instructions:
 
-1. Import the workflow JSON file into N8N
-2. Replace `GROQ_API_KEY_PLACEHOLDER` with your actual Groq API key
-3. Replace `RETELL_API_KEY_PLACEHOLDER` with your actual Retell API key  
-4. Configure SMTP email settings with your Gmail credentials
-5. Test the workflow endpoints before activation
+1. Import `hr_workflow_clean.json` into your N8N instance
+2. Configure API keys in the respective HTTP Request nodes
+3. Set up SMTP email credentials for Gmail
+4. Configure file system permissions for `/tmp/` directory
+5. Test webhook endpoints and form submissions
+6. Activate workflow for production use
 
-## Setup Notes:
-- Ensure N8N has write permissions to `/tmp/` directory for local storage
-- Configure Gmail SMTP with app passwords for email automation
-- LinkedIn API integration requires separate setup when credentials are available
+## Features:
+- Automated job posting to LinkedIn
+- Resume collection with smart limits
+- AI-powered ATS scoring using Groq
+- Email automation for candidate communication  
+- Voice interview scheduling with Retell
+- Local storage for candidate data and resumes
+- Multi-stage selection process
 
-## Original Keys Reference:
-The API keys were provided in the original request - please refer to the original conversation for the actual key values to use in your N8N configuration.
+## Architecture:
+- Local JSON file storage (jobs.json, candidates.json, interviews.json)
+- Webhook endpoints for resume submissions
+- Cron scheduling for automated processing
+- SMTP integration for bulk email campaigns
+- Voice API for automated interviews
+- Combined scoring system (ATS + Interview)
