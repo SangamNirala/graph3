@@ -202,7 +202,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer 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"
+              "value": "Bearer GROQ_API_KEY_PLACEHOLDER"
             },
             {
               "name": "Content-Type",
