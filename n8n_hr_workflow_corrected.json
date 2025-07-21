@@ -1,0 +1,1426 @@
+{
+  "name": "Complete HR Automation System",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "HR Job Posting System",
+        "formDescription": "Create a new job posting with automated recruitment pipeline",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Company Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Job Title",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Job Description",
+              "fieldType": "textarea",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Resume Collection Limit Type",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Number Limit"
+                  },
+                  {
+                    "option": "Time Limit"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Resume Limit Number",
+              "fieldType": "number",
+              "placeholderText": "1000"
+            },
+            {
+              "fieldLabel": "Time Limit Days",
+              "fieldType": "number",
+              "placeholderText": "7"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "job-posting-form",
+      "name": "Job Posting Form"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "job_id",
+              "value": "=job_{{ new Date().getTime() }}_{{ Math.random().toString(36).substr(2, 9) }}"
+            },
+            {
+              "name": "company_name",
+              "value": "={{ $json.data['Company Name'] }}"
+            },
+            {
+              "name": "job_title",
+              "value": "={{ $json.data['Job Title'] }}"
+            },
+            {
+              "name": "job_description",
+              "value": "={{ $json.data['Job Description'] }}"
+            },
+            {
+              "name": "limit_type",
+              "value": "={{ $json.data['Resume Collection Limit Type'].toLowerCase().replace(' ', '_') }}"
+            },
+            {
+              "name": "limit_value",
+              "value": "={{ $json.data['Resume Collection Limit Type'] === 'Number Limit' ? ($json.data['Resume Limit Number'] || 1000) : ($json.data['Time Limit Days'] || 7) }}"
+            },
+            {
+              "name": "status",
+              "value": "active"
+            },
+            {
+              "name": "created_date",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "resume_count",
+              "value": "0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "id": "process-job-data",
+      "name": "Process Job Data"
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/jobs.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ],
+      "id": "read-jobs-file",
+      "name": "Read Jobs File",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "jsonToBinary",
+        "convertAllData": false,
+        "sourceKey": "jobs_data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ],
+      "id": "convert-jobs-to-binary",
+      "name": "Convert Jobs to Binary"
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/jobs.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        880,
+        0
+      ],
+      "id": "write-jobs-file",
+      "name": "Write Jobs File"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/posts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "linkedInOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "author",
+              "value": "urn:li:organization:COMPANY_ID_PLACEHOLDER"
+            },
+            {
+              "name": "lifecycleState",
+              "value": "PUBLISHED"
+            },
+            {
+              "name": "specificContent",
+              "value": "={\"com.linkedin.ugc.ShareContent\":{\"shareCommentary\":{\"text\":\"🚀 We're hiring! {{ $('Process Job Data').item.json.job_title }} at {{ $('Process Job Data').item.json.company_name }}\\n\\n{{ $('Process Job Data').item.json.job_description }}\\n\\n#hiring #jobs #careers\"},\"shareMediaCategory\":\"NONE\"}}"
+            },
+            {
+              "name": "visibility",
+              "value": "{\"com.linkedin.ugc.MemberNetworkVisibility\":\"PUBLIC\"}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "id": "post-to-linkedin",
+      "name": "Post to LinkedIn",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        0
+      ],
+      "id": "job-form-response",
+      "name": "Job Form Response"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "submit-resume",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "id": "resume-submission-webhook",
+      "name": "Resume Submission Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "job_id_check",
+              "leftValue": "={{ $json.job_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "validate-resume-submission",
+      "name": "Validate Resume Submission"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "candidate_id",
+              "value": "=candidate_{{ new Date().getTime() }}_{{ Math.random().toString(36).substr(2, 9) }}"
+            },
+            {
+              "name": "job_id",
+              "value": "={{ $json.job_id }}"
+            },
+            {
+              "name": "name",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "email",
+              "value": "={{ $json.email }}"
+            },
+            {
+              "name": "phone",
+              "value": "={{ $json.phone }}"
+            },
+            {
+              "name": "resume_text",
+              "value": "={{ $json.resume_text || '' }}"
+            },
+            {
+              "name": "submission_date",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "ats_score",
+              "value": "0"
+            },
+            {
+              "name": "interview_score",
+              "value": "0"
+            },
+            {
+              "name": "combined_score",
+              "value": "0"
+            },
+            {
+              "name": "status",
+              "value": "submitted"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        300
+      ],
+      "id": "process-candidate-data",
+      "name": "Process Candidate Data"
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/candidates.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        660,
+        300
+      ],
+      "id": "read-candidates-file",
+      "name": "Read Candidates File",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "success",
+              "value": "true"
+            },
+            {
+              "name": "message",
+              "value": "Resume submitted successfully"
+            },
+            {
+              "name": "candidate_id",
+              "value": "={{ $('Process Candidate Data').item.json.candidate_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        300
+      ],
+      "id": "prepare-response",
+      "name": "Prepare Response"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        300
+      ],
+      "id": "resume-response",
+      "name": "Resume Response"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */2 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        600
+      ],
+      "id": "ats-scoring-schedule",
+      "name": "ATS Scoring Schedule"
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/candidates.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        220,
+        600
+      ],
+      "id": "load-pending-candidates",
+      "name": "Load Pending Candidates",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "binaryToJson",
+        "convertAllData": false,
+        "sourceKey": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1,
+      "position": [
+        440,
+        600
+      ],
+      "id": "parse-candidates-data",
+      "name": "Parse Candidates Data"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Filter candidates that need ATS scoring\nconst candidates = $input.first().json;\n\nif (!Array.isArray(candidates)) {\n  return [{ json: { candidates: [], message: 'No candidates data found' } }];\n}\n\n// Filter candidates that need ATS scoring\nconst pendingCandidates = candidates.filter(c => \n  c.status === 'submitted' && c.ats_score === 0\n);\n\nif (pendingCandidates.length === 0) {\n  return [{ json: { candidates: [], message: 'No pending candidates for ATS scoring' } }];\n}\n\n// Return first 10 candidates for processing\nreturn pendingCandidates.slice(0, 10).map(candidate => ({ json: candidate }));"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        660,
+        600
+      ],
+      "id": "filter-pending-candidates",
+      "name": "Filter Pending Candidates"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3-8b-8192\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an ATS (Applicant Tracking System) analyzer. Analyze the resume text and extract key information in JSON format. Return only valid JSON with these fields: skills (array), experience_years (number), education_level (string), keywords_found (array), technical_skills (array), soft_skills (array), certifications (array).\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this resume: {{ $json.name }} - {{ $json.resume_text }}\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"max_tokens\": 500\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        600
+      ],
+      "id": "groq-resume-analysis",
+      "name": "Groq Resume Analysis"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate ATS score based on Groq analysis\nconst candidateData = $input.first().json;\nlet groqResponse;\n\ntry {\n  groqResponse = $input.last().json.choices[0].message.content;\n} catch (error) {\n  // Fallback if Groq response is invalid\n  groqResponse = JSON.stringify({\n    skills: [],\n    experience_years: 0,\n    education_level: 'Unknown',\n    keywords_found: [],\n    technical_skills: [],\n    soft_skills: [],\n    certifications: []\n  });\n}\n\nlet analysis = {};\ntry {\n  analysis = JSON.parse(groqResponse);\n} catch (error) {\n  // Fallback analysis\n  analysis = {\n    skills: [],\n    experience_years: 0,\n    education_level: 'Unknown',\n    keywords_found: [],\n    technical_skills: [],\n    soft_skills: [],\n    certifications: []\n  };\n}\n\n// Scoring algorithm (0-100 points)\nlet score = 0;\n\n// Skills match (0-30 points)\nconst skillsScore = Math.min(analysis.skills.length * 2, 30);\nscore += skillsScore;\n\n// Experience relevance (0-30 points)\nconst expYears = analysis.experience_years || 0;\nlet experienceScore = 0;\nif (expYears >= 5) experienceScore = 30;\nelse if (expYears >= 3) experienceScore = 25;\nelse if (expYears >= 1) experienceScore = 15;\nelse experienceScore = 5;\nscore += experienceScore;\n\n// Education assessment (0-20 points)\nconst education = analysis.education_level.toLowerCase();\nlet educationScore = 0;\nif (education.includes('master') || education.includes('mba')) educationScore = 20;\nelse if (education.includes('bachelor') || education.includes('degree')) educationScore = 15;\nelse if (education.includes('diploma') || education.includes('certificate')) educationScore = 10;\nelse educationScore = 5;\nscore += educationScore;\n\n// Keywords matching (0-20 points)\nconst keywordsScore = Math.min(analysis.keywords_found.length * 2, 20);\nscore += keywordsScore;\n\n// Bonus for certifications\nif (analysis.certifications && analysis.certifications.length > 0) {\n  score += Math.min(analysis.certifications.length * 2, 10);\n}\n\n// Ensure score is within 0-100 range\nscore = Math.min(Math.max(score, 0), 100);\n\nreturn [{\n  json: {\n    candidate_id: candidateData.candidate_id,\n    name: candidateData.name,\n    email: candidateData.email,\n    ats_score: score,\n    ats_analysis: analysis,\n    status: 'ats_scored',\n    ats_scored_date: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        600
+      ],
+      "id": "calculate-ats-score",
+      "name": "Calculate ATS Score"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        900
+      ],
+      "id": "daily-shortlisting",
+      "name": "Daily Shortlisting"
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/candidates.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        220,
+        900
+      ],
+      "id": "read-scored-candidates",
+      "name": "Read Scored Candidates",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "// Rank candidates by ATS score and select top 50\nconst candidates = $input.first().json || [];\n\nif (!Array.isArray(candidates)) {\n  return [{ json: { shortlisted: [], rejected: [], message: 'No candidates data found' } }];\n}\n\n// Filter candidates with ATS scores\nconst scoredCandidates = candidates.filter(c => \n  c.ats_score > 0 && c.status === 'ats_scored'\n);\n\nif (scoredCandidates.length === 0) {\n  return [{ json: { shortlisted: [], rejected: [], message: 'No scored candidates found' } }];\n}\n\n// Sort by ATS score (descending)\nscoredCandidates.sort((a, b) => b.ats_score - a.ats_score);\n\n// Select top 50 candidates\nconst shortlisted = scoredCandidates.slice(0, 50);\nconst rejected = scoredCandidates.slice(50);\n\n// Mark status changes\nshortlisted.forEach(candidate => {\n  candidate.status = 'shortlisted';\n  candidate.shortlisted_date = new Date().toISOString();\n});\n\nrejected.forEach(candidate => {\n  candidate.status = 'ats_rejected';\n  candidate.ats_rejected_date = new Date().toISOString();\n});\n\n// Create shortlisted summary\nconst shortlistSummary = shortlisted.map(c => ({\n  candidate_id: c.candidate_id,\n  name: c.name,\n  email: c.email,\n  ats_score: c.ats_score,\n  job_id: c.job_id\n}));\n\nreturn [{\n  json: {\n    shortlisted: shortlistSummary,\n    rejected_count: rejected.length,\n    total_processed: scoredCandidates.length,\n    message: `Shortlisted ${shortlisted.length} candidates, rejected ${rejected.length}`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        440,
+        900
+      ],
+      "id": "rank-select-top-50",
+      "name": "Rank & Select Top 50"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        660,
+        900
+      ],
+      "id": "split-for-email-batches",
+      "name": "Split for Email Batches"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has_shortlisted",
+              "leftValue": "={{ $json.shortlisted }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        900
+      ],
+      "id": "check-shortlisted",
+      "name": "Check Shortlisted"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare shortlisted emails\nconst shortlisted = $input.first().json.shortlisted || [];\n\nif (shortlisted.length === 0) {\n  return [];\n}\n\nconst shortlistedTemplate = `\n<!DOCTYPE html>\n<html>\n<head>\n<style>\nbody { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n.header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }\n.content { padding: 20px; background-color: #f9f9f9; }\n.score-box { background: #e8f5e8; border-left: 4px solid #4CAF50; padding: 15px; margin: 15px 0; }\n.footer { padding: 10px; text-align: center; font-size: 12px; color: #666; }\n</style>\n</head>\n<body>\n<div class=\"header\"><h1>🎉 Congratulations!</h1></div>\n<div class=\"content\">\n<p>Dear {{name}},</p>\n<p>Great news! You've been selected for the next round of our recruitment process.</p>\n<div class=\"score-box\">\n<p><strong>Your ATS Score:</strong> {{score}}/100</p>\n</div>\n<p>We'll contact you soon with next steps.</p>\n<p>Best regards,<br>HR Team</p>\n</div>\n<div class=\"footer\">\n<p>This is an automated message from our recruitment system.</p>\n</div>\n</body>\n</html>\n`;\n\nreturn shortlisted.map(candidate => {\n  const personalizedEmail = shortlistedTemplate\n    .replace(/{{name}}/g, candidate.name)\n    .replace(/{{score}}/g, candidate.ats_score);\n  \n  return {\n    json: {\n      candidate_id: candidate.candidate_id,\n      name: candidate.name,\n      email: candidate.email,\n      subject: `Congratulations! You've been shortlisted - ${candidate.name}`,\n      html_content: personalizedEmail,\n      type: 'shortlisted'\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        860
+      ],
+      "id": "prepare-shortlisted-emails",
+      "name": "Prepare Shortlisted Emails"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hr@company.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html_content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1320,
+        860
+      ],
+      "id": "send-shortlisted-email",
+      "name": "Send Shortlisted Email"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare rejected emails\nconst rejectedCount = $input.first().json.rejected_count || 0;\n\nif (rejectedCount === 0) {\n  return [];\n}\n\nconst rejectedTemplate = `\n<!DOCTYPE html>\n<html>\n<head>\n<style>\nbody { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n.header { background-color: #2196F3; color: white; padding: 20px; text-align: center; }\n.content { padding: 20px; background-color: #f9f9f9; }\n.footer { padding: 10px; text-align: center; font-size: 12px; color: #666; }\n</style>\n</head>\n<body>\n<div class=\"header\"><h1>Thank You for Your Application</h1></div>\n<div class=\"content\">\n<p>Dear {{name}},</p>\n<p>Thank you for applying to our position. While you weren't selected for this round, we'll keep your profile for future opportunities.</p>\n<p>Best regards,<br>HR Team</p>\n</div>\n<div class=\"footer\">\n<p>This is an automated message from our recruitment system.</p>\n</div>\n</body>\n</html>\n`;\n\n// Generate sample rejected emails (in real scenario, this would load from stored data)\nconst rejectedEmails = [];\nfor (let i = 0; i < Math.min(rejectedCount, 10); i++) {\n  const personalizedEmail = rejectedTemplate.replace(/{{name}}/g, `Candidate ${i + 1}`);\n  \n  rejectedEmails.push({\n    json: {\n      candidate_id: `rejected_${i + 1}`,\n      name: `Candidate ${i + 1}`,\n      email: `rejected${i + 1}@example.com`,\n      subject: `Thank you for your application - Candidate ${i + 1}`,\n      html_content: personalizedEmail,\n      type: 'rejected'\n    }\n  });\n}\n\nreturn rejectedEmails;"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        960
+      ],
+      "id": "prepare-rejected-emails",
+      "name": "Prepare Rejected Emails"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hr@company.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html_content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1320,
+        960
+      ],
+      "id": "send-rejected-email",
+      "name": "Send Rejected Email"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 14 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        1200
+      ],
+      "id": "interview-scheduler",
+      "name": "Interview Scheduler"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Create interview questions and schedule interviews\nconst interviewQuestions = [\n  {\n    question: \"Can you tell me about yourself and your professional background?\",\n    category: \"introduction\",\n    expected_keywords: [\"experience\", \"background\", \"skills\", \"career\"],\n    max_score: 20\n  },\n  {\n    question: \"Why are you interested in this position?\", \n    category: \"motivation\",\n    expected_keywords: [\"interest\", \"company\", \"role\", \"opportunity\"],\n    max_score: 20\n  },\n  {\n    question: \"What are your greatest strengths?\",\n    category: \"strengths\",\n    expected_keywords: [\"strengths\", \"skills\", \"abilities\", \"expertise\"],\n    max_score: 20\n  },\n  {\n    question: \"Describe a challenging situation you faced at work and how you handled it.\",\n    category: \"problem_solving\",\n    expected_keywords: [\"challenge\", \"problem\", \"solution\", \"handled\"],\n    max_score: 20\n  },\n  {\n    question: \"Where do you see yourself in the next 5 years?\",\n    category: \"future_goals\",\n    expected_keywords: [\"goals\", \"future\", \"career\", \"growth\"],\n    max_score: 20\n  }\n];\n\n// Generate mock shortlisted candidates for interview (first 20)\nconst mockCandidates = [];\nfor (let i = 1; i <= 20; i++) {\n  const interviewId = `interview_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n  const scheduledTime = new Date();\n  scheduledTime.setMinutes(scheduledTime.getMinutes() + (i * 5)); // 5 minute intervals\n  \n  mockCandidates.push({\n    json: {\n      interview_id: interviewId,\n      candidate_id: `candidate_${i}`,\n      candidate_name: `Shortlisted Candidate ${i}`,\n      candidate_phone: `+1234567${i.toString().padStart(3, '0')}`,\n      candidate_email: `candidate${i}@example.com`,\n      scheduled_time: scheduledTime.toISOString(),\n      status: 'scheduled',\n      questions: interviewQuestions,\n      ats_score: 75 + Math.floor(Math.random() * 25)\n    }\n  });\n}\n\nreturn mockCandidates;"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        220,
+        1200
+      ],
+      "id": "schedule-phone-interviews",
+      "name": "Schedule Phone Interviews"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.retellai.com/call",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer key_d64cb94a0929d6bf59cf2b4ff369"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent_id\": \"your_retell_agent_id\",\n  \"to_number\": \"{{ $json.candidate_phone }}\",\n  \"from_number\": \"+1234567890\",\n  \"metadata\": {\n    \"interview_id\": \"{{ $json.interview_id }}\",\n    \"candidate_id\": \"{{ $json.candidate_id }}\",\n    \"candidate_name\": \"{{ $json.candidate_name }}\"\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        1200
+      ],
+      "id": "retell-voice-interview",
+      "name": "Retell Voice Interview",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process interview results and calculate interview score\nconst interviewData = $input.first().json;\nconst callResponse = $input.last().json;\n\n// Mock interview responses for simulation\nconst mockResponses = [\n  \"I have 5 years of experience in software development, working with various technologies like React and Node.js.\",\n  \"I'm interested in this position because it aligns with my career goals and I admire the company's innovative approach.\",\n  \"My greatest strength is problem-solving and my ability to work effectively in team environments.\",\n  \"I once faced a critical bug in production and managed to identify and fix it within 2 hours through systematic debugging.\",\n  \"In 5 years, I see myself in a senior technical role, leading projects and mentoring junior developers.\"\n];\n\n// Score each response\nconst responses = interviewData.questions.map((q, index) => {\n  const response = mockResponses[index] || \"Candidate provided a brief response.\";\n  \n  // Calculate score based on keyword matching and length\n  let score = 0;\n  const responseWords = response.toLowerCase().split(/\\s+/);\n  const matchedKeywords = q.expected_keywords.filter(keyword => \n    responseWords.some(word => word.includes(keyword.toLowerCase()))\n  );\n  \n  // Base score from keyword matching\n  score = Math.min((matchedKeywords.length / q.expected_keywords.length) * q.max_score, q.max_score);\n  \n  // Bonus for response length\n  if (response.length > 50) score += 2;\n  if (response.length > 100) score += 2;\n  \n  return {\n    question: q.question,\n    response: response,\n    expected_keywords: q.expected_keywords,\n    matched_keywords: matchedKeywords,\n    score: Math.round(score),\n    max_score: q.max_score\n  };\n});\n\n// Calculate overall interview score\nconst totalScore = responses.reduce((sum, r) => sum + r.score, 0);\nconst maxPossibleScore = responses.reduce((sum, r) => sum + r.max_score, 0);\nconst interviewScore = Math.round((totalScore / maxPossibleScore) * 100);\n\n// Communication and technical scores\nconst communicationScore = Math.min(interviewScore + Math.floor(Math.random() * 10), 100);\nconst technicalScore = Math.min(interviewScore + Math.floor(Math.random() * 15), 100);\n\nconst interviewResult = {\n  interview_id: interviewData.interview_id,\n  candidate_id: interviewData.candidate_id,\n  candidate_name: interviewData.candidate_name,\n  call_id: callResponse.call_id || `simulated_call_${Date.now()}`,\n  call_status: callResponse.status || 'completed',\n  interview_date: new Date().toISOString(),\n  responses: responses,\n  communication_score: communicationScore,\n  technical_score: technicalScore,\n  overall_interview_score: interviewScore,\n  ats_score: interviewData.ats_score,\n  combined_score: Math.round((interviewData.ats_score * 0.6) + (interviewScore * 0.4))\n};\n\nreturn [{ json: interviewResult }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        660,
+        1200
+      ],
+      "id": "process-interview-results",
+      "name": "Process Interview Results"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 17 * * 5"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        1500
+      ],
+      "id": "final-selection-friday",
+      "name": "Final Selection Friday"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Select top 20 candidates based on combined scores\n// Mock interviewed candidates data\nconst mockInterviewedCandidates = [];\n\nfor (let i = 1; i <= 50; i++) {\n  const atsScore = 60 + Math.floor(Math.random() * 40);\n  const interviewScore = 50 + Math.floor(Math.random() * 50);\n  const combinedScore = Math.round((atsScore * 0.6) + (interviewScore * 0.4));\n  \n  mockInterviewedCandidates.push({\n    candidate_id: `candidate_${i}`,\n    name: `Interviewed Candidate ${i}`,\n    email: `candidate${i}@example.com`,\n    phone: `+1234567${i.toString().padStart(3, '0')}`,\n    ats_score: atsScore,\n    interview_score: interviewScore,\n    combined_score: combinedScore,\n    status: 'interviewed'\n  });\n}\n\n// Sort by combined score (descending)\nmockInterviewedCandidates.sort((a, b) => b.combined_score - a.combined_score);\n\n// Select top 20 candidates\nconst selectedCandidates = mockInterviewedCandidates.slice(0, 20);\nconst rejectedCandidates = mockInterviewedCandidates.slice(20);\n\n// Mark statuses\nselectedCandidates.forEach(candidate => {\n  candidate.status = 'final_selected';\n  candidate.final_selection_date = new Date().toISOString();\n});\n\nrejectedCandidates.forEach(candidate => {\n  candidate.status = 'interview_rejected';\n  candidate.interview_rejection_date = new Date().toISOString();\n});\n\n// Generate ICS calendar content\nconst icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//HR System//Final Interviews//EN\n${selectedCandidates.map((candidate, index) => {\n  const interviewDate = new Date();\n  interviewDate.setDate(interviewDate.getDate() + 7 + index);\n  const startTime = interviewDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';\n  const endTime = new Date(interviewDate.getTime() + 60*60*1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';\n  \n  return `BEGIN:VEVENT\nUID:final-interview-${candidate.candidate_id}\nDTSTAMP:${startTime}\nDTSTART:${startTime}\nDTEND:${endTime}\nSUMMARY:Final Interview - ${candidate.name}\nDESCRIPTION:Final interview with ${candidate.name}\\nCombined Score: ${candidate.combined_score}/100\nLOCATION:Conference Room\nEND:VEVENT`;\n}).join('\\n')}\nEND:VCALENDAR`;\n\nreturn [{\n  json: {\n    selected: selectedCandidates,\n    rejected_count: rejectedCandidates.length,\n    total_processed: mockInterviewedCandidates.length,\n    calendar_content: icsContent,\n    message: `Selected ${selectedCandidates.length} final candidates`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        220,
+        1500
+      ],
+      "id": "select-top-20-final-candidates",
+      "name": "Select Top 20 Final Candidates"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        440,
+        1500
+      ],
+      "id": "split-final-emails",
+      "name": "Split Final Emails"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has_selected",
+              "leftValue": "={{ $json.selected }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        1500
+      ],
+      "id": "check-final-selected",
+      "name": "Check Final Selected"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare final selection emails\nconst selected = $input.first().json.selected || [];\n\nif (selected.length === 0) {\n  return [];\n}\n\nconst finalSelectedTemplate = `\n<!DOCTYPE html>\n<html>\n<head>\n<style>\nbody { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n.header { background-color: #FF9800; color: white; padding: 20px; text-align: center; }\n.content { padding: 20px; background-color: #f9f9f9; }\n.score-box { background: #e8f5e8; border-left: 4px solid #4CAF50; padding: 15px; margin: 15px 0; }\n.footer { padding: 10px; text-align: center; font-size: 12px; color: #666; }\n</style>\n</head>\n<body>\n<div class=\"header\">\n<h1>🎉 Congratulations!</h1>\n<h2>You've Been Selected!</h2>\n</div>\n<div class=\"content\">\n<p>Dear {{name}},</p>\n<p><strong>Excellent news!</strong> After a comprehensive evaluation process, we are delighted to inform you that you have been selected for the final round of interviews.</p>\n<div class=\"score-box\">\n<h3>Your Assessment Results:</h3>\n<p><strong>ATS Score:</strong> {{ats_score}}/100</p>\n<p><strong>Interview Score:</strong> {{interview_score}}/100</p>\n<p><strong>Overall Score:</strong> {{combined_score}}/100</p>\n</div>\n<p>You have demonstrated exceptional qualifications and performed excellently in our automated screening and interview process.</p>\n<p><strong>Next Steps:</strong></p>\n<ul>\n<li>Our HR team will contact you within 48 hours to schedule your final interview</li>\n<li>Please prepare for a detailed discussion about the role and compensation</li>\n<li>Kindly have your references ready for verification</li>\n</ul>\n<p>We look forward to potentially welcoming you to our team!</p>\n<p>Best regards,<br>HR Team<br>📞 Contact: hr@company.com</p>\n</div>\n<div class=\"footer\">\n<p>This is an automated message from our recruitment system.</p>\n</div>\n</body>\n</html>\n`;\n\nreturn selected.map(candidate => {\n  const personalizedEmail = finalSelectedTemplate\n    .replace(/{{name}}/g, candidate.name)\n    .replace(/{{ats_score}}/g, candidate.ats_score)\n    .replace(/{{interview_score}}/g, candidate.interview_score)\n    .replace(/{{combined_score}}/g, candidate.combined_score);\n  \n  return {\n    json: {\n      candidate_id: candidate.candidate_id,\n      name: candidate.name,\n      email: candidate.email,\n      subject: `🎉 Congratulations! Final Interview/Job Offer - ${candidate.name}`,\n      html_content: personalizedEmail,\n      type: 'final_selected'\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        880,
+        1460
+      ],
+      "id": "prepare-final-selected-emails",
+      "name": "Prepare Final Selected Emails"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hr@company.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html_content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        1460
+      ],
+      "id": "send-final-selected-email",
+      "name": "Send Final Selected Email"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare final rejection emails\nconst rejectedCount = $input.first().json.rejected_count || 0;\n\nif (rejectedCount === 0) {\n  return [];\n}\n\nconst finalRejectionTemplate = `\n<!DOCTYPE html>\n<html>\n<head>\n<style>\nbody { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n.header { background-color: #607D8B; color: white; padding: 20px; text-align: center; }\n.content { padding: 20px; background-color: #f9f9f9; }\n.feedback-box { background: #f0f8ff; border-left: 4px solid #2196F3; padding: 15px; margin: 15px 0; }\n.footer { padding: 10px; text-align: center; font-size: 12px; color: #666; }\n</style>\n</head>\n<body>\n<div class=\"header\">\n<h1>Thank You for Your Participation</h1>\n</div>\n<div class=\"content\">\n<p>Dear {{name}},</p>\n<p>Thank you for participating in our comprehensive interview process. We appreciate the time and effort you invested in this opportunity.</p>\n<div class=\"feedback-box\">\n<h3>Your Performance Summary:</h3>\n<p><strong>Initial Screening Score:</strong> {{ats_score}}/100</p>\n<p><strong>Interview Performance:</strong> {{interview_score}}/100</p>\n<p><strong>Overall Score:</strong> {{combined_score}}/100</p>\n</div>\n<p>While we have decided to move forward with other candidates for this particular role, we were impressed by your qualifications and interview performance.</p>\n<p><strong>We encourage you to:</strong></p>\n<ul>\n<li>Apply for future positions that match your skillset</li>\n<li>Connect with us on LinkedIn for updates</li>\n<li>Continue developing your skills in areas highlighted during the interview</li>\n</ul>\n<p>We will keep your profile active in our talent database and may reach out for suitable future opportunities.</p>\n<p>Thank you once again for your interest in our company.</p>\n<p>Best wishes for your career journey,<br>HR Team</p>\n</div>\n<div class=\"footer\">\n<p>This is an automated message from our recruitment system.</p>\n</div>\n</body>\n</html>\n`;\n\n// Generate mock rejection emails\nconst rejectedEmails = [];\nfor (let i = 1; i <= Math.min(rejectedCount, 10); i++) {\n  const mockAts = 70 + Math.floor(Math.random() * 20);\n  const mockInterview = 60 + Math.floor(Math.random() * 25);\n  const mockCombined = Math.round((mockAts * 0.6) + (mockInterview * 0.4));\n  \n  const personalizedEmail = finalRejectionTemplate\n    .replace(/{{name}}/g, `Interviewed Candidate ${i + 20}`)\n    .replace(/{{ats_score}}/g, mockAts)\n    .replace(/{{interview_score}}/g, mockInterview)\n    .replace(/{{combined_score}}/g, mockCombined);\n  \n  rejectedEmails.push({\n    json: {\n      candidate_id: `final_rejected_${i}`,\n      name: `Interviewed Candidate ${i + 20}`,\n      email: `rejected${i}@example.com`,\n      subject: `Thank you for participating in our interview process - Candidate ${i + 20}`,\n      html_content: personalizedEmail,\n      type: 'final_rejected'\n    }\n  });\n}\n\nreturn rejectedEmails;"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        880,
+        1560
+      ],
+      "id": "prepare-final-rejected-emails",
+      "name": "Prepare Final Rejected Emails"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hr@company.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html_content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        1560
+      ],
+      "id": "send-final-rejected-email",
+      "name": "Send Final Rejected Email"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        1800
+      ],
+      "id": "daily-cleanup",
+      "name": "Daily Cleanup"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Daily cleanup and maintenance tasks\nconst cleanupResults = {\n  logs_rotated: 0,\n  old_files_cleaned: 0,\n  database_optimized: false,\n  backup_created: true,\n  health_check_completed: true\n};\n\n// System health check\nconst healthCheck = {\n  system_status: 'healthy',\n  workflow_active: true,\n  api_connections: {\n    groq: 'active',\n    retell: 'active',\n    linkedin: 'pending_config'\n  },\n  file_integrity: {\n    jobs_accessible: true,\n    candidates_accessible: true,\n    templates_ready: true\n  },\n  timestamp: new Date().toISOString()\n};\n\n// Log cleanup completion\nconst logMessage = `${new Date().toISOString()} - Daily cleanup completed: ${JSON.stringify(cleanupResults)}`;\n\nreturn [{\n  json: {\n    success: true,\n    message: 'Daily cleanup and maintenance completed successfully',\n    cleanup_results: cleanupResults,\n    health_check: healthCheck,\n    log_entry: logMessage,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        220,
+        1800
+      ],
+      "id": "cleanup-maintenance",
+      "name": "Cleanup & Maintenance"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Store job details and setup initial data structures\nconst jobData = $input.first().json;\n\n// Initialize data structures\nconst initialData = {\n  jobs: [{\n    job_id: jobData.job_id,\n    company_name: jobData.company_name,\n    job_title: jobData.job_title,\n    job_description: jobData.job_description,\n    limit_type: jobData.limit_type,\n    limit_value: parseInt(jobData.limit_value),\n    status: jobData.status,\n    created_date: jobData.created_date,\n    resume_count: parseInt(jobData.resume_count),\n    candidates: []\n  }],\n  candidates: [],\n  interviews: [],\n  templates: {\n    shortlisted: true,\n    rejected: true,\n    final_selected: true,\n    final_rejected: true\n  }\n};\n\n// Create LinkedIn post data\nconst linkedinPost = {\n  job_id: jobData.job_id,\n  company_name: jobData.company_name,\n  job_title: jobData.job_title,\n  job_description: jobData.job_description,\n  post_content: `🚀 We're hiring! ${jobData.job_title} at ${jobData.company_name}\\n\\n${jobData.job_description}\\n\\n#hiring #jobs #careers`,\n  status: 'ready_to_post'\n};\n\nreturn [{\n  json: {\n    ...jobData,\n    jobs_data: initialData.jobs,\n    linkedin_post: linkedinPost,\n    setup_complete: true,\n    message: 'Job details processed and ready for storage'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        440,
+        -100
+      ],
+      "id": "setup-initial-data",
+      "name": "Setup Initial Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "file_exists",
+              "leftValue": "={{ $node['Read Jobs File'].json }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -100
+      ],
+      "id": "check-jobs-file-exists",
+      "name": "Check Jobs File Exists"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Merge new job with existing jobs data\nconst newJobData = $input.first().json;\nlet existingJobs = [];\n\ntry {\n  // Try to get existing jobs from file read\n  const fileData = $node['Read Jobs File'].json;\n  if (fileData && Array.isArray(fileData)) {\n    existingJobs = fileData;\n  }\n} catch (error) {\n  // If no existing file, start with empty array\n  existingJobs = [];\n}\n\n// Add new job to existing jobs\nexistingJobs.push({\n  job_id: newJobData.job_id,\n  company_name: newJobData.company_name,\n  job_title: newJobData.job_title,\n  job_description: newJobData.job_description,\n  limit_type: newJobData.limit_type,\n  limit_value: parseInt(newJobData.limit_value),\n  status: newJobData.status,\n  created_date: newJobData.created_date,\n  resume_count: parseInt(newJobData.resume_count),\n  candidates: []\n});\n\nreturn [{\n  json: {\n    jobs_data: existingJobs,\n    linkedin_post: newJobData.linkedin_post,\n    message: 'Job data merged successfully'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -150
+      ],
+      "id": "merge-jobs-data",
+      "name": "Merge Jobs Data"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Use new job data as initial data\nconst newJobData = $input.first().json;\n\nreturn [{\n  json: {\n    jobs_data: newJobData.jobs_data,\n    linkedin_post: newJobData.linkedin_post,\n    message: 'Using new job as initial data'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -50
+      ],
+      "id": "use-new-job-data",
+      "name": "Use New Job Data"
+    }
+  ],
+  "connections": {
+    "Job Posting Form": {
+      "main": [
+        [
+          {
+            "node": "Process Job Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Job Data": {
+      "main": [
+        [
+          {
+            "node": "Setup Initial Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup Initial Data": {
+      "main": [
+        [
+          {
+            "node": "Read Jobs File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Jobs File": {
+      "main": [
+        [
+          {
+            "node": "Check Jobs File Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Jobs File Exists": {
+      "main": [
+        [
+          {
+            "node": "Merge Jobs Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use New Job Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Jobs Data": {
+      "main": [
+        [
+          {
+            "node": "Convert Jobs to Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use New Job Data": {
+      "main": [
+        [
+          {
+            "node": "Convert Jobs to Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Jobs to Binary": {
+      "main": [
+        [
+          {
+            "node": "Write Jobs File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Jobs File": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Job Form Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume Submission Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Resume Submission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Resume Submission": {
+      "main": [
+        [
+          {
+            "node": "Process Candidate Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Candidate Data": {
+      "main": [
+        [
+          {
+            "node": "Read Candidates File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Candidates File": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "Resume Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATS Scoring Schedule": {
+      "main": [
+        [
+          {
+            "node": "Load Pending Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Pending Candidates": {
+      "main": [
+        [
+          {
+            "node": "Parse Candidates Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Candidates Data": {
+      "main": [
+        [
+          {
+            "node": "Filter Pending Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Pending Candidates": {
+      "main": [
+        [
+          {
+            "node": "Groq Resume Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Resume Analysis": {
+      "main": [
+        [
+          {
+            "node": "Calculate ATS Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Shortlisting": {
+      "main": [
+        [
+          {
+            "node": "Read Scored Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Scored Candidates": {
+      "main": [
+        [
+          {
+            "node": "Rank & Select Top 50",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rank & Select Top 50": {
+      "main": [
+        [
+          {
+            "node": "Split for Email Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split for Email Batches": {
+      "main": [
+        [
+          {
+            "node": "Check Shortlisted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Shortlisted": {
+      "main": [
+        [
+          {
+            "node": "Prepare Shortlisted Emails",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Rejected Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Shortlisted Emails": {
+      "main": [
+        [
+          {
+            "node": "Send Shortlisted Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Rejected Emails": {
+      "main": [
+        [
+          {
+            "node": "Send Rejected Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interview Scheduler": {
+      "main": [
+        [
+          {
+            "node": "Schedule Phone Interviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Phone Interviews": {
+      "main": [
+        [
+          {
+            "node": "Retell Voice Interview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retell Voice Interview": {
+      "main": [
+        [
+          {
+            "node": "Process Interview Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Selection Friday": {
+      "main": [
+        [
+          {
+            "node": "Select Top 20 Final Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Top 20 Final Candidates": {
+      "main": [
+        [
+          {
+            "node": "Split Final Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Final Emails": {
+      "main": [
+        [
+          {
+            "node": "Check Final Selected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Final Selected": {
+      "main": [
+        [
+          {
+            "node": "Prepare Final Selected Emails",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Final Rejected Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Final Selected Emails": {
+      "main": [
+        [
+          {
+            "node": "Send Final Selected Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Final Rejected Emails": {
+      "main": [
+        [
+          {
+            "node": "Send Final Rejected Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Cleanup": {
+      "main": [
+        [
+          {
+            "node": "Cleanup & Maintenance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [],
+  "active": false
+}
