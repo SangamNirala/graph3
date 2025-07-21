@@ -1,0 +1,200 @@
+{
+  "name": "HR Automation System",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Job Posting Form",
+        "formDescription": "Create a new job posting",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Company Name",
+              "fieldType": "text",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Job Title", 
+              "fieldType": "text",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Job Description",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        }
+      },
+      "name": "Job Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const jobData = {\n  job_id: Date.now(),\n  company: $input.first().json.data['Company Name'],\n  title: $input.first().json.data['Job Title'],\n  description: $input.first().json.data['Job Description'],\n  created: new Date().toISOString()\n};\n\nreturn [{ json: jobData }];"
+      },
+      "name": "Process Job",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "resume"
+      },
+      "name": "Resume Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const candidate = {\n  id: Date.now(),\n  name: $input.first().json.name || 'Unknown',\n  email: $input.first().json.email || 'no-email@example.com',\n  resume: $input.first().json.resume_text || 'No resume text',\n  score: Math.floor(Math.random() * 100),\n  status: 'submitted'\n};\n\nreturn [{ json: candidate }];"
+      },
+      "name": "Process Resume",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        460,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer GROQ_API_KEY_HERE"
+            },
+            {
+              "name": "Content-Type", 
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "{\"model\":\"llama3-8b-8192\",\"messages\":[{\"role\":\"user\",\"content\":\"Analyze this resume: {{ $json.resume }}\"}],\"max_tokens\":500}"
+      },
+      "name": "Groq AI Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        680,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.retellai.com/call",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer RETELL_API_KEY_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "{\"from_number\":\"+1234567890\",\"to_number\":\"{{ $json.phone }}\",\"agent_id\":\"hr_agent\"}"
+      },
+      "name": "Voice Interview",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        680,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "smtpHost": "smtp.gmail.com",
+        "smtpPort": 587,
+        "smtpUser": "your-email@gmail.com",
+        "smtpPassword": "your-password",
+        "fromEmail": "hr@company.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Application Status",
+        "message": "Thank you for applying. We will be in touch soon."
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        900,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Job Form": {
+      "main": [
+        [
+          {
+            "node": "Process Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Resume": {
+      "main": [
+        [
+          {
+            "node": "Groq AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "staticData": null
+}
