@@ -1,380 +1,335 @@
 {
-  "name": "Comprehensive HR Automation Workflow",
+  "meta": {
+    "instanceId": "hr-automation-workflow-v1.0"
+  },
+  "name": "Complete HR Automation System",
   "nodes": [
     {
-      "id": "1",
-      "type": "n8n-nodes-base.webhook",
-      "name": "Job Posting Intake Webhook",
+      "id": "node-start-form",
+      "name": "Job Posting Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 300],
       "parameters": {
-        "httpMethod": "POST",
-        "path": "hr/job-post",
-        "responseMode": "onReceived",
-        "responseCode": 200,
-        "responseData": "Job posting received."
-      },
-      "position": [100,100]
+        "formTitle": "HR Job Posting System",
+        "formDescription": "Create a new job posting with automated recruitment pipeline",
+        "responseMode": "responseNode",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Company Name",
+              "fieldType": "text",
+              "requiredField": true,
+              "fieldOptions": {}
+            },
+            {
+              "fieldLabel": "Job Title",
+              "fieldType": "text", 
+              "requiredField": true,
+              "fieldOptions": {}
+            },
+            {
+              "fieldLabel": "Job Description",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "fieldOptions": {
+                "rows": 5
+              }
+            },
+            {
+              "fieldLabel": "Resume Collection Limit Type",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Number limit",
+                    "value": "number"
+                  },
+                  {
+                    "option": "Time limit",
+                    "value": "time"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Resume Limit Number",
+              "fieldType": "number",
+              "requiredField": false,
+              "fieldOptions": {
+                "defaultValue": 1000
+              }
+            },
+            {
+              "fieldLabel": "Time Limit (Days)",
+              "fieldType": "number", 
+              "requiredField": false,
+              "fieldOptions": {
+                "defaultValue": 7
+              }
+            }
+          ]
+        }
+      }
     },
     {
-      "id": "2",
+      "id": "node-store-job",
+      "name": "Store Job Details",
       "type": "n8n-nodes-base.function",
-      "name": "Validate & Format Job Data",
+      "typeVersion": 1,
+      "position": [400, 300],
       "parameters": {
-        "functionCode": "// Validate and format fields, set defaults for limit type/value\nconst { body } = $json;\nif (!body.company || !body.jobTitle || !body.jobDesc) throw new Error(\"Missing required fields\");\nconst job = {\n  job_id: Date.now(),\n  company_name: body.company,\n  job_title: body.jobTitle,\n  description: body.jobDesc,\n  created_date: new Date().toISOString(),\n  limit_type: body.limitType || 'Number',\n  limit_value: body.limitValue || (body.limitType === 'Time' ? 7 : 1000),\n  status: 'open'\n};\nreturn [{ json: job }];"
-      },
-      "position": [250,100]
+        "functionCode": "// Store job details in local JSON database\
+const fs = require('fs');\
+const path = require('path');\
+\
+// Create job object\
+const jobData = {\
+  job_id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\
+  company_name: $input.first().json.data['Company Name'],\
+  job_title: $input.first().json.data['Job Title'],\
+  job_description: $input.first().json.data['Job Description'],\
+  limit_type: $input.first().json.data['Resume Collection Limit Type'],\
+  limit_value: $input.first().json.data['Resume Collection Limit Type'] === 'number' ? \
+    $input.first().json.data['Resume Limit Number'] || 1000 : \
+    $input.first().json.data['Time Limit (Days)'] || 7,\
+  status: 'active',\
+  created_date: new Date().toISOString(),\
+  resume_count: 0,\
+  candidates: []\
+};\
+\
+// Store in jobs.json file\
+const jobsPath = '/tmp/jobs.json';\
+let jobs = [];\
+\
+try {\
+  if (fs.existsSync(jobsPath)) {\
+    jobs = JSON.parse(fs.readFileSync(jobsPath, 'utf8'));\
+  }\
+} catch (error) {\
+  console.log('Creating new jobs file');\
+  jobs = [];\
+}\
+\
+jobs.push(jobData);\
+fs.writeFileSync(jobsPath, JSON.stringify(jobs, null, 2));\
+\
+// Create resumes directory if it doesn't exist\
+const resumesDir = `/tmp/resumes/${jobData.job_id}`;\
+if (!fs.existsSync('/tmp/resumes')) {\
+  fs.mkdirSync('/tmp/resumes', { recursive: true });\
+}\
+if (!fs.existsSync(resumesDir)) {\
+  fs.mkdirSync(resumesDir, { recursive: true });\
+}\
+\
+return [{\
+  json: {\
+    success: true,\
+    job_id: jobData.job_id,\
+    message: 'Job details stored successfully',\
+    jobData: jobData\
+  }\
+}];"
+      }
     },
     {
-      "id": "3",
-      "type": "n8n-nodes-base.httpRequest",
+      "id": "node-linkedin-post",
       "name": "Post Job to LinkedIn",
-      "parameters": {
-        "authentication": "genericCredentialType",
-        "genericCredentialType": "LINKEDIN_API_PLACEHOLDER",
-        "method": "POST",
-        "url": "https://api.linkedin.com/v2/jobs",
-        "bodyParametersUi": {
-          "parameter":[
-            {"name":"companyName","value":"={{$json.company_name}}"},
-            {"name":"jobTitle","value":"={{$json.job_title}}"},
-            {"name":"description","value":"={{$json.description}}"}
-          ]
-        },
-        "responseFormat": "json",
-        "options": {},
-        "allowUnauthorizedCerts": true
-      },
-      "position": [400,100]
-    },
-    {
-      "id": "4",
-      "type": "n8n-nodes-base.function",
-      "name": "Handle LinkedIn Posting Error",
-      "parameters": {
-        "functionCode": "// Try/catch error handler for LinkedIn API post\ntry {\n  if ($json.code && $json.code !== 201) throw new Error($json.message || \"Failed\");\n  return $items();\n} catch (e){\n  // Write an error log locally\n  require('fs').appendFileSync('./logs/errors.log', `${new Date().toISOString()} JobPost LinkedIn Error: ${e.message}\\n`);\n  // Notify admin logic, or fallback\n  return [ { json: { ...$json, linkedInStatus: 'failed', error: e.message } } ];\n}"
-      },
-      "position": [550,100]
-    },
-    {
-      "id": "5",
-      "type": "n8n-nodes-base.writeBinaryFile",
-      "name": "Store Job in jobs.json",
-      "parameters": {
-        "fileName": "./jobs.json",
-        "dataPropertyName": "job"
-      },
-      "position": [700,100]
-    },
-
-    
-    {
-      "id": "6",
-      "type": "n8n-nodes-base.webhook",
-      "name": "Resume Submission Webhook",
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "hr/resume-submit",
-        "responseMode": "onReceived"
-      },
-      "position": [100,300]
-    },
-    {
-      "id": "7",
-      "type": "n8n-nodes-base.function",
-      "name": "Validate & Save Resume",
-      "parameters": {
-        "functionCode": "const { name, email, phone, job_id } = $json.body;\nconst resume_file = $binary.resumeFile;\nif (!name || !email || !phone || !job_id) throw new Error('Incomplete submission.');\nconst candidate = {\n  candidate_id: Date.now(),\n  job_id,\n  name,\n  email,\n  phone,\n  resume_path: `./resumes/${Date.now()}_${email}.pdf`,\n  submission_date: new Date().toISOString(),\n  ats_score: null,\n  interview_score: null,\n  status: 'pending'\n};\n// Save resume\nrequire('fs').writeFileSync(candidate.resume_path, resume_file.data);\nreturn [{ json: candidate }];"
-      },
-      "position": [250,300]
-    },
-    {
-      "id": "8",
-      "type": "n8n-nodes-base.appendToJsonFile",
-      "name": "Save Candidate to candidates.json",
-      "parameters": {
-        "fileName": "./candidates.json",
-        "dataPropertyName": "candidate"
-      },
-      "position": [400,300]
-    },
-    {
-      "id": "9",
-      "type": "n8n-nodes-base.function",
-      "name": "Check Resume Limit",
-      "parameters": {
-        "functionCode": "// Check number/time-based job close logic\nconst candidates = require('fs').readFileSync('./candidates.json', 'utf-8');\nconst job = require('fs').readFileSync('./jobs.json', 'utf-8').find(j=>j.job_id===$json.job_id);\nlet closed = false;\nif (job.limit_type==='Number') {\n  const count = candidates.filter(c=>c.job_id===job.job_id).length;\n  closed = (count>=job.limit_value);\n} else if (job.limit_type==='Time') {\n  const start = new Date(job.created_date);\n  closed = ((Date.now() - start.getTime()) > job.limit_value*24*3600*1000);\n}\nif (closed) job.status='closed';\nreturn [{json:{closed, job}}];"
-      },
-      "position": [550,300]
-    },
-
-  
-    {
-      "id": "10",
-      "type": "n8n-nodes-base.readBinaryFile",
-      "name": "Extract Resume Text",
-      "parameters": {
-        "filePath": "={{$json.resume_path}}"
-      },
-      "position": [700,300]
-    },
-    {
-      "id": "11",
       "type": "n8n-nodes-base.httpRequest",
-      "name": "Groq Resume Parsing/Scoring",
+      "typeVersion": 4.1,
+      "position": [600, 300],
       "parameters": {
-        "authentication": "headerAuth",
-        "headerAuthorization": "Bearer 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",
+        "url": "https://api.linkedin.com/v2/posts",
         "method": "POST",
-        "url": "https://api.groq.com/v1/chat/completions",
-        "bodyParametersUi": {
-          "parameter": [
-            {"name": "model", "value":"llama3-70b-8192"},
-            {"name": "messages", "value": "[{\"role\": \"system\", \"content\": \"Score the resume text for skills, experience, education. Return JSON: skillsMatch(0-30), expMatch(0-30), education(0-20), keywordMatch(0-20)\"},{\"role\": \"user\", \"content\": \"{{$json.data}}\"}]"}
+        "authentication": "generic",
+        "genericAuthType": "httpHeaderAuth",
+        "httpHeaderAuth": {
+          "name": "Authorization",
+          "value": "Bearer LINKEDIN_ACCESS_TOKEN_PLACEHOLDER"
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
-        "responseFormat": "json"
-      },
-      "position": [850,300]
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\
+  \\"author\\": \\"urn:li:organization:COMPANY_ID_PLACEHOLDER\\",\
+  \\"lifecycleState\\": \\"PUBLISHED\\",\
+  \\"specificContent\\": {\
+    \\"com.linkedin.ugc.ShareContent\\": {\
+      \\"shareCommentary\\": {\
+        \\"text\\": \\"🚀 We're hiring! {{$json.jobData.job_title}} at {{$json.jobData.company_name}}\\\
+\\\
+{{$json.jobData.job_description}}\\\
+\\\
+#hiring #jobs #career\\"\
+      },\
+      \\"shareMediaCategory\\": \\"NONE\\"\
+    }\
+  },\
+  \\"visibility\\": {\
+    \\"com.linkedin.ugc.MemberNetworkVisibility\\": \\"PUBLIC\\"\
+  }\
+}",
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "enabled": true,
+            "maxAttempts": 3
+          }
+        }
+      }
     },
     {
-      "id": "12",
-      "type": "n8n-nodes-base.function",
-      "name": "Calculate ATS Score",
-      "parameters": {
-        "functionCode": "// Parse Groq output and assign total score, store on candidate\nconst { skillsMatch, expMatch, education, keywordMatch } = $json;\nconst score = (skillsMatch||0) + (expMatch||0) + (education||0) + (keywordMatch||0);\n$item.ats_score = score;\n$item.status = score>=50 ? 'shortlisted' : 'rejected';\nreturn $items();"
-      },
-      "position": [1000,300]
-    },
-    {
-      "id": "13",
-      "type": "n8n-nodes-base.appendToJsonFile",
-      "name": "Update Candidate ATS Score",
-      "parameters": {
-        "fileName": "./candidates.json",
-        "dataPropertyName": "candidate"
-      },
-      "position": [1150,300]
-    },
-
-
-    {
-      "id": "14",
-      "type": "n8n-nodes-base.splitInBatches",
-      "name": "Batch Candidates for Email",
-      "parameters": {
-        "batchSize": 20
-      },
-      "position": [100, 500]
-    },
-    {
-      "id": "15",
-      "type": "n8n-nodes-base.function",
-      "name": "Email Content Switch",
-      "parameters": {
-        "functionCode": "// Load correct template based on $json.status\nconst fs = require('fs');\nlet templateFile = './templates/rejected.html';\nif ($json.status === 'shortlisted') templateFile = './templates/shortlisted.html';\nconst html = fs.readFileSync(templateFile, 'utf-8');\nreturn [{json:{email: $json.email, status: $json.status, html}}];"
-      },
-      "position": [250, 500]
-    },
-    {
-      "id": "16",
-      "type": "n8n-nodes-base.smtp",
-      "name": "Send Email",
-      "parameters": {
-        "host": "smtp.gmail.com",
-        "port": 465,
-        "secure": true,
-        "user": "env:HR_SMTP_USER",
-        "password": "env:HR_SMTP_PASS",
-        "fromEmail": "{{ $json.emailFrom }}",
-        "toEmail": "{{ $json.email }}",
-        "subject": "={{$json.status==='shortlisted'?'Next Step: Interview Invitation':'Application Update'}}",
-        "htmlBody": "{{ $json.html }}"
-      },
-      "position": [400, 500]
-    },
-    {
-      "id": "17",
-      "type": "n8n-nodes-base.appendToJsonFile",
-      "name": "Log Email Delivery",
-      "parameters": {
-        "fileName": "./logs/email_deliveries.json",
-        "dataPropertyName": "delivery"
-      },
-      "position": [550, 500]
-    },
-
-    
-    {
-      "id": "18",
-      "type": "n8n-nodes-base.cron",
-      "name": "Interview Scheduler",
-      "parameters": {
-        "cronExpression": "0 10 * * *"
-      },
-      "position": [100, 700]
-    },
-    {
-      "id": "19",
-      "type": "n8n-nodes-base.function",
-      "name": "Prepare Interview Batch",
-      "parameters": {
-        "functionCode": "// Fetch top 50 shortlisted from candidates.json, random batch\nconst candidates = require('fs').readFileSync('./candidates.json', 'utf-8');\nreturn candidates.filter(c=>c.status==='shortlisted').slice(0,50).map(c=>({json:c}));"
-      },
-      "position": [250, 700]
-    },
-    {
-      "id": "20",
+      "id": "node-groq-analysis",
+      "name": "Groq Resume Analysis",
       "type": "n8n-nodes-base.httpRequest",
-      "name": "Voice Interview Call",
+      "typeVersion": 4.1,
+      "position": [800, 900],
       "parameters": {
-        "authentication": "headerAuth",
-        "headerAuthorization": "Bearer key_d64cb94a0929d6bf59cf2b4ff369",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
         "method": "POST",
-        "url": "https://api.retellai.com/v1/call/start",
-        "bodyParametersUi": {
-          "parameter": [
-            {"name": "phone", "value": "={{$json.phone}}"},
-            {"name": "script", "value":"={{require('fs').readFileSync('./interview_questions.json','utf-8')}}"}
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer GROQ_API_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
-        "responseFormat": "json"
-      },
-      "position": [400,700]
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\
+  \\"model\\": \\"llama3-8b-8192\\",\
+  \\"messages\\": [\
+    {\
+      \\"role\\": \\"system\\",\
+      \\"content\\": \\"You are an expert ATS system. Analyze resumes and provide JSON response with: skills, experience_years, education_level, keywords_found, technical_skills, soft_skills, certifications\\"\
+    },\
+    {\
+      \\"role\\": \\"user\\",\
+      \\"content\\": \\"Analyze this resume for ATS scoring: {{$json.candidates[0].resume_text}}\\"\
+    }\
+  ],\
+  \\"temperature\\": 0.1,\
+  \\"max_tokens\\": 1000\
+}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxAttempts": 3
+          }
+        }
+      }
     },
     {
-      "id": "21",
-      "type": "n8n-nodes-base.function",
-      "name": "Process Interview Transcripts",
-      "parameters": {
-        "functionCode": "// Save the transcript, send to Groq for scoring\nconst transcript = $json.transcript;\nrequire('fs').writeFileSync(`./interviews/${$json.candidate_id}_transcript.txt`, transcript);\nreturn [{json:{candidate_id:$json.candidate_id, transcript}}];"
-      },
-      "position": [550, 700]
-    },
-    {
-      "id": "22",
+      "id": "node-retell-interview",
+      "name": "Retell Voice Interview",
       "type": "n8n-nodes-base.httpRequest",
-      "name": "Groq Interview Scoring",
+      "typeVersion": 4.1,
+      "position": [800, 1500],
       "parameters": {
-        "authentication": "headerAuth",
-        "headerAuthorization": "Bearer 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",
+        "url": "https://api.retellai.com/call",
         "method": "POST",
-        "url": "https://api.groq.com/v1/chat/completions",
-        "bodyParametersUi": {
-          "parameter": [
-            {"name": "model", "value":"llama3-70b-8192"},
-            {"name": "messages", "value": "[{\"role\": \"system\", \"content\": \"Score interview: communication, accuracy, ideal answers (JSON: comms(0-40), tech(0-40), ideal(0-20))\"},{\"role\": \"user\", \"content\": \"{{$json.transcript}}\"}]"}
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer RETELL_API_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
-        "responseFormat": "json"
-      },
-      "position": [700, 700]
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\
+  \\"from_number\\": \\"+1234567890\\",\
+  \\"to_number\\": \\"{{$json.interviews[0].candidate_phone}}\\",\
+  \\"agent_id\\": \\"agent_hr_interviewer\\",\
+  \\"metadata\\": {\
+    \\"candidate_id\\": \\"{{$json.interviews[0].candidate_id}}\\",\
+    \\"interview_id\\": \\"{{$json.interviews[0].interview_id}}\\",\
+    \\"candidate_name\\": \\"{{$json.interviews[0].candidate_name}}\\"\
+  }\
+}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxAttempts": 2
+          }
+        }
+      }
     },
     {
-      "id": "23",
-      "type": "n8n-nodes-base.function",
-      "name": "Calculate Interview Score",
+      "id": "node-smtp-email",
+      "name": "SMTP Email Sender",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [800, 1100],
       "parameters": {
-        "functionCode": "// Compose final interview_score field\nconst { comms, tech, ideal } = $json;\nconst score = (comms||0)+(tech||0)+(ideal||0);\n$item.interview_score = score;\nreturn $items();"
-      },
-      "position": [850, 700]
-    },
-    {
-      "id": "24",
-      "type": "n8n-nodes-base.appendToJsonFile",
-      "name": "Update Interview in interviews.json",
-      "parameters": {
-        "fileName": "./interviews.json",
-        "dataPropertyName": "interview"
-      },
-      "position": [1000, 700]
-    },
-
-    
-    {
-      "id": "25",
-      "type": "n8n-nodes-base.function",
-      "name": "Select Top 20 Candidates",
-      "parameters": {
-        "functionCode": "// Get top-20 total by sum(ats_score+interview_score)\nconst candidates = require('fs').readFileSync('./candidates.json','utf-8');\nreturn candidates.sort((a,b)=>((b.ats_score||0)+(b.interview_score||0))-((a.ats_score||0)+(a.interview_score||0))).slice(0,20).map(c=>({json:c}));"
-      },
-      "position": [100, 900]
-    },
-    {
-      "id": "26",
-      "type": "n8n-nodes-base.function",
-      "name": "Generate Final Email & Calendar",
-      "parameters": {
-        "functionCode": "const fs = require('fs');\nconst template = fs.readFileSync('./templates/final_selected.html','utf-8');\nconst feedback = $json.interview_feedback|| '';\nconst icsData = `BEGIN:VCALENDAR\\nVERSION:2.0\\nBEGIN:VEVENT\\nSUMMARY:Final Interview\\nDTSTART:${new Date().toISOString().replace(/[-:]/g,'').slice(0,15)}\\nDURATION:PT1H\\nEND:VEVENT\\nEND:VCALENDAR`;\nreturn [{json:{email:$json.email, html:template.replace('{{feedback}}',feedback), ics:icsData, status:'selected'}}];"
-      },
-      "position": [250, 900]
-    },
-    {
-      "id": "27",
-      "type": "n8n-nodes-base.smtp",
-      "name": "Send Final Email",
-      "parameters": {
-        "host": "smtp.gmail.com",
-        "port": 465,
-        "secure": true,
-        "user": "env:HR_SMTP_USER",
-        "password": "env:HR_SMTP_PASS",
-        "fromEmail": "{{ $json.emailFrom }}",
-        "toEmail": "{{ $json.email }}",
-        "subject": "Congratulations! Final Interview/Offer",
-        "htmlBody": "{{ $json.html }}",
-        "attachments": [{"data": "={{ Buffer.from($json.ics).toString('base64') }}", "name": "invite.ics", "type": "text/calendar"}]
-      },
-      "position": [400, 900]
-    },
-    {
-      "id": "28",
-      "type": "n8n-nodes-base.appendToJsonFile",
-      "name": "Log Final Communication",
-      "parameters": {
-        "fileName": "./logs/final_emails.json",
-        "dataPropertyName": "log"
-      },
-      "position": [550, 900]
+        "smtpHost": "smtp.gmail.com",
+        "smtpPort": 587,
+        "smtpUser": "YOUR_GMAIL_ADDRESS",
+        "smtpPassword": "YOUR_APP_PASSWORD",
+        "fromEmail": "YOUR_GMAIL_ADDRESS",
+        "toEmail": "={{$json.email}}",
+        "subject": "HR Recruitment Update",
+        "emailFormat": "html",
+        "message": "<h1>Thank you for your application</h1><p>We have received your application and will be in touch soon.</p>"
+      }
     }
   ],
   "connections": {
-    "Job Posting Intake Webhook": {
-      "main": [["Validate & Format Job Data"]]
+    "Job Posting Form": {
+      "main": [
+        [
+          {
+            "node": "Store Job Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Validate & Format Job Data": {
-      "main": [["Post Job to LinkedIn"]]
-    },
-    "Post Job to LinkedIn": {
-      "main": [["Handle LinkedIn Posting Error"]]
-    },
-    "Handle LinkedIn Posting Error": {
-      "main": [["Store Job in jobs.json"]]
-    },
-    "Resume Submission Webhook": {
-      "main": [["Validate & Save Resume"]]
-    },
-    "Validate & Save Resume": {
-      "main": [["Save Candidate to candidates.json"]]
-    },
-    "Save Candidate to candidates.json": {
-      "main": [["Check Resume Limit"]]
-    },
-    "Check Resume Limit": {
-      "main": [["Extract Resume Text"]]
-    },
-    "Extract Resume Text": {
-      "main": [["Groq Resume Parsing/Scoring"]]
-    },
-    "Groq Resume Parsing/Scoring": {
-      "main": [["Calculate ATS Score"]]
-    },
-    "Calculate ATS Score": {
-      "main": [["Update Candidate ATS Score"]]
-    },
- 
+    "Store Job Details": {
+      "main": [
+        [
+          {
+            "node": "Post Job to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
+  "pinData": {},
   "settings": {
-    "saveDataErrorExecution": "all",
-    "saveDataSuccessExecution": "none",
-    "saveManualExecutions": true
-  }
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-27T10:00:00.000Z",
+  "versionId": "hr-automation-v1.0"
 }
