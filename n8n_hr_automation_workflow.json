@@ -366,7 +366,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer key_d64cb94a0929d6bf59cf2b4ff369"
+              "value": "Bearer RETELL_API_KEY_PLACEHOLDER"
             },
             {
               "name": "Content-Type",
