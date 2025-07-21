@@ -1,0 +1,242 @@
+{
+  "meta": {
+    "instanceId": "hr-automation-workflow-v1.0"
+  },
+  "name": "Complete HR Automation System",
+  "nodes": [
+    {
+      "id": "node-start-form",
+      "name": "Job Posting Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 300],
+      "parameters": {
+        "formTitle": "HR Job Posting System",
+        "formDescription": "Create a new job posting with automated recruitment pipeline",
+        "responseMode": "responseNode",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Company Name",
+              "fieldType": "text",
+              "requiredField": true,
+              "fieldOptions": {}
+            },
+            {
+              "fieldLabel": "Job Title",
+              "fieldType": "text", 
+              "requiredField": true,
+              "fieldOptions": {}
+            },
+            {
+              "fieldLabel": "Job Description",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "fieldOptions": {
+                "rows": 5
+              }
+            },
+            {
+              "fieldLabel": "Resume Collection Limit Type",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Number limit",
+                    "value": "number"
+                  },
+                  {
+                    "option": "Time limit",
+                    "value": "time"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Resume Limit Number",
+              "fieldType": "number",
+              "requiredField": false,
+              "fieldOptions": {
+                "defaultValue": 1000
+              }
+            },
+            {
+              "fieldLabel": "Time Limit (Days)",
+              "fieldType": "number", 
+              "requiredField": false,
+              "fieldOptions": {
+                "defaultValue": 7
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-store-job",
+      "name": "Store Job Details",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 300],
+      "parameters": {
+        "functionCode": "// Store job details in local JSON database\nconst fs = require('fs');\nconst path = require('path');\n\n// Create job object\nconst jobData = {\n  job_id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n  company_name: $input.first().json.data['Company Name'],\n  job_title: $input.first().json.data['Job Title'],\n  job_description: $input.first().json.data['Job Description'],\n  limit_type: $input.first().json.data['Resume Collection Limit Type'],\n  limit_value: $input.first().json.data['Resume Collection Limit Type'] === 'number' ? \n    $input.first().json.data['Resume Limit Number'] || 1000 : \n    $input.first().json.data['Time Limit (Days)'] || 7,\n  status: 'active',\n  created_date: new Date().toISOString(),\n  resume_count: 0,\n  candidates: []\n};\n\n// Store in jobs.json file\nconst jobsPath = '/tmp/jobs.json';\nlet jobs = [];\n\ntry {\n  if (fs.existsSync(jobsPath)) {\n    jobs = JSON.parse(fs.readFileSync(jobsPath, 'utf8'));\n  }\n} catch (error) {\n  console.log('Creating new jobs file');\n  jobs = [];\n}\n\njobs.push(jobData);\nfs.writeFileSync(jobsPath, JSON.stringify(jobs, null, 2));\n\n// Create resumes directory if it doesn't exist\nconst resumesDir = `/tmp/resumes/${jobData.job_id}`;\nif (!fs.existsSync('/tmp/resumes')) {\n  fs.mkdirSync('/tmp/resumes', { recursive: true });\n}\nif (!fs.existsSync(resumesDir)) {\n  fs.mkdirSync(resumesDir, { recursive: true });\n}\n\nreturn [{\n  json: {\n    success: true,\n    job_id: jobData.job_id,\n    message: 'Job details stored successfully',\n    jobData: jobData\n  }\n}];"
+      }
+    },
+    {
+      "id": "node-linkedin-post",
+      "name": "Post Job to LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [600, 300],
+      "parameters": {
+        "url": "https://api.linkedin.com/v2/posts",
+        "method": "POST",
+        "authentication": "generic",
+        "genericAuthType": "httpHeaderAuth",
+        "httpHeaderAuth": {
+          "name": "Authorization",
+          "value": "Bearer LINKEDIN_ACCESS_TOKEN_PLACEHOLDER"
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"author\": \"urn:li:organization:COMPANY_ID_PLACEHOLDER\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": \"🚀 We're hiring! {{$json.jobData.job_title}} at {{$json.jobData.company_name}}\\n\\n{{$json.jobData.job_description}}\\n\\n#hiring #jobs #career\"\n      },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}",
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "enabled": true,
+            "maxAttempts": 3
+          }
+        }
+      }
+    },
+    {
+      "id": "node-groq-analysis",
+      "name": "Groq Resume Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [800, 900],
+      "parameters": {
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer GROQ_API_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"model\": \"llama3-8b-8192\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an expert ATS system. Analyze resumes and provide JSON response with: skills, experience_years, education_level, keywords_found, technical_skills, soft_skills, certifications\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this resume for ATS scoring: {{$json.candidates[0].resume_text}}\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"max_tokens\": 1000\n}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxAttempts": 3
+          }
+        }
+      }
+    },
+    {
+      "id": "node-retell-interview",
+      "name": "Retell Voice Interview",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [800, 1500],
+      "parameters": {
+        "url": "https://api.retellai.com/call",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer RETELL_API_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"from_number\": \"+1234567890\",\n  \"to_number\": \"{{$json.interviews[0].candidate_phone}}\",\n  \"agent_id\": \"agent_hr_interviewer\",\n  \"metadata\": {\n    \"candidate_id\": \"{{$json.interviews[0].candidate_id}}\",\n    \"interview_id\": \"{{$json.interviews[0].interview_id}}\",\n    \"candidate_name\": \"{{$json.interviews[0].candidate_name}}\"\n  }\n}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxAttempts": 2
+          }
+        }
+      }
+    },
+    {
+      "id": "node-smtp-email",
+      "name": "SMTP Email Sender",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [800, 1100],
+      "parameters": {
+        "smtpHost": "smtp.gmail.com",
+        "smtpPort": 587,
+        "smtpUser": "YOUR_GMAIL_ADDRESS",
+        "smtpPassword": "YOUR_APP_PASSWORD",
+        "fromEmail": "YOUR_GMAIL_ADDRESS",
+        "toEmail": "={{$json.email}}",
+        "subject": "HR Recruitment Update",
+        "emailFormat": "html",
+        "message": "<h1>Thank you for your application</h1><p>We have received your application and will be in touch soon.</p>"
+      }
+    }
+  ],
+  "connections": {
+    "Job Posting Form": {
+      "main": [
+        [
+          {
+            "node": "Store Job Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Job Details": {
+      "main": [
+        [
+          {
+            "node": "Post Job to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-27T10:00:00.000Z",
+  "versionId": "hr-automation-v1.0"
+}
