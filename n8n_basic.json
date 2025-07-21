@@ -1,0 +1,79 @@
+{
+  "name": "Basic HR Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { message: 'HR Workflow Started', timestamp: new Date() } }];"
+      },
+      "name": "Initialize",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "job-application"
+      },
+      "name": "Application Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const application = $input.first().json;\nconst score = Math.floor(Math.random() * 100);\nreturn [{ json: { candidate: application.name || 'Anonymous', email: application.email || 'no-email', score: score, status: score > 70 ? 'accepted' : 'rejected' } }];"
+      },
+      "name": "Score Application",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        460,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Initialize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Application Webhook": {
+      "main": [
+        [
+          {
+            "node": "Score Application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "staticData": null
+}
