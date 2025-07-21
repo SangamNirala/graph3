@@ -8,15 +8,15 @@
 
 1. **Groq API Key:**
    - Get your key from: https://console.groq.com/
-   - Format: `gsk_[your_key_here]`
+   - Use the key format from Groq platform
 
 2. **Retell Voice API Key:**
    - Get your key from: https://app.retellai.com/
-   - Format: `key_[your_key_here]`
+   - Use the key format from Retell platform
 
 3. **LinkedIn API Token:** (To be configured when available)
    - Get from LinkedIn Developer Portal
-   - Format: `Bearer [your_token_here]`
+   - Use Bearer token format
 
 ## Configuration Instructions:
 
@@ -31,5 +31,5 @@
 - Configure Gmail SMTP with app passwords for email automation
 - LinkedIn API integration requires separate setup when credentials are available
 
-## Original Keys (for your reference):
-- Contact the developer for the actual API keys that were provided in the original request
+## Original Keys Reference:
+The API keys were provided in the original request - please refer to the original conversation for the actual key values to use in your N8N configuration.
