@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / 'frontend' / '.env')
 
 # Get backend URL from environment
-BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://f576d419-9655-44df-95ef-dbabc9baf3ad.preview.emergentagent.com')
+BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL', 'https://064f3bb3-c010-4892-8a8e-8e29d9900fe8.preview.emergentagent.com')
 API_BASE_URL = f"{BACKEND_URL}/api"
 
 print(f"Testing Enhanced Continuous Prediction System at: {API_BASE_URL}")
