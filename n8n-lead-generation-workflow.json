@@ -65,7 +65,7 @@
       "position": [700,100]
     },
 
-    // 2. Resume Collection Webhook
+    
     {
       "id": "6",
       "type": "n8n-nodes-base.webhook",
@@ -106,7 +106,7 @@
       "position": [550,300]
     },
 
-    // 3. ATS Scoring
+  
     {
       "id": "10",
       "type": "n8n-nodes-base.readBinaryFile",
@@ -155,7 +155,7 @@
       "position": [1150,300]
     },
 
-    // 4. Bulk Emailing -- Shortlist/Reject
+
     {
       "id": "14",
       "type": "n8n-nodes-base.splitInBatches",
@@ -202,7 +202,7 @@
       "position": [550, 500]
     },
 
-    // 5. Phone Interview System
+    
     {
       "id": "18",
       "type": "n8n-nodes-base.cron",
@@ -288,7 +288,7 @@
       "position": [1000, 700]
     },
 
-    // 6. Final Selection Email + Calendar
+    
     {
       "id": "25",
       "type": "n8n-nodes-base.function",
@@ -370,8 +370,7 @@
     "Calculate ATS Score": {
       "main": [["Update Candidate ATS Score"]]
     },
-    // ...continue mapping every ID in the same fashion for all branches
-    // For brevity, not all branches are shown; continue chain for all remaining modules
+ 
   },
   "settings": {
     "saveDataErrorExecution": "all",
