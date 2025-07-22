@@ -1142,8 +1142,55 @@ class UniversalWaveformLearningSystem:
     
     def _find_plateaus(self, data: np.ndarray) -> List[Dict]:
         """Find flat segments in data"""
-        # Simplified implementation
-        return []
+        try:
+            if len(data) < 3:
+                return []
+            
+            plateaus = []
+            tolerance = np.std(data) * 0.1  # Adaptive tolerance based on data variability
+            min_plateau_length = max(3, len(data) // 20)  # Minimum plateau length
+            
+            current_plateau_start = 0
+            current_plateau_value = data[0]
+            
+            for i in range(1, len(data)):
+                # Check if current point is within tolerance of plateau value
+                if abs(data[i] - current_plateau_value) <= tolerance:
+                    continue
+                else:
+                    # End of current plateau
+                    plateau_length = i - current_plateau_start
+                    if plateau_length >= min_plateau_length:
+                        plateaus.append({
+                            'start_idx': current_plateau_start,
+                            'end_idx': i - 1,
+                            'length': plateau_length,
+                            'value': current_plateau_value,
+                            'variance': float(np.var(data[current_plateau_start:i])),
+                            'flatness_score': 1.0 / (1.0 + float(np.var(data[current_plateau_start:i])))
+                        })
+                    
+                    # Start new plateau
+                    current_plateau_start = i
+                    current_plateau_value = data[i]
+            
+            # Check final segment
+            if len(data) - current_plateau_start >= min_plateau_length:
+                plateaus.append({
+                    'start_idx': current_plateau_start,
+                    'end_idx': len(data) - 1,
+                    'length': len(data) - current_plateau_start,
+                    'value': current_plateau_value,
+                    'variance': float(np.var(data[current_plateau_start:])),
+                    'flatness_score': 1.0 / (1.0 + float(np.var(data[current_plateau_start:])))
+                })
+            
+            logger.info(f"Found {len(plateaus)} plateaus in data")
+            return plateaus
+            
+        except Exception as e:
+            logger.error(f"Error finding plateaus: {e}")
+            return []
     
     def _find_sharp_transitions(self, data: np.ndarray) -> List[Dict]:
         """Find sharp transitions in data"""
