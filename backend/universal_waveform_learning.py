@@ -2142,9 +2142,41 @@ class UniversalWaveformLearningSystem:
         except Exception as e:
             logger.error(f"Error updating learning from predictions: {e}")
     
-    def _assess_synthesis_capabilities(self, learned_patterns: Dict) -> Dict[str, Any]:
-        """Assess synthesis capabilities"""
-        return {'synthesis_readiness': 0.5}
+    def _assess_pattern_complexity_level(self, detected_patterns: Dict[str, Any]) -> float:
+        """Assess the complexity level of detected patterns"""
+        try:
+            if not detected_patterns:
+                return 0.0
+            
+            complexity_scores = []
+            
+            for pattern_name, pattern_info in detected_patterns.items():
+                confidence = pattern_info.get('confidence', 0.0)
+                
+                # Different patterns have different inherent complexity
+                pattern_complexity = {
+                    'square_wave': 0.6,
+                    'triangular_wave': 0.7,
+                    'sawtooth_wave': 0.7,
+                    'step_function': 0.4,
+                    'sinusoidal_pattern': 0.8,
+                    'polynomial_pattern': 0.9,
+                    'composite_pattern': 0.95,
+                    'fractal_pattern': 0.99,
+                    'chaotic_pattern': 0.99
+                }.get(pattern_name, 0.5)
+                
+                weighted_complexity = pattern_complexity * confidence
+                complexity_scores.append(weighted_complexity)
+            
+            if complexity_scores:
+                return float(np.mean(complexity_scores))
+            else:
+                return 0.0
+                
+        except Exception as e:
+            logger.error(f"Error assessing pattern complexity level: {e}")
+            return 0.0
     
     def _assess_universal_learning_quality(self, data: np.ndarray, 
                                          learned_patterns: Dict,
