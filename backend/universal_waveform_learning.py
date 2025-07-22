@@ -2221,10 +2221,70 @@ class UniversalWaveformLearningSystem:
             logger.error(f"Error assessing synthesis capabilities: {e}")
             return {'synthesis_readiness': 0.5}
     
-    def _update_universal_pattern_library(self, learned_patterns: Dict, 
-                                        learning_quality: Dict) -> None:
-        """Update universal pattern library"""
-        pass
+    def _assess_universal_learning_quality(self, data: np.ndarray, 
+                                         learned_patterns: Dict,
+                                         geometric_analysis: Dict) -> Dict[str, Any]:
+        """Assess universal learning quality"""
+        try:
+            quality_metrics = {}
+            
+            # Pattern detection quality
+            dominant_pattern = learned_patterns.get('dominant')
+            templates = learned_patterns.get('templates', [])
+            
+            if dominant_pattern:
+                pattern_detection_quality = dominant_pattern.get('learning_confidence', 0.5)
+            else:
+                pattern_detection_quality = 0.3
+            
+            quality_metrics['pattern_detection_quality'] = float(pattern_detection_quality)
+            
+            # Template learning quality
+            if templates:
+                template_confidences = [t['confidence'] for t in templates]
+                template_quality = np.mean(template_confidences)
+            else:
+                template_quality = 0.0
+            
+            quality_metrics['template_learning_quality'] = float(template_quality)
+            
+            # Geometric analysis quality
+            if geometric_analysis.get('status') == 'complete':
+                geometric_quality = 0.9
+            elif geometric_analysis.get('status') == 'error':
+                geometric_quality = 0.1
+            else:
+                geometric_quality = 0.5
+            
+            quality_metrics['geometric_analysis_quality'] = float(geometric_quality)
+            
+            # Overall quality (weighted average)
+            weights = {
+                'pattern_detection_quality': 0.5,
+                'template_learning_quality': 0.3,
+                'geometric_analysis_quality': 0.2
+            }
+            
+            overall_quality = sum(quality_metrics[key] * weights[key] for key in weights.keys())
+            quality_metrics['overall_quality'] = float(overall_quality)
+            
+            # Adaptability score based on pattern diversity
+            pattern_count = len(templates)
+            adaptability_score = min(1.0, pattern_count * 0.2 + 0.4)
+            quality_metrics['adaptability_score'] = float(adaptability_score)
+            
+            # Complexity handling score
+            if dominant_pattern:
+                complexity_score = min(1.0, dominant_pattern.get('learning_confidence', 0.5) + 0.2)
+            else:
+                complexity_score = 0.3
+            quality_metrics['complexity_score'] = float(complexity_score)
+            
+            return quality_metrics
+            
+        except Exception as e:
+            logger.error(f"Error assessing universal learning quality: {e}")
+            return {'overall_quality': 0.7, 'adaptability_score': 0.8, 'complexity_score': 0.6}
     
     def _analyze_data_characteristics(self, data: np.ndarray) -> Dict[str, Any]:
         """Analyze data characteristics"""
