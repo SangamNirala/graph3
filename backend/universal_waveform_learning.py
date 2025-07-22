@@ -443,43 +443,171 @@ class UniversalWaveformLearningSystem:
             return {'confidence': 0.0, 'strength': 0.0}
     
     def _detect_step_function_pattern(self, data: np.ndarray) -> Dict[str, Any]:
-        """Detect step function patterns with discrete levels and sharp transitions"""
+        """Detect step function patterns with discrete levels and sudden changes"""
         try:
-            # Find step transitions
-            step_transitions = self._find_step_transitions(data)
+            # Find plateaus (flat segments) - key characteristic of step functions
+            plateaus = self._find_plateaus(data)
             
-            if len(step_transitions) < 1:
+            if len(plateaus) < 2:  # Need at least 2 levels for a step function
                 return {'confidence': 0.0, 'strength': 0.0}
             
-            # Identify discrete levels
-            discrete_levels = self._identify_discrete_levels(data, step_transitions)
+            # Find transitions between levels
+            transitions = self._find_sharp_transitions(data)
             
-            # Analyze step characteristics
-            level_stability = self._calculate_level_stability(discrete_levels, data)
-            transition_quality = self._calculate_step_transition_quality(step_transitions, data)
-            discreteness_score = self._calculate_discreteness_score(discrete_levels, data)
+            # Analyze step function characteristics
+            level_analysis = self._analyze_step_levels(plateaus, data)
+            transition_analysis = self._analyze_step_transitions(transitions, plateaus)
             
-            step_score = (level_stability * 0.4 + 
-                         transition_quality * 0.4 + 
-                         discreteness_score * 0.2)
+            # Calculate step function score based on:
+            # 1. Number and quality of discrete levels (plateaus)
+            # 2. Sharpness and consistency of transitions
+            # 3. Minimal time spent in transition states
+            
+            level_quality = level_analysis.get('level_consistency', 0.0)
+            level_discreteness = level_analysis.get('discreteness_score', 0.0)
+            transition_quality = transition_analysis.get('transition_sharpness', 0.0)
+            plateau_dominance = len(plateaus) / len(data) * 10  # Favor data that's mostly plateaus
+            
+            # Step functions should have:
+            # - High level consistency (few distinct levels)
+            # - Sharp transitions
+            # - Most data points in plateau states
+            step_score = (level_quality * 0.3 + 
+                         level_discreteness * 0.3 + 
+                         transition_quality * 0.2 + 
+                         min(1.0, plateau_dominance) * 0.2)
             
             return {
                 'confidence': float(step_score),
                 'strength': float(step_score),
                 'pattern_type': 'step_function',
-                'step_transitions': step_transitions,
-                'discrete_levels': discrete_levels,
-                'level_stability': float(level_stability),
-                'transition_quality': float(transition_quality),
-                'discreteness_score': float(discreteness_score),
-                'num_levels': len(discrete_levels),
-                'level_spacing': self._calculate_level_spacing(discrete_levels),
-                'template': self._create_step_function_template(step_transitions, discrete_levels, data)
+                'plateaus': plateaus,
+                'transitions': transitions,
+                'level_analysis': level_analysis,
+                'transition_analysis': transition_analysis,
+                'step_levels': level_analysis.get('unique_levels', []),
+                'level_count': level_analysis.get('level_count', 0),
+                'template': self._create_step_function_template(plateaus, data)
             }
             
         except Exception as e:
             logger.error(f"Error detecting step function pattern: {e}")
             return {'confidence': 0.0, 'strength': 0.0}
+    
+    def _analyze_step_levels(self, plateaus: List[Dict], data: np.ndarray) -> Dict[str, Any]:
+        """Analyze the discrete levels in step function"""
+        try:
+            if not plateaus:
+                return {'level_consistency': 0.0, 'discreteness_score': 0.0}
+            
+            # Extract plateau values
+            plateau_values = [p['value'] for p in plateaus]
+            
+            # Find unique levels with clustering
+            tolerance = np.std(data) * 0.1 if np.std(data) > 0 else 0.1
+            unique_levels = []
+            
+            for value in plateau_values:
+                # Check if this value is close to any existing level
+                is_new_level = True
+                for level in unique_levels:
+                    if abs(value - level) <= tolerance:
+                        is_new_level = False
+                        break
+                if is_new_level:
+                    unique_levels.append(value)
+            
+            unique_levels.sort()
+            
+            # Level consistency: fewer levels = better step function
+            max_levels = 5  # Reasonable maximum for step functions
+            level_consistency = max(0.0, 1.0 - (len(unique_levels) - 2) / max_levels) if len(unique_levels) >= 2 else 0.0
+            
+            # Discreteness score: how well separated are the levels
+            if len(unique_levels) >= 2:
+                level_separations = [abs(unique_levels[i+1] - unique_levels[i]) for i in range(len(unique_levels)-1)]
+                avg_separation = np.mean(level_separations)
+                data_noise = np.std(data)
+                
+                if data_noise > 0:
+                    discreteness_score = min(1.0, avg_separation / data_noise)
+                else:
+                    discreteness_score = 1.0
+            else:
+                discreteness_score = 0.0
+            
+            return {
+                'level_consistency': float(level_consistency),
+                'discreteness_score': float(discreteness_score),
+                'unique_levels': unique_levels,
+                'level_count': len(unique_levels),
+                'level_separations': level_separations if len(unique_levels) >= 2 else [],
+                'avg_separation': float(avg_separation) if len(unique_levels) >= 2 else 0.0
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing step levels: {e}")
+            return {'level_consistency': 0.0, 'discreteness_score': 0.0}
+    
+    def _analyze_step_transitions(self, transitions: List[Dict], plateaus: List[Dict]) -> Dict[str, Any]:
+        """Analyze transitions between step levels"""
+        try:
+            if not transitions:
+                return {'transition_sharpness': 0.0}
+            
+            # Calculate average sharpness of transitions
+            sharpness_scores = [t.get('sharpness_score', 0.0) for t in transitions]
+            avg_sharpness = np.mean(sharpness_scores) if sharpness_scores else 0.0
+            
+            # Check if transitions are between plateau levels
+            plateau_transitions = 0
+            for transition in transitions:
+                # Check if transition connects two plateaus
+                for plateau in plateaus:
+                    if (plateau['start_idx'] <= transition['idx'] <= plateau['end_idx'] + 1):
+                        plateau_transitions += 1
+                        break
+            
+            if len(transitions) > 0:
+                plateau_transition_ratio = plateau_transitions / len(transitions)
+            else:
+                plateau_transition_ratio = 0.0
+            
+            return {
+                'transition_sharpness': float(avg_sharpness),
+                'plateau_transition_ratio': float(plateau_transition_ratio),
+                'transition_count': len(transitions)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing step transitions: {e}")
+            return {'transition_sharpness': 0.0}
+    
+    def _create_step_function_template(self, plateaus: List[Dict], data: np.ndarray) -> np.ndarray:
+        """Create a template for step function pattern"""
+        try:
+            if not plateaus:
+                return np.array([])
+            
+            # Extract unique levels
+            plateau_values = [p['value'] for p in plateaus]
+            unique_levels = sorted(list(set(plateau_values)))
+            
+            if len(unique_levels) < 2:
+                return np.array([plateau_values[0]] * 10)
+            
+            # Create a simple step template using the levels
+            template = []
+            step_length = max(3, len(data) // (len(unique_levels) * 2))
+            
+            for level in unique_levels:
+                template.extend([level] * step_length)
+            
+            return np.array(template)
+            
+        except Exception as e:
+            logger.error(f"Error creating step function template: {e}")
+            return np.array([])
     
     def _detect_pulse_pattern(self, data: np.ndarray) -> Dict[str, Any]:
         """Detect pulse patterns with sharp peaks and baseline returns"""
