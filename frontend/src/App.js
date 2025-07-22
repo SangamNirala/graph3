@@ -408,7 +408,20 @@ function App() {
     }
 
     try {
-      // Try new enhanced real-time prediction first (highest priority)
+      // Try NEW UNIVERSAL WAVEFORM PREDICTION FIRST (highest priority) - learns ANY pattern complexity
+      const universalWaveformResponse = await fetch(`${API}/generate-universal-waveform-prediction?steps=30&time_window=${timeWindow}&learning_mode=comprehensive`);
+      if (universalWaveformResponse.ok) {
+        const universalWaveformData = await universalWaveformResponse.json();
+        console.log('🌊 Universal waveform prediction result:', universalWaveformData);
+        console.log('🎯 Detected patterns:', universalWaveformData.waveform_analysis?.detected_patterns);
+        console.log('📈 Pattern complexity:', universalWaveformData.waveform_analysis?.pattern_complexity);
+        console.log('🏆 Overall quality:', universalWaveformData.quality_metrics?.overall_quality);
+        console.log('🔧 Shape preservation:', universalWaveformData.waveform_analysis?.shape_preservation);
+        console.log('📊 Waveform fidelity:', universalWaveformData.quality_metrics?.waveform_fidelity);
+        return universalWaveformData;
+      }
+      
+      // Try enhanced real-time prediction as fallback
       const enhancedRealtimeResponse = await fetch(`${API}/generate-enhanced-realtime-prediction?steps=30&time_window=${timeWindow}&maintain_patterns=true`);
       if (enhancedRealtimeResponse.ok) {
         const enhancedRealtimeData = await enhancedRealtimeResponse.json();
