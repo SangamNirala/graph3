@@ -1333,5 +1333,155 @@ class UniversalWaveformLearningSystem:
         """Select optimal synthesis method"""
         return 'geometric_synthesis'
 
-    # Additional placeholder methods would continue here...
-    # This provides the foundation for the universal waveform learning system
+    def _calculate_curvature(self, data: np.ndarray) -> float:
+        """Calculate average curvature of the data"""
+        try:
+            if len(data) < 3:
+                return 0.0
+            
+            second_derivative = np.diff(data, n=2)
+            return float(np.mean(np.abs(second_derivative)))
+            
+        except Exception:
+            return 0.0
+    
+    def _calculate_linearity(self, data: np.ndarray) -> float:
+        """Calculate how linear the data is (0=nonlinear, 1=perfectly linear)"""
+        try:
+            if len(data) < 3:
+                return 0.0
+            
+            # Fit linear trend
+            x = np.arange(len(data))
+            linear_fit = np.polyfit(x, data, 1)
+            linear_pred = np.polyval(linear_fit, x)
+            
+            # Calculate R-squared for linearity
+            ss_res = np.sum((data - linear_pred) ** 2)
+            ss_tot = np.sum((data - np.mean(data)) ** 2)
+            
+            if ss_tot == 0:
+                return 1.0
+            
+            r_squared = 1 - (ss_res / ss_tot)
+            return float(max(0.0, min(1.0, r_squared)))
+            
+        except Exception:
+            return 0.0
+    
+    def _estimate_periodicity(self, data: np.ndarray) -> Dict[str, Any]:
+        """Estimate periodicity characteristics"""
+        try:
+            if len(data) < 6:
+                return {'period': 0, 'strength': 0.0, 'confidence': 0.0}
+            
+            # Use autocorrelation to find period
+            autocorr = np.correlate(data - np.mean(data), data - np.mean(data), mode='full')
+            autocorr = autocorr[len(autocorr)//2:]
+            
+            # Normalize
+            if autocorr[0] != 0:
+                autocorr = autocorr / autocorr[0]
+            
+            # Find peaks in autocorrelation (excluding the first point)
+            if len(autocorr) > 3:
+                peaks, _ = find_peaks(autocorr[1:], height=0.3, distance=2)
+                if len(peaks) > 0:
+                    # First significant peak indicates period
+                    period = peaks[0] + 1
+                    strength = autocorr[period] if period < len(autocorr) else 0.0
+                    return {
+                        'period': int(period),
+                        'strength': float(strength),
+                        'confidence': float(min(1.0, strength * 2))
+                    }
+            
+            return {'period': 0, 'strength': 0.0, 'confidence': 0.0}
+            
+        except Exception:
+            return {'period': 0, 'strength': 0.0, 'confidence': 0.0}
+    
+    def _calculate_symmetry(self, data: np.ndarray) -> float:
+        """Calculate symmetry score (0=asymmetric, 1=symmetric)"""
+        try:
+            if len(data) < 4:
+                return 0.0
+            
+            # Check for symmetry around the center
+            center_idx = len(data) // 2
+            left_half = data[:center_idx]
+            right_half = data[len(data):center_idx-1:-1]  # Reverse right half
+            
+            # Make them same length
+            min_len = min(len(left_half), len(right_half))
+            if min_len == 0:
+                return 0.0
+            
+            left_half = left_half[-min_len:]
+            right_half = right_half[:min_len]
+            
+            # Calculate correlation
+            if np.std(left_half) > 1e-8 and np.std(right_half) > 1e-8:
+                correlation = np.corrcoef(left_half, right_half)[0, 1]
+                if not np.isnan(correlation):
+                    return float(abs(correlation))
+            
+            return 0.0
+            
+        except Exception:
+            return 0.0
+    
+    def _analyze_harmonics(self, fft_data: np.ndarray, frequencies: np.ndarray) -> Dict[str, Any]:
+        """Analyze harmonic content"""
+        try:
+            magnitude = np.abs(fft_data)
+            
+            # Find peaks in frequency domain
+            peaks, _ = find_peaks(magnitude[1:len(fft_data)//2], height=np.max(magnitude) * 0.1)
+            peaks = peaks + 1  # Adjust for offset
+            
+            harmonics = []
+            for peak in peaks:
+                harmonics.append({
+                    'frequency': float(frequencies[peak]),
+                    'magnitude': float(magnitude[peak]),
+                    'phase': float(np.angle(fft_data[peak]))
+                })
+            
+            return {
+                'harmonic_count': len(harmonics),
+                'harmonics': harmonics,
+                'fundamental_frequency': harmonics[0]['frequency'] if harmonics else 0.0
+            }
+            
+        except Exception:
+            return {'harmonic_count': 0, 'harmonics': [], 'fundamental_frequency': 0.0}
+
+    # Additional pattern detection helper methods
+    def _analyze_plateau_characteristics(self, plateaus: List[Dict], data: np.ndarray) -> Dict[str, Any]:
+        """Analyze characteristics of detected plateaus"""
+        try:
+            if not plateaus:
+                return {'flatness_score': 0.0, 'level_consistency': 0.0}
+            
+            # Calculate average flatness
+            flatness_scores = [p['flatness_score'] for p in plateaus]
+            avg_flatness = np.mean(flatness_scores)
+            
+            # Calculate level consistency (how similar plateau values are)
+            plateau_values = [p['value'] for p in plateaus]
+            if len(set(plateau_values)) <= 2:  # Square wave should have ~2 levels
+                level_consistency = 0.9
+            else:
+                level_consistency = 0.5
+            
+            return {
+                'flatness_score': float(avg_flatness),
+                'level_consistency': float(level_consistency),
+                'plateau_count': len(plateaus),
+                'avg_plateau_length': float(np.mean([p['length'] for p in plateaus]))
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing plateau characteristics: {e}")
+            return {'flatness_score': 0.0, 'level_consistency': 0.0}
