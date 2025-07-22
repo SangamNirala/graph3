@@ -1289,6 +1289,204 @@ class UniversalWaveformLearningSystem:
             logger.error(f"Error in comprehensive geometric analysis: {e}")
             return {'status': 'error', 'error': str(e)}
     
+    def _apply_all_learning_strategies(self, data: np.ndarray, 
+                                     detected_patterns: Dict, 
+                                     geometric_analysis: Dict) -> Dict[str, Any]:
+        """Apply all learning strategies to learn from detected patterns"""
+        try:
+            learned_patterns = {}
+            
+            # Extract dominant pattern for focused learning
+            dominant_pattern = detected_patterns.get('dominant_pattern')
+            all_patterns = detected_patterns.get('all_patterns', {})
+            
+            if dominant_pattern:
+                pattern_name, pattern_info = dominant_pattern
+                learned_patterns['dominant'] = {
+                    'type': pattern_name,
+                    'info': pattern_info,
+                    'learning_confidence': pattern_info.get('confidence', 0.5)
+                }
+                
+                logger.info(f"Learning strategy focused on dominant pattern: {pattern_name}")
+            
+            # Learn from geometric analysis
+            if geometric_analysis.get('status') == 'complete':
+                learned_patterns['geometric_characteristics'] = {
+                    'curvature_profile': geometric_analysis.get('curvature', 0.0),
+                    'linearity_level': geometric_analysis.get('linearity', 0.0),
+                    'periodicity_info': geometric_analysis.get('periodicity', {}),
+                    'symmetry_score': geometric_analysis.get('symmetry', 0.0),
+                    'dominant_frequency': geometric_analysis.get('dominant_frequency', 0.0),
+                    'trend_characteristics': {
+                        'strength': geometric_analysis.get('trend_strength', 0.0),
+                        'direction': geometric_analysis.get('trend_direction', 'stable')
+                    }
+                }
+            
+            # Pattern template learning
+            templates_learned = []
+            for pattern_name, pattern_info in all_patterns.items():
+                if pattern_info.get('confidence', 0) > 0.3:
+                    template = self._extract_pattern_template(pattern_name, pattern_info, data)
+                    if template is not None and len(template) > 0:
+                        templates_learned.append({
+                            'pattern_type': pattern_name,
+                            'template': template,
+                            'confidence': pattern_info.get('confidence', 0.5),
+                            'characteristics': pattern_info
+                        })
+            
+            learned_patterns['templates'] = templates_learned
+            
+            # Learning quality assessment
+            learning_quality = {
+                'pattern_coverage': len(all_patterns),
+                'dominant_pattern_strength': dominant_pattern[1].get('confidence', 0.0) if dominant_pattern else 0.0,
+                'template_quality': len(templates_learned),
+                'geometric_completeness': 1.0 if geometric_analysis.get('status') == 'complete' else 0.3
+            }
+            
+            learned_patterns['learning_quality'] = learning_quality
+            
+            return learned_patterns
+            
+        except Exception as e:
+            logger.error(f"Error applying learning strategies: {e}")
+            return {'learned_patterns': [], 'learning_quality': {'overall_quality': 0.2}}
+
+    def _extract_pattern_template(self, pattern_name: str, pattern_info: Dict[str, Any], data: np.ndarray) -> Optional[np.ndarray]:
+        """Extract a reusable template from detected pattern"""
+        try:
+            if pattern_name == 'square_wave':
+                return pattern_info.get('template', np.array([]))
+            elif pattern_name == 'triangular_wave':
+                return self._create_triangular_template(pattern_info, data)
+            elif pattern_name == 'sawtooth_wave':
+                return self._create_sawtooth_template(pattern_info, data)
+            elif pattern_name == 'sinusoidal_pattern':
+                return self._create_sinusoidal_template(pattern_info, data)
+            elif pattern_name == 'step_function':
+                return self._create_step_template(pattern_info, data)
+            else:
+                # Generic template based on data characteristics
+                return self._create_generic_template(pattern_info, data)
+                
+        except Exception as e:
+            logger.error(f"Error extracting pattern template for {pattern_name}: {e}")
+            return None
+    
+    def _create_triangular_template(self, pattern_info: Dict[str, Any], data: np.ndarray) -> np.ndarray:
+        """Create triangular wave template"""
+        try:
+            peaks = pattern_info.get('peaks', [])
+            valleys = pattern_info.get('valleys', [])
+            
+            if not peaks and not valleys:
+                return np.array([])
+            
+            # Estimate period and amplitude
+            period = self._estimate_triangular_wave_period(np.array(peaks), np.array(valleys))
+            amplitude = self._estimate_triangular_amplitude(data, np.array(peaks), np.array(valleys))
+            
+            # Create template
+            template = []
+            for i in range(period):
+                if i < period // 2:
+                    # Rising edge
+                    value = -amplitude + (2 * amplitude * i) / (period // 2)
+                else:
+                    # Falling edge
+                    value = amplitude - (2 * amplitude * (i - period // 2)) / (period // 2)
+                template.append(value)
+            
+            return np.array(template)
+            
+        except Exception as e:
+            logger.error(f"Error creating triangular template: {e}")
+            return np.array([])
+    
+    def _create_sawtooth_template(self, pattern_info: Dict[str, Any], data: np.ndarray) -> np.ndarray:
+        """Create sawtooth wave template"""
+        try:
+            # Estimate characteristics
+            data_range = np.max(data) - np.min(data)
+            amplitude = data_range / 2
+            mean_val = np.mean(data)
+            period = max(10, len(data) // 5)  # Estimate period
+            
+            template = []
+            for i in range(period):
+                if i < period - 1:
+                    # Linear rise
+                    value = mean_val - amplitude + (2 * amplitude * i) / (period - 1)
+                else:
+                    # Sharp drop
+                    value = mean_val - amplitude
+                template.append(value)
+            
+            return np.array(template)
+            
+        except Exception as e:
+            logger.error(f"Error creating sawtooth template: {e}")
+            return np.array([])
+    
+    def _create_sinusoidal_template(self, pattern_info: Dict[str, Any], data: np.ndarray) -> np.ndarray:
+        """Create sinusoidal wave template"""
+        try:
+            # Estimate sinusoidal parameters
+            amplitude = np.std(data) * 1.4
+            mean_val = np.mean(data)
+            period = max(8, len(data) // 4)
+            
+            template = []
+            for i in range(period):
+                value = mean_val + amplitude * np.sin(2 * np.pi * i / period)
+                template.append(value)
+            
+            return np.array(template)
+            
+        except Exception as e:
+            logger.error(f"Error creating sinusoidal template: {e}")
+            return np.array([])
+    
+    def _create_step_template(self, pattern_info: Dict[str, Any], data: np.ndarray) -> np.ndarray:
+        """Create step function template"""
+        try:
+            plateaus = pattern_info.get('plateaus', [])
+            if not plateaus:
+                return np.array([])
+            
+            # Extract step levels
+            levels = [p['value'] for p in plateaus]
+            unique_levels = sorted(list(set(levels)))
+            
+            # Create simple step template
+            if len(unique_levels) >= 2:
+                step_length = max(5, len(data) // 10)
+                template = [unique_levels[0]] * step_length + [unique_levels[1]] * step_length
+                return np.array(template)
+            else:
+                return np.array([levels[0]] * 10)
+                
+        except Exception as e:
+            logger.error(f"Error creating step template: {e}")
+            return np.array([])
+    
+    def _create_generic_template(self, pattern_info: Dict[str, Any], data: np.ndarray) -> np.ndarray:
+        """Create generic template from data"""
+        try:
+            # Use recent data as template
+            template_length = min(20, len(data) // 2)
+            if template_length > 0:
+                return data[-template_length:].copy()
+            else:
+                return np.array([np.mean(data)] * 10)
+                
+        except Exception as e:
+            logger.error(f"Error creating generic template: {e}")
+            return np.array([])
+
     def _apply_waveform_shape_corrections(self, predictions: np.ndarray, data: np.ndarray, pattern_state: Dict[str, Any]) -> np.ndarray:
         """Apply waveform shape corrections to maintain pattern characteristics"""
         try:
