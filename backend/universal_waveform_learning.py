@@ -1201,36 +1201,48 @@ class UniversalWaveformLearningSystem:
             
             transitions = []
             
-            # Calculate first derivative to find transition points
-            gradient = np.gradient(data)
+            # For square waves, look for significant jumps between consecutive points
+            threshold = np.std(data) * 0.5  # Lower threshold for better detection
             
-            # Find points where gradient changes significantly
-            gradient_threshold = np.std(gradient) * 1.5
-            
-            for i in range(1, len(gradient) - 1):
-                # Check for sharp changes in gradient
-                left_grad = gradient[i - 1]
-                curr_grad = gradient[i]
-                right_grad = gradient[i + 1]
+            for i in range(1, len(data) - 1):
+                # Check for sudden value changes
+                left_diff = abs(data[i] - data[i - 1])
+                right_diff = abs(data[i + 1] - data[i])
                 
-                # Detect transition if gradient changes rapidly
-                if (abs(curr_grad) > gradient_threshold and 
-                    abs(curr_grad - left_grad) > gradient_threshold and
-                    abs(curr_grad - right_grad) > gradient_threshold):
+                # A transition is where we have a significant change
+                if left_diff > threshold or right_diff > threshold:
                     
-                    # Calculate transition characteristics
-                    transition_strength = abs(curr_grad)
-                    sharpness = abs(curr_grad - left_grad) + abs(curr_grad - right_grad)
+                    # Calculate transition strength based on magnitude of change
+                    transition_strength = max(left_diff, right_diff)
                     
-                    transitions.append({
-                        'idx': i,
-                        'value_before': data[i - 1],
-                        'value_after': data[i + 1],
-                        'gradient': curr_grad,
-                        'transition_strength': float(transition_strength),
-                        'sharpness_score': float(sharpness / (2 * gradient_threshold)),
-                        'amplitude_change': abs(data[i + 1] - data[i - 1])
-                    })
+                    # Check if this is a genuine transition (not just noise)
+                    if i >= 2 and i < len(data) - 2:
+                        # Look at surrounding values to confirm it's a step change
+                        before_stable = abs(data[i-2] - data[i-1]) < threshold * 0.5
+                        after_stable = abs(data[i+1] - data[i+2]) < threshold * 0.5
+                        
+                        # If stable before and after, it's a good transition
+                        if before_stable or after_stable:
+                            transitions.append({
+                                'idx': i,
+                                'value_before': data[i - 1],
+                                'value_after': data[i + 1],
+                                'gradient': data[i + 1] - data[i - 1],
+                                'transition_strength': float(transition_strength),
+                                'sharpness_score': float(min(1.0, transition_strength / (np.max(data) - np.min(data) + 1e-8))),
+                                'amplitude_change': abs(data[i + 1] - data[i - 1])
+                            })
+                    else:
+                        # Edge case - near boundaries
+                        transitions.append({
+                            'idx': i,
+                            'value_before': data[i - 1],
+                            'value_after': data[i + 1] if i + 1 < len(data) else data[i],
+                            'gradient': (data[i + 1] if i + 1 < len(data) else data[i]) - data[i - 1],
+                            'transition_strength': float(transition_strength),
+                            'sharpness_score': float(min(1.0, transition_strength / (np.max(data) - np.min(data) + 1e-8))),
+                            'amplitude_change': abs((data[i + 1] if i + 1 < len(data) else data[i]) - data[i - 1])
+                        })
             
             # Sort by transition strength
             transitions.sort(key=lambda x: x['transition_strength'], reverse=True)
