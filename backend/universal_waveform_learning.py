@@ -1685,4 +1685,386 @@ class UniversalWaveformLearningSystem:
             
         except Exception as e:
             logger.error(f"Error finding linear segments: {e}")
-            return []
+    def _calculate_linearity_score(self, linear_segments: List[Dict], data: np.ndarray) -> float:
+        """Calculate overall linearity score from segments"""
+        try:
+            if not linear_segments:
+                return 0.0
+            
+            # Average the linearity scores of all segments weighted by length
+            total_weight = 0
+            weighted_score = 0
+            
+            for segment in linear_segments:
+                length = segment['length']
+                linearity = segment['linearity_score']
+                
+                weighted_score += linearity * length
+                total_weight += length
+            
+            if total_weight > 0:
+                return float(weighted_score / total_weight)
+            else:
+                return 0.0
+                
+        except Exception as e:
+            logger.error(f"Error calculating linearity score: {e}")
+            return 0.0
+    
+    def _calculate_peak_sharpness(self, peaks: np.ndarray, valleys: np.ndarray, data: np.ndarray) -> float:
+        """Calculate sharpness of peaks and valleys for triangular waves"""
+        try:
+            all_extrema = np.concatenate([peaks, valleys])
+            if len(all_extrema) == 0:
+                return 0.0
+            
+            sharpness_scores = []
+            
+            for extremum in all_extrema:
+                if extremum > 0 and extremum < len(data) - 1:
+                    # Calculate local curvature at extremum
+                    left_val = data[extremum - 1]
+                    center_val = data[extremum]
+                    right_val = data[extremum + 1]
+                    
+                    # Sharp peaks/valleys have high second derivative
+                    second_deriv = abs(left_val - 2*center_val + right_val)
+                    sharpness_scores.append(second_deriv)
+            
+            if sharpness_scores:
+                # Normalize by data range
+                data_range = np.max(data) - np.min(data)
+                if data_range > 0:
+                    avg_sharpness = np.mean(sharpness_scores) / data_range
+                    return float(min(1.0, avg_sharpness * 10))  # Scale appropriately
+                else:
+                    return 0.0
+            else:
+                return 0.0
+                
+        except Exception as e:
+            logger.error(f"Error calculating peak sharpness: {e}")
+            return 0.0
+    
+    def _calculate_triangular_symmetry(self, peaks: np.ndarray, valleys: np.ndarray, data: np.ndarray) -> float:
+        """Calculate symmetry score for triangular waves"""
+        try:
+            all_extrema = np.concatenate([peaks, valleys])
+            all_extrema = np.sort(all_extrema)
+            
+            if len(all_extrema) < 2:
+                return 0.0
+            
+            symmetry_scores = []
+            
+            # Check symmetry of segments between consecutive extrema
+            for i in range(len(all_extrema) - 1):
+                start_idx = all_extrema[i]
+                end_idx = all_extrema[i + 1]
+                
+                if end_idx - start_idx >= 4:  # Need enough points
+                    segment = data[start_idx:end_idx + 1]
+                    
+                    # Check if segment is approximately linear (triangular segments should be)
+                    x = np.arange(len(segment))
+                    slope, _ = np.polyfit(x, segment, 1)
+                    predicted = np.polyfit(x, segment, 1)
+                    predicted_line = np.polyval(predicted, x)
+                    
+                    # Calculate R-squared for linearity
+                    ss_res = np.sum((segment - predicted_line) ** 2)
+                    ss_tot = np.sum((segment - np.mean(segment)) ** 2)
+                    
+                    if ss_tot > 0:
+                        r_squared = 1 - (ss_res / ss_tot)
+                        symmetry_scores.append(max(0.0, r_squared))
+            
+            if symmetry_scores:
+                return float(np.mean(symmetry_scores))
+            else:
+                return 0.0
+                
+        except Exception as e:
+            logger.error(f"Error calculating triangular symmetry: {e}")
+            return 0.0
+    
+    def _calculate_triangular_periodicity(self, peaks: np.ndarray, valleys: np.ndarray) -> float:
+        """Calculate periodicity score for triangular waves"""
+        try:
+            all_extrema = np.concatenate([peaks, valleys])
+            all_extrema = np.sort(all_extrema)
+            
+            if len(all_extrema) < 3:
+                return 0.0
+            
+            # Calculate intervals between consecutive extrema
+            intervals = np.diff(all_extrema)
+            
+            if len(intervals) < 2:
+                return 0.0
+            
+            # Good triangular waves have consistent intervals
+            interval_consistency = 1.0 / (1.0 + np.std(intervals) / np.mean(intervals))
+            
+            # Also check for alternating peaks and valleys
+            alternation_score = 0.8  # Assume reasonable alternation for now
+            
+            return float(interval_consistency * 0.7 + alternation_score * 0.3)
+            
+        except Exception as e:
+            logger.error(f"Error calculating triangular periodicity: {e}")
+            return 0.0
+
+    # Additional synthesis helper methods
+    def _estimate_square_wave_period(self, plateaus: List[Dict]) -> int:
+        """Estimate period of square wave from plateaus"""
+        try:
+            if len(plateaus) < 2:
+                return 10  # Default period
+            
+            # Calculate average plateau length and double it (high + low period)
+            avg_length = np.mean([p['length'] for p in plateaus])
+            return max(4, int(avg_length * 2))
+            
+        except Exception:
+            return 10
+    
+    def _get_last_square_wave_level(self, data: np.ndarray, amplitude_levels: List[float]) -> float:
+        """Get the last level of square wave to continue pattern"""
+        try:
+            if not amplitude_levels:
+                return data[-1]
+            
+            last_value = data[-1]
+            
+            # Find closest amplitude level
+            distances = [abs(last_value - level) for level in amplitude_levels]
+            closest_idx = np.argmin(distances)
+            
+            return amplitude_levels[closest_idx]
+            
+        except Exception:
+            return data[-1] if len(data) > 0 else 0.0
+    
+    def _estimate_triangular_wave_period(self, peaks: np.ndarray, valleys: np.ndarray) -> int:
+        """Estimate period of triangular wave from peaks and valleys"""
+        try:
+            all_extrema = np.concatenate([peaks, valleys])
+            all_extrema = np.sort(all_extrema)
+            
+            if len(all_extrema) < 2:
+                return 20  # Default period
+            
+            # Average distance between extrema gives half-period
+            intervals = np.diff(all_extrema)
+            avg_half_period = np.mean(intervals)
+            
+            return max(6, int(avg_half_period * 2))
+            
+        except Exception:
+            return 20
+    
+    def _estimate_triangular_amplitude(self, data: np.ndarray, peaks: np.ndarray, valleys: np.ndarray) -> float:
+        """Estimate amplitude of triangular wave"""
+        try:
+            peak_values = data[peaks] if len(peaks) > 0 else []
+            valley_values = data[valleys] if len(valleys) > 0 else []
+            
+            if len(peak_values) > 0 and len(valley_values) > 0:
+                max_peak = np.max(peak_values)
+                min_valley = np.min(valley_values)
+                return (max_peak + abs(min_valley)) / 2
+            elif len(peak_values) > 0:
+                return np.mean(peak_values)
+            elif len(valley_values) > 0:
+                return abs(np.mean(valley_values))
+            else:
+                return np.std(data)
+                
+        except Exception:
+            return np.std(data) if len(data) > 0 else 1.0
+
+    def _adaptive_pattern_synthesis(self, data: np.ndarray, steps: int, pattern_state: Dict[str, Any]) -> np.ndarray:
+        """Adaptive pattern synthesis when specific methods aren't available"""
+        try:
+            # Use pattern state information to guide synthesis
+            dominant_pattern = pattern_state.get('dominant_pattern')
+            
+            if not dominant_pattern:
+                return self._fallback_pattern_synthesis(data, steps)
+            
+            pattern_info = dominant_pattern[1]
+            pattern_type = pattern_info.get('pattern_type', 'unknown')
+            
+            logger.info(f"Using adaptive synthesis for pattern type: {pattern_type}")
+            
+            # Basic pattern continuation based on detected characteristics
+            if pattern_type in ['square_wave', 'step_function']:
+                return self._adaptive_square_synthesis(data, steps, pattern_info)
+            elif pattern_type in ['triangular_wave', 'sawtooth_wave']:
+                return self._adaptive_triangular_synthesis(data, steps, pattern_info)
+            elif pattern_type == 'sinusoidal_pattern':
+                return self._adaptive_sinusoidal_synthesis(data, steps, pattern_info)
+            else:
+                return self._enhanced_fallback_synthesis(data, steps, pattern_info)
+                
+        except Exception as e:
+            logger.error(f"Error in adaptive pattern synthesis: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _adaptive_square_synthesis(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Adaptive synthesis for square-like patterns"""
+        try:
+            # Get basic characteristics
+            data_range = np.max(data) - np.min(data)
+            data_mean = np.mean(data)
+            
+            # Estimate two main levels
+            high_level = data_mean + data_range * 0.4
+            low_level = data_mean - data_range * 0.4
+            
+            # Estimate switching period from data length
+            estimated_period = max(4, len(data) // 5)
+            duty_cycle = 0.5
+            
+            predictions = []
+            current_position = len(data)
+            
+            # Determine current level based on last few values
+            recent_values = data[-min(5, len(data)):]
+            if np.mean(recent_values) > data_mean:
+                current_level = high_level
+            else:
+                current_level = low_level
+            
+            for step in range(steps):
+                # Switch levels periodically
+                if (current_position + step) % estimated_period == 0:
+                    current_level = high_level if current_level == low_level else low_level
+                
+                predictions.append(current_level)
+            
+            return np.array(predictions)
+            
+        except Exception as e:
+            logger.error(f"Error in adaptive square synthesis: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _adaptive_triangular_synthesis(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Adaptive synthesis for triangular-like patterns"""
+        try:
+            # Estimate triangular wave parameters
+            data_range = np.max(data) - np.min(data)
+            data_mean = np.mean(data)
+            amplitude = data_range / 2
+            
+            # Estimate period
+            estimated_period = max(6, len(data) // 3)
+            
+            predictions = []
+            current_position = len(data)
+            last_value = data[-1]
+            
+            # Determine current direction (up or down)
+            if len(data) >= 2:
+                current_slope = data[-1] - data[-2]
+                direction = 1 if current_slope >= 0 else -1
+            else:
+                direction = 1
+            
+            for step in range(steps):
+                position_in_cycle = (current_position + step) % estimated_period
+                
+                # Triangular wave logic
+                if position_in_cycle < estimated_period / 2:
+                    # Rising edge
+                    progress = position_in_cycle / (estimated_period / 2)
+                    value = data_mean - amplitude + 2 * amplitude * progress
+                else:
+                    # Falling edge  
+                    progress = (position_in_cycle - estimated_period / 2) / (estimated_period / 2)
+                    value = data_mean + amplitude - 2 * amplitude * progress
+                
+                predictions.append(value)
+            
+            return np.array(predictions)
+            
+        except Exception as e:
+            logger.error(f"Error in adaptive triangular synthesis: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _adaptive_sinusoidal_synthesis(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Adaptive synthesis for sinusoidal patterns"""
+        try:
+            # Estimate sinusoidal parameters
+            amplitude = np.std(data) * 1.4  # Approximate amplitude from std
+            mean_val = np.mean(data)
+            
+            # Estimate frequency using simple period detection
+            estimated_period = max(8, len(data) // 4)
+            frequency = 2 * np.pi / estimated_period
+            
+            # Estimate phase from last few points
+            if len(data) >= 3:
+                last_vals = data[-3:]
+                # Simple phase estimation
+                phase = np.arctan2(last_vals[-1] - mean_val, amplitude) if amplitude > 0 else 0
+            else:
+                phase = 0
+            
+            predictions = []
+            
+            for step in range(1, steps + 1):
+                t = len(data) + step
+                value = mean_val + amplitude * np.sin(frequency * t + phase)
+                predictions.append(value)
+            
+            return np.array(predictions)
+            
+        except Exception as e:
+            logger.error(f"Error in adaptive sinusoidal synthesis: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _enhanced_fallback_synthesis(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Enhanced fallback synthesis with pattern awareness"""
+        try:
+            if len(data) < 2:
+                return np.full(steps, data[-1] if len(data) > 0 else 0.0)
+            
+            # Analyze recent trend and periodicity
+            recent_data = data[-min(20, len(data)):]
+            
+            # Check for periodic behavior
+            if len(recent_data) >= 6:
+                # Simple autocorrelation check
+                half_len = len(recent_data) // 2
+                first_half = recent_data[:half_len]
+                second_half = recent_data[-half_len:]
+                
+                if len(first_half) == len(second_half) and np.std(first_half) > 1e-6 and np.std(second_half) > 1e-6:
+                    correlation = np.corrcoef(first_half, second_half)[0, 1]
+                    if not np.isnan(correlation) and correlation > 0.5:
+                        # Repeat recent pattern
+                        pattern_length = len(recent_data)
+                        predictions = []
+                        
+                        for step in range(steps):
+                            idx = step % pattern_length
+                            predictions.append(recent_data[idx])
+                        
+                        return np.array(predictions)
+            
+            # Fallback to trend continuation
+            trend = np.polyfit(range(len(recent_data)), recent_data, 1)[0]
+            last_value = data[-1]
+            
+            predictions = []
+            for step in range(1, steps + 1):
+                predicted_value = last_value + trend * step
+                predictions.append(predicted_value)
+            
+            return np.array(predictions)
+            
+        except Exception as e:
+            logger.error(f"Error in enhanced fallback synthesis: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
