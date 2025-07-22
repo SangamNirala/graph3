@@ -52,6 +52,9 @@ from enhanced_realtime_continuous_prediction import EnhancedRealTimeContinuousPr
 from universal_pattern_learning import UniversalPatternLearning
 from enhanced_pattern_aware_prediction import EnhancedPatternAwarePredictionEngine
 
+# Import enhanced universal waveform learning system
+from enhanced_universal_prediction_engine import EnhancedUniversalPredictionEngine
+
 # Import advanced noise reduction system
 from advanced_noise_reduction import AdvancedNoiseReductionSystem
 
