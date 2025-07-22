@@ -2178,11 +2178,48 @@ class UniversalWaveformLearningSystem:
             logger.error(f"Error assessing pattern complexity level: {e}")
             return 0.0
     
-    def _assess_universal_learning_quality(self, data: np.ndarray, 
-                                         learned_patterns: Dict,
-                                         geometric_analysis: Dict) -> Dict[str, Any]:
-        """Assess universal learning quality"""
-        return {'overall_quality': 0.7, 'adaptability_score': 0.8, 'complexity_score': 0.6}
+    def _assess_synthesis_capabilities(self, learned_patterns: Dict) -> Dict[str, Any]:
+        """Assess synthesis capabilities"""
+        try:
+            synthesis_capabilities = {}
+            
+            # Check if we have learned templates
+            templates = learned_patterns.get('templates', [])
+            dominant_pattern = learned_patterns.get('dominant')
+            
+            if templates:
+                synthesis_capabilities['template_synthesis'] = {
+                    'available_templates': len(templates),
+                    'template_quality': np.mean([t['confidence'] for t in templates]),
+                    'synthesis_readiness': 0.9
+                }
+            
+            if dominant_pattern:
+                pattern_type = dominant_pattern.get('type', 'unknown')
+                learning_confidence = dominant_pattern.get('learning_confidence', 0.5)
+                
+                synthesis_capabilities['pattern_specific_synthesis'] = {
+                    'dominant_pattern_type': pattern_type,
+                    'synthesis_confidence': learning_confidence,
+                    'synthesis_readiness': learning_confidence * 0.8
+                }
+            
+            # Overall synthesis readiness
+            readiness_scores = []
+            if 'template_synthesis' in synthesis_capabilities:
+                readiness_scores.append(synthesis_capabilities['template_synthesis']['synthesis_readiness'])
+            if 'pattern_specific_synthesis' in synthesis_capabilities:
+                readiness_scores.append(synthesis_capabilities['pattern_specific_synthesis']['synthesis_readiness'])
+            
+            overall_readiness = np.mean(readiness_scores) if readiness_scores else 0.5
+            
+            synthesis_capabilities['overall_synthesis_readiness'] = float(overall_readiness)
+            
+            return synthesis_capabilities
+            
+        except Exception as e:
+            logger.error(f"Error assessing synthesis capabilities: {e}")
+            return {'synthesis_readiness': 0.5}
     
     def _update_universal_pattern_library(self, learned_patterns: Dict, 
                                         learning_quality: Dict) -> None:
