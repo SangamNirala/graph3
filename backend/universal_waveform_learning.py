@@ -2286,6 +2286,55 @@ class UniversalWaveformLearningSystem:
             logger.error(f"Error assessing universal learning quality: {e}")
             return {'overall_quality': 0.7, 'adaptability_score': 0.8, 'complexity_score': 0.6}
     
+    def _update_universal_pattern_library(self, learned_patterns: Dict, 
+                                        learning_quality: Dict) -> None:
+        """Update universal pattern library"""
+        try:
+            # Update pattern library with new learnings
+            overall_quality = learning_quality.get('overall_quality', 0.5)
+            
+            # Only store high-quality patterns
+            if overall_quality > 0.6:
+                dominant_pattern = learned_patterns.get('dominant')
+                templates = learned_patterns.get('templates', [])
+                
+                if dominant_pattern:
+                    pattern_type = dominant_pattern.get('type', 'unknown')
+                    pattern_id = f"{pattern_type}_{len(self.pattern_library)}"
+                    
+                    self.pattern_library[pattern_id] = {
+                        'pattern_type': pattern_type,
+                        'pattern_info': dominant_pattern.get('info', {}),
+                        'learning_quality': overall_quality,
+                        'timestamp': datetime.now(),
+                        'usage_count': 0
+                    }
+                    
+                    logger.info(f"Added pattern {pattern_id} to library")
+                
+                # Store templates in template bank
+                for template_info in templates:
+                    if template_info['confidence'] > 0.5:
+                        template_entry = {
+                            'pattern_type': template_info['pattern_type'],
+                            'template': template_info['template'],
+                            'confidence': template_info['confidence'],
+                            'timestamp': datetime.now()
+                        }
+                        self.template_bank.append(template_entry)
+                
+                # Update shape memory
+                if dominant_pattern:
+                    pattern_type = dominant_pattern.get('type', 'unknown')
+                    self.shape_memory[pattern_type].append({
+                        'quality': overall_quality,
+                        'timestamp': datetime.now(),
+                        'characteristics': dominant_pattern.get('info', {})
+                    })
+            
+        except Exception as e:
+            logger.error(f"Error updating universal pattern library: {e}")
+    
     def _analyze_data_characteristics(self, data: np.ndarray) -> Dict[str, Any]:
         """Analyze data characteristics"""
         return {
