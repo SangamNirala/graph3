@@ -64,41 +64,19 @@ class UniversalWaveformLearningSystem:
             'custom_shape': self._detect_custom_shape_pattern
         }
         
-        # Geometric analyzers for shape characteristics
+        # Geometric analyzers for shape characteristics (simplified for now)
         self.geometric_analyzers = {
-            'edge_detection': self._analyze_edges_and_transitions,
-            'segment_analysis': self._analyze_segments_and_plateaus,
-            'slope_analysis': self._analyze_slopes_and_gradients,
-            'curvature_analysis': self._analyze_curvature_characteristics,
-            'symmetry_analysis': self._analyze_symmetry_properties,
-            'periodicity_analysis': self._analyze_periodicity_patterns,
-            'discontinuity_analysis': self._analyze_discontinuities,
-            'amplitude_analysis': self._analyze_amplitude_characteristics
+            # Only include implemented methods
         }
         
-        # Pattern learning strategies
+        # Pattern learning strategies (simplified for now)
         self.learning_strategies = {
-            'template_matching': self._template_matching_learning,
-            'feature_extraction': self._feature_extraction_learning,
-            'statistical_modeling': self._statistical_modeling_learning,
-            'geometric_modeling': self._geometric_modeling_learning,
-            'spline_fitting': self._spline_fitting_learning,
-            'fourier_analysis': self._fourier_analysis_learning,
-            'wavelet_analysis': self._wavelet_analysis_learning,
-            'machine_learning': self._ml_based_learning,
-            'hybrid_approach': self._hybrid_learning_approach
+            # Only include implemented methods
         }
         
-        # Pattern synthesis methods for predictions
+        # Pattern synthesis methods for predictions (only implemented ones)
         self.synthesis_methods = {
             'geometric_synthesis': self._geometric_pattern_synthesis,
-            'template_reconstruction': self._template_based_reconstruction,
-            'statistical_synthesis': self._statistical_pattern_synthesis,
-            'spline_interpolation': self._spline_based_synthesis,
-            'fourier_synthesis': self._fourier_based_synthesis,
-            'wavelet_synthesis': self._wavelet_based_synthesis,
-            'hybrid_synthesis': self._hybrid_pattern_synthesis,
-            'adaptive_synthesis': self._adaptive_pattern_synthesis
         }
         
         # Memory systems for learned patterns
