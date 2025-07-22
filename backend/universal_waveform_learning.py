@@ -85,6 +85,7 @@ class UniversalWaveformLearningSystem:
         self.shape_memory = defaultdict(list)
         self.complexity_hierarchy = {}
         self.adaptation_history = deque(maxlen=1000)
+        self.pattern_performance = {}  # Track performance of different pattern types
         
         # Learning parameters
         self.learning_params = {
