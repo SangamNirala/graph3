@@ -224,6 +224,9 @@ enhanced_realtime_predictor = EnhancedRealTimeContinuousPrediction()
 universal_pattern_learner = UniversalPatternLearning(memory_size=5000)
 enhanced_pattern_predictor = EnhancedPatternAwarePredictionEngine()
 
+# Enhanced Universal Waveform Learning System for any pattern complexity
+enhanced_universal_engine = EnhancedUniversalPredictionEngine()
+
 # Advanced noise reduction system for smooth predictions
 noise_reduction_system = AdvancedNoiseReductionSystem()
 
