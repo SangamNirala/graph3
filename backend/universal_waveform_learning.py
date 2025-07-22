@@ -329,11 +329,14 @@ class UniversalWaveformLearningSystem:
     def _detect_triangular_wave_pattern(self, data: np.ndarray) -> Dict[str, Any]:
         """Detect triangular wave patterns with linear segments and sharp peaks"""
         try:
-            # Find peaks and valleys
-            peaks, _ = find_peaks(data, prominence=np.std(data) * 0.5)
-            valleys, _ = find_peaks(-data, prominence=np.std(data) * 0.5)
+            # Find peaks and valleys with appropriate parameters
+            data_std = np.std(data)
+            prominence = max(data_std * 0.3, 0.1)  # Adaptive prominence
             
-            if len(peaks) < 1 and len(valleys) < 1:
+            peaks, _ = find_peaks(data, prominence=prominence)
+            valleys, _ = find_peaks(-data, prominence=prominence)
+            
+            if len(peaks) == 0 and len(valleys) == 0:
                 return {'confidence': 0.0, 'strength': 0.0}
             
             # Analyze linear segments between peaks/valleys
@@ -345,29 +348,61 @@ class UniversalWaveformLearningSystem:
             symmetry_score = self._calculate_triangular_symmetry(peaks, valleys, data)
             periodicity_score = self._calculate_triangular_periodicity(peaks, valleys)
             
-            triangular_score = (linearity_score * 0.4 + 
-                              peak_sharpness * 0.3 + 
-                              symmetry_score * 0.2 + 
-                              periodicity_score * 0.1)
+            # Check for alternating up/down linear segments (key triangular characteristic)
+            alternation_score = self._check_linear_alternation(linear_segments)
+            
+            triangular_score = (linearity_score * 0.35 + 
+                              peak_sharpness * 0.25 + 
+                              symmetry_score * 0.15 + 
+                              periodicity_score * 0.15 + 
+                              alternation_score * 0.10)
             
             return {
                 'confidence': float(triangular_score),
                 'strength': float(triangular_score),
                 'pattern_type': 'triangular_wave',
-                'peaks': peaks.tolist() if len(peaks) > 0 else [],
-                'valleys': valleys.tolist() if len(valleys) > 0 else [],
+                'peaks': peaks.tolist(),
+                'valleys': valleys.tolist(),
                 'linear_segments': linear_segments,
                 'linearity_score': float(linearity_score),
                 'peak_sharpness': float(peak_sharpness),
                 'symmetry_score': float(symmetry_score),
                 'periodicity_score': float(periodicity_score),
-                'slope_analysis': self._analyze_triangular_slopes(linear_segments, data),
-                'template': self._create_triangular_wave_template(peaks, valleys, linear_segments, data)
+                'alternation_score': float(alternation_score),
+                'template': self._create_triangular_wave_template(peaks, valleys, data)
             }
             
         except Exception as e:
             logger.error(f"Error detecting triangular wave pattern: {e}")
             return {'confidence': 0.0, 'strength': 0.0}
+    
+    def _check_linear_alternation(self, linear_segments: List[Dict]) -> float:
+        """Check if linear segments alternate between up and down slopes"""
+        try:
+            if len(linear_segments) < 2:
+                return 0.0
+            
+            alternations = 0
+            total_comparisons = 0
+            
+            for i in range(len(linear_segments) - 1):
+                slope1 = linear_segments[i]['slope']
+                slope2 = linear_segments[i + 1]['slope']
+                
+                # Check if slopes have opposite signs (alternating up/down)
+                if slope1 * slope2 < 0:  # Different signs
+                    alternations += 1
+                total_comparisons += 1
+            
+            if total_comparisons > 0:
+                alternation_ratio = alternations / total_comparisons
+                return float(alternation_ratio)
+            else:
+                return 0.0
+                
+        except Exception as e:
+            logger.error(f"Error checking linear alternation: {e}")
+            return 0.0
     
     def _detect_sawtooth_wave_pattern(self, data: np.ndarray) -> Dict[str, Any]:
         """Detect sawtooth wave patterns with linear ramps and sharp drops/rises"""
