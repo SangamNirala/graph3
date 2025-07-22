@@ -504,7 +504,21 @@ function App() {
     }
 
     try {
-      // Try new advanced pH prediction first
+      // Try NEW UNIVERSAL WAVEFORM PREDICTION FIRST (highest priority) - learns ANY pattern complexity
+      const universalWaveformResponse = await fetch(`${API}/generate-universal-waveform-prediction?steps=30&time_window=${timeWindow}&learning_mode=comprehensive`);
+      if (universalWaveformResponse.ok) {
+        const universalWaveformData = await universalWaveformResponse.json();
+        console.log('🌊 Universal waveform prediction result:', universalWaveformData);
+        console.log('🎯 Detected patterns:', universalWaveformData.waveform_analysis?.detected_patterns);
+        console.log('📈 Pattern complexity:', universalWaveformData.waveform_analysis?.pattern_complexity);
+        console.log('🏆 Overall quality:', universalWaveformData.quality_metrics?.overall_quality);
+        console.log('🔧 Shape preservation:', universalWaveformData.waveform_analysis?.shape_preservation);
+        console.log('📊 Waveform fidelity:', universalWaveformData.quality_metrics?.waveform_fidelity);
+        showToast('✨ Universal waveform predictions generated successfully!', 'success');
+        return universalWaveformData;
+      }
+      
+      // Try advanced pH prediction as fallback
       const advancedResponse = await fetch(`${API}/generate-advanced-ph-prediction?steps=30&maintain_patterns=true`);
       if (advancedResponse.ok) {
         const advancedData = await advancedResponse.json();
