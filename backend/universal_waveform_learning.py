@@ -1261,8 +1261,341 @@ class UniversalWaveformLearningSystem:
             logger.error(f"Error in fallback synthesis: {e}")
             return np.full(steps, data[-1] if len(data) > 0 else 0.0)
 
-    # Additional helper methods for comprehensive pattern analysis...
-    # (Due to space constraints, including key placeholder methods)
+    # ==========================================
+    # MISSING HELPER METHODS IMPLEMENTATION
+    # ==========================================
+    
+    def _find_plateaus(self, data: np.ndarray, tolerance: float = None) -> List[Dict]:
+        """Find flat segments (plateaus) in the data"""
+        try:
+            if tolerance is None:
+                tolerance = np.std(data) * 0.1
+            
+            plateaus = []
+            current_plateau = None
+            
+            for i in range(len(data) - 1):
+                if abs(data[i+1] - data[i]) <= tolerance:
+                    if current_plateau is None:
+                        current_plateau = {'start': i, 'value': data[i], 'length': 2}
+                    else:
+                        current_plateau['length'] += 1
+                else:
+                    if current_plateau and current_plateau['length'] >= 3:
+                        current_plateau['end'] = current_plateau['start'] + current_plateau['length'] - 1
+                        plateaus.append(current_plateau)
+                    current_plateau = None
+            
+            # Check final plateau
+            if current_plateau and current_plateau['length'] >= 3:
+                current_plateau['end'] = current_plateau['start'] + current_plateau['length'] - 1
+                plateaus.append(current_plateau)
+            
+            return plateaus
+        except Exception as e:
+            logger.error(f"Error finding plateaus: {e}")
+            return []
+    
+    def _find_sharp_transitions(self, data: np.ndarray) -> List[Dict]:
+        """Find sharp transitions in the data"""
+        try:
+            transitions = []
+            threshold = np.std(data) * 0.5
+            
+            for i in range(1, len(data) - 1):
+                diff = abs(data[i+1] - data[i])
+                if diff > threshold:
+                    transitions.append({
+                        'index': i,
+                        'magnitude': diff,
+                        'direction': 'up' if data[i+1] > data[i] else 'down'
+                    })
+            
+            return transitions
+        except Exception as e:
+            logger.error(f"Error finding sharp transitions: {e}")
+            return []
+    
+    def _analyze_plateau_characteristics(self, plateaus: List[Dict], data: np.ndarray) -> Dict[str, Any]:
+        """Analyze characteristics of plateaus"""
+        try:
+            if not plateaus:
+                return {'flatness_score': 0.0}
+            
+            flatness_scores = []
+            for plateau in plateaus:
+                start, end = plateau['start'], plateau.get('end', plateau['start'] + plateau['length'])
+                segment = data[start:end+1]
+                variance = np.var(segment)
+                flatness_scores.append(1.0 / (1.0 + variance))
+            
+            return {
+                'flatness_score': np.mean(flatness_scores),
+                'plateau_count': len(plateaus),
+                'avg_plateau_length': np.mean([p['length'] for p in plateaus])
+            }
+        except Exception as e:
+            logger.error(f"Error analyzing plateau characteristics: {e}")
+            return {'flatness_score': 0.0}
+    
+    def _analyze_transition_characteristics(self, transitions: List[Dict], data: np.ndarray) -> Dict[str, Any]:
+        """Analyze characteristics of transitions"""
+        try:
+            if not transitions:
+                return {'sharpness_score': 0.0}
+            
+            magnitudes = [t['magnitude'] for t in transitions]
+            avg_magnitude = np.mean(magnitudes)
+            max_magnitude = np.max(magnitudes)
+            
+            # Sharpness based on how large transitions are relative to data range
+            data_range = np.max(data) - np.min(data)
+            sharpness_score = min(1.0, avg_magnitude / (data_range * 0.5))
+            
+            return {
+                'sharpness_score': sharpness_score,
+                'transition_count': len(transitions),
+                'avg_magnitude': avg_magnitude,
+                'max_magnitude': max_magnitude
+            }
+        except Exception as e:
+            logger.error(f"Error analyzing transition characteristics: {e}")
+            return {'sharpness_score': 0.0}
+    
+    def _calculate_square_wave_periodicity(self, plateaus: List[Dict], data: np.ndarray) -> float:
+        """Calculate periodicity of square wave pattern"""
+        try:
+            if len(plateaus) < 4:
+                return 0.0
+            
+            # Look for repeating pattern in plateau lengths
+            lengths = [p['length'] for p in plateaus]
+            
+            if len(set(lengths)) == 1:
+                return 1.0  # Perfect periodicity
+            elif len(set(lengths)) <= 2:
+                return 0.8  # Good periodicity
+            else:
+                return 0.3  # Poor periodicity
+            
+        except Exception as e:
+            logger.error(f"Error calculating square wave periodicity: {e}")
+            return 0.0
+    
+    def _extract_amplitude_levels(self, plateaus: List[Dict], data: np.ndarray) -> List[float]:
+        """Extract amplitude levels from plateaus"""
+        try:
+            levels = []
+            for plateau in plateaus:
+                levels.append(plateau['value'])
+            
+            # Remove duplicates and sort
+            unique_levels = sorted(list(set(levels)))
+            return unique_levels
+        except Exception as e:
+            logger.error(f"Error extracting amplitude levels: {e}")
+            return []
+    
+    def _calculate_duty_cycle(self, plateaus: List[Dict]) -> float:
+        """Calculate duty cycle of square wave"""
+        try:
+            if len(plateaus) < 2:
+                return 0.5
+            
+            total_length = sum(p['length'] for p in plateaus)
+            if total_length == 0:
+                return 0.5
+            
+            # Assume first level is "high" state
+            high_length = sum(p['length'] for p in plateaus[::2])  # Every other plateau
+            duty_cycle = high_length / total_length
+            
+            return duty_cycle
+        except Exception as e:
+            logger.error(f"Error calculating duty cycle: {e}")
+            return 0.5
+    
+    def _create_square_wave_template(self, plateaus: List[Dict], transitions: List[Dict], data: np.ndarray) -> np.ndarray:
+        """Create template for square wave"""
+        try:
+            if not plateaus:
+                return data.copy()
+            
+            template = np.zeros_like(data)
+            
+            for plateau in plateaus:
+                start = plateau['start']
+                end = plateau.get('end', start + plateau['length'])
+                template[start:end+1] = plateau['value']
+            
+            return template
+        except Exception as e:
+            logger.error(f"Error creating square wave template: {e}")
+            return data.copy()
+    
+    def _find_linear_segments(self, data: np.ndarray, peaks: np.ndarray, valleys: np.ndarray) -> List[Dict]:
+        """Find linear segments in triangular wave"""
+        try:
+            segments = []
+            all_extrema = np.sort(np.concatenate([peaks, valleys]))
+            
+            for i in range(len(all_extrema) - 1):
+                start_idx = all_extrema[i]
+                end_idx = all_extrema[i + 1]
+                
+                if end_idx - start_idx > 2:  # Need at least 3 points for a line
+                    x = np.arange(start_idx, end_idx + 1)
+                    y = data[start_idx:end_idx + 1]
+                    
+                    # Fit line and calculate R²
+                    try:
+                        coeffs = np.polyfit(x, y, 1)
+                        y_pred = np.polyval(coeffs, x)
+                        r_squared = self._calculate_r2(y, y_pred)
+                        
+                        segments.append({
+                            'start': start_idx,
+                            'end': end_idx,
+                            'slope': coeffs[0],
+                            'intercept': coeffs[1],
+                            'r_squared': r_squared,
+                            'length': end_idx - start_idx + 1
+                        })
+                    except:
+                        continue
+            
+            return segments
+        except Exception as e:
+            logger.error(f"Error finding linear segments: {e}")
+            return []
+    
+    def _calculate_linearity_score(self, segments: List[Dict], data: np.ndarray) -> float:
+        """Calculate linearity score for triangular wave"""
+        try:
+            if not segments:
+                return 0.0
+            
+            r_squared_values = [s['r_squared'] for s in segments if s.get('r_squared', 0) > 0]
+            
+            if not r_squared_values:
+                return 0.0
+            
+            return np.mean(r_squared_values)
+        except Exception as e:
+            logger.error(f"Error calculating linearity score: {e}")
+            return 0.0
+    
+    def _calculate_peak_sharpness(self, peaks: np.ndarray, valleys: np.ndarray, data: np.ndarray) -> float:
+        """Calculate sharpness of peaks and valleys"""
+        try:
+            sharpness_scores = []
+            
+            for peak in peaks:
+                if peak > 0 and peak < len(data) - 1:
+                    left_diff = abs(data[peak] - data[peak-1])
+                    right_diff = abs(data[peak] - data[peak+1])
+                    sharpness = (left_diff + right_diff) / 2
+                    sharpness_scores.append(sharpness)
+            
+            for valley in valleys:
+                if valley > 0 and valley < len(data) - 1:
+                    left_diff = abs(data[valley] - data[valley-1])
+                    right_diff = abs(data[valley] - data[valley+1])
+                    sharpness = (left_diff + right_diff) / 2
+                    sharpness_scores.append(sharpness)
+            
+            if not sharpness_scores:
+                return 0.0
+            
+            data_range = np.max(data) - np.min(data)
+            normalized_sharpness = np.mean(sharpness_scores) / (data_range + 1e-10)
+            
+            return min(1.0, normalized_sharpness)
+        except Exception as e:
+            logger.error(f"Error calculating peak sharpness: {e}")
+            return 0.0
+    
+    def _calculate_triangular_symmetry(self, peaks: np.ndarray, valleys: np.ndarray, data: np.ndarray) -> float:
+        """Calculate symmetry of triangular wave"""
+        try:
+            if len(peaks) == 0 and len(valleys) == 0:
+                return 0.0
+            
+            # Simple symmetry check - are up and down slopes similar?
+            all_extrema = np.sort(np.concatenate([peaks, valleys]))
+            
+            up_slopes = []
+            down_slopes = []
+            
+            for i in range(len(all_extrema) - 1):
+                start = all_extrema[i]
+                end = all_extrema[i + 1]
+                
+                if end - start > 1:
+                    slope = (data[end] - data[start]) / (end - start)
+                    if slope > 0:
+                        up_slopes.append(abs(slope))
+                    else:
+                        down_slopes.append(abs(slope))
+            
+            if not up_slopes or not down_slopes:
+                return 0.5
+            
+            avg_up = np.mean(up_slopes)
+            avg_down = np.mean(down_slopes)
+            
+            symmetry = 1.0 - abs(avg_up - avg_down) / (avg_up + avg_down + 1e-10)
+            return symmetry
+        except Exception as e:
+            logger.error(f"Error calculating triangular symmetry: {e}")
+            return 0.0
+    
+    def _calculate_triangular_periodicity(self, peaks: np.ndarray, valleys: np.ndarray) -> float:
+        """Calculate periodicity of triangular wave"""
+        try:
+            if len(peaks) < 2 and len(valleys) < 2:
+                return 0.0
+            
+            # Check spacing between peaks and valleys
+            peak_spacings = np.diff(peaks) if len(peaks) > 1 else []
+            valley_spacings = np.diff(valleys) if len(valleys) > 1 else []
+            
+            all_spacings = np.concatenate([peak_spacings, valley_spacings])
+            
+            if len(all_spacings) == 0:
+                return 0.0
+            
+            # Calculate coefficient of variation (lower = more periodic)
+            cv = np.std(all_spacings) / (np.mean(all_spacings) + 1e-10)
+            periodicity = 1.0 / (1.0 + cv)
+            
+            return periodicity
+        except Exception as e:
+            logger.error(f"Error calculating triangular periodicity: {e}")
+            return 0.0
+    
+    def _create_triangular_wave_template(self, peaks: np.ndarray, valleys: np.ndarray, 
+                                       linear_segments: List[Dict], data: np.ndarray) -> np.ndarray:
+        """Create template for triangular wave"""
+        try:
+            template = np.zeros_like(data)
+            
+            # Fill in linear segments
+            for segment in linear_segments:
+                start, end = segment['start'], segment['end']
+                x = np.arange(start, end + 1)
+                y = segment['slope'] * x + segment['intercept']
+                template[start:end+1] = y
+            
+            # Fill any gaps with original data
+            for i in range(len(template)):
+                if template[i] == 0:
+                    template[i] = data[i]
+            
+            return template
+        except Exception as e:
+            logger.error(f"Error creating triangular wave template: {e}")
+            return data.copy()
 
     def _create_minimal_learning_result(self, data: np.ndarray) -> Dict[str, Any]:
         """Create minimal result for insufficient data"""
