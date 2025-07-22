@@ -1243,7 +1243,51 @@ class UniversalWaveformLearningSystem:
     
     def _comprehensive_geometric_analysis(self, data: np.ndarray) -> Dict[str, Any]:
         """Comprehensive geometric analysis"""
-        return {'status': 'placeholder'}
+        try:
+            analysis = {}
+            
+            if len(data) < 3:
+                return {'status': 'insufficient_data'}
+            
+            # Basic statistical properties
+            analysis['mean'] = float(np.mean(data))
+            analysis['std'] = float(np.std(data))
+            analysis['range'] = float(np.max(data) - np.min(data))
+            analysis['variance'] = float(np.var(data))
+            
+            # Shape characteristics
+            analysis['curvature'] = self._calculate_curvature(data)
+            analysis['linearity'] = self._calculate_linearity(data)
+            analysis['periodicity'] = self._estimate_periodicity(data)
+            analysis['symmetry'] = self._calculate_symmetry(data)
+            
+            # Frequency domain characteristics
+            if len(data) >= 4:
+                fft_data = np.fft.fft(data - np.mean(data))
+                frequencies = np.fft.fftfreq(len(data))
+                
+                # Find dominant frequency
+                magnitude = np.abs(fft_data)
+                dominant_freq_idx = np.argmax(magnitude[1:len(data)//2]) + 1
+                dominant_frequency = frequencies[dominant_freq_idx]
+                
+                analysis['dominant_frequency'] = float(dominant_frequency)
+                analysis['frequency_strength'] = float(magnitude[dominant_freq_idx])
+                analysis['harmonic_content'] = self._analyze_harmonics(fft_data, frequencies)
+            
+            # Trend analysis
+            if len(data) >= 2:
+                trend = np.polyfit(range(len(data)), data, 1)[0]
+                analysis['trend_strength'] = float(abs(trend))
+                analysis['trend_direction'] = 'increasing' if trend > 0 else 'decreasing' if trend < 0 else 'stable'
+            
+            analysis['status'] = 'complete'
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Error in comprehensive geometric analysis: {e}")
+            return {'status': 'error', 'error': str(e)}
     
     def _apply_all_learning_strategies(self, data: np.ndarray, 
                                      detected_patterns: Dict, 
