@@ -4091,7 +4091,126 @@ async def get_continuous_learning_status():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Learning status check failed: {str(e)}")
 
-@api_router.get("/generate-advanced-ph-prediction")
+@api_router.get("/generate-universal-waveform-prediction")
+async def generate_universal_waveform_prediction(steps: int = 30, time_window: int = 100, 
+                                                learning_mode: str = 'comprehensive'):
+    """Generate predictions using the enhanced universal waveform learning system that can learn ANY pattern complexity"""
+    try:
+        global current_model, current_data, enhanced_universal_engine
+        
+        if current_data is None or len(current_data) < 3:
+            logger.warning("Insufficient data for universal waveform prediction")
+            return {
+                "status": "error",
+                "message": "Insufficient data for universal waveform prediction. Need at least 3 data points.",
+                "predictions": []
+            }
+        
+        # Extract the target column data
+        if isinstance(current_data, pd.DataFrame):
+            # Use the last numeric column as target
+            numeric_cols = current_data.select_dtypes(include=[np.number]).columns.tolist()
+            if not numeric_cols:
+                raise ValueError("No numeric columns found for prediction")
+            
+            target_col = numeric_cols[-1]  # Use last numeric column
+            data_values = current_data[target_col].values
+        else:
+            data_values = current_data
+        
+        # Apply time window
+        if time_window > 0 and len(data_values) > time_window:
+            data_values = data_values[-time_window:]
+        
+        logger.info(f"Generating universal waveform prediction for {len(data_values)} data points")
+        
+        # Use enhanced universal prediction engine for comprehensive pattern learning and prediction
+        prediction_result = enhanced_universal_engine.learn_and_predict(
+            data_values, 
+            steps=steps, 
+            learning_mode=learning_mode
+        )
+        
+        # Apply noise reduction to predictions for smooth visualization
+        predictions = prediction_result.get('predictions', [])
+        if predictions and len(predictions) > 2:
+            try:
+                # Apply advanced noise reduction system
+                smoothed_predictions = noise_reduction_system.reduce_noise_comprehensive(
+                    np.array(predictions),
+                    noise_types=['jitter', 'spikes'],
+                    smoothing_methods=['savgol_filter', 'gaussian_smooth'],
+                    pattern_preservation=True
+                )
+                if smoothed_predictions is not None and 'smoothed_data' in smoothed_predictions:
+                    predictions = smoothed_predictions['smoothed_data'].tolist()
+            except Exception as noise_error:
+                logger.warning(f"Noise reduction failed, using original predictions: {noise_error}")
+        
+        # Generate timestamps for predictions
+        if isinstance(current_data, pd.DataFrame) and len(current_data.columns) > 0:
+            # Try to find time column
+            time_cols = [col for col in current_data.columns if 
+                        'time' in col.lower() or 'date' in col.lower() or 'timestamp' in col.lower()]
+            
+            if time_cols:
+                last_time = pd.to_datetime(current_data[time_cols[0]].iloc[-1])
+                # Generate future timestamps (assuming daily frequency for now)
+                timestamps = [(last_time + timedelta(days=i+1)).strftime('%Y-%m-%d %H:%M:%S') 
+                             for i in range(steps)]
+            else:
+                timestamps = [f"Step {i+1}" for i in range(steps)]
+        else:
+            timestamps = [f"Step {i+1}" for i in range(steps)]
+        
+        # Create comprehensive response
+        response = {
+            "status": "success",
+            "message": f"Successfully generated {len(predictions)} universal waveform-aware predictions",
+            "predictions": predictions[:steps],  # Ensure we return exactly 'steps' predictions
+            "timestamps": timestamps[:steps],
+            "confidence_intervals": prediction_result.get('confidence_intervals', [])[:steps],
+            "prediction_method": "enhanced_universal_waveform",
+            "waveform_analysis": {
+                "detected_patterns": prediction_result.get('waveform_characteristics', {}).get('detected_patterns', {}),
+                "pattern_complexity": prediction_result.get('waveform_characteristics', {}).get('pattern_complexity', 0.5),
+                "adaptability_score": prediction_result.get('waveform_characteristics', {}).get('adaptability_score', 0.5),
+                "shape_preservation": prediction_result.get('waveform_characteristics', {}).get('shape_preservation', 0.5),
+                "geometric_consistency": prediction_result.get('waveform_characteristics', {}).get('geometric_consistency', 0.5)
+            },
+            "prediction_capabilities": {
+                "waveform_types_supported": prediction_result.get('prediction_capabilities', {}).get('waveform_types_supported', []),
+                "complexity_handling": prediction_result.get('prediction_capabilities', {}).get('complexity_handling', 0.5),
+                "pattern_learning_quality": prediction_result.get('prediction_capabilities', {}).get('pattern_learning_quality', {}),
+                "synthesis_capabilities": prediction_result.get('prediction_capabilities', {}).get('synthesis_capabilities', {})
+            },
+            "quality_metrics": {
+                "overall_quality": prediction_result.get('performance_metrics', {}).get('overall_quality', 0.5),
+                "pattern_following_score": prediction_result.get('performance_metrics', {}).get('pattern_following_score', 0.5),
+                "waveform_fidelity": prediction_result.get('performance_metrics', {}).get('waveform_fidelity', 0.5),
+                "adaptation_success": prediction_result.get('performance_metrics', {}).get('adaptation_success', 0.5)
+            },
+            "learning_summary": {
+                "learning_mode": learning_mode,
+                "data_points_analyzed": len(data_values),
+                "time_window_applied": time_window,
+                "patterns_learned": len(prediction_result.get('waveform_characteristics', {}).get('detected_patterns', {})),
+                "learning_quality": prediction_result.get('learning_results', {}).get('learning_quality', {})
+            }
+        }
+        
+        logger.info(f"Universal waveform prediction completed: {len(predictions)} predictions generated with quality score {response['quality_metrics']['overall_quality']:.3f}")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating universal waveform prediction: {e}")
+        return {
+            "status": "error", 
+            "message": f"Failed to generate universal waveform prediction: {str(e)}",
+            "predictions": [],
+            "timestamps": [],
+            "error_details": str(e)
+        }
 async def generate_advanced_ph_prediction(steps: int = 30, maintain_patterns: bool = True):
     """Generate advanced pH predictions using enhanced pattern learning"""
     try:
