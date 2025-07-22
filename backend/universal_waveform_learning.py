@@ -1194,8 +1194,52 @@ class UniversalWaveformLearningSystem:
     
     def _find_sharp_transitions(self, data: np.ndarray) -> List[Dict]:
         """Find sharp transitions in data"""
-        # Simplified implementation
-        return []
+        try:
+            if len(data) < 3:
+                return []
+            
+            transitions = []
+            
+            # Calculate first derivative to find transition points
+            gradient = np.gradient(data)
+            
+            # Find points where gradient changes significantly
+            gradient_threshold = np.std(gradient) * 1.5
+            
+            for i in range(1, len(gradient) - 1):
+                # Check for sharp changes in gradient
+                left_grad = gradient[i - 1]
+                curr_grad = gradient[i]
+                right_grad = gradient[i + 1]
+                
+                # Detect transition if gradient changes rapidly
+                if (abs(curr_grad) > gradient_threshold and 
+                    abs(curr_grad - left_grad) > gradient_threshold and
+                    abs(curr_grad - right_grad) > gradient_threshold):
+                    
+                    # Calculate transition characteristics
+                    transition_strength = abs(curr_grad)
+                    sharpness = abs(curr_grad - left_grad) + abs(curr_grad - right_grad)
+                    
+                    transitions.append({
+                        'idx': i,
+                        'value_before': data[i - 1],
+                        'value_after': data[i + 1],
+                        'gradient': curr_grad,
+                        'transition_strength': float(transition_strength),
+                        'sharpness_score': float(sharpness / (2 * gradient_threshold)),
+                        'amplitude_change': abs(data[i + 1] - data[i - 1])
+                    })
+            
+            # Sort by transition strength
+            transitions.sort(key=lambda x: x['transition_strength'], reverse=True)
+            
+            logger.info(f"Found {len(transitions)} sharp transitions in data")
+            return transitions
+            
+        except Exception as e:
+            logger.error(f"Error finding sharp transitions: {e}")
+            return []
     
     def _comprehensive_geometric_analysis(self, data: np.ndarray) -> Dict[str, Any]:
         """Comprehensive geometric analysis"""
