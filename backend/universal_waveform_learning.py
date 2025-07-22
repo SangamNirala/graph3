@@ -1485,3 +1485,204 @@ class UniversalWaveformLearningSystem:
         except Exception as e:
             logger.error(f"Error analyzing plateau characteristics: {e}")
             return {'flatness_score': 0.0, 'level_consistency': 0.0}
+    
+    def _analyze_transition_characteristics(self, transitions: List[Dict], data: np.ndarray) -> Dict[str, Any]:
+        """Analyze characteristics of detected transitions"""
+        try:
+            if not transitions:
+                return {'sharpness_score': 0.0, 'transition_consistency': 0.0}
+            
+            # Calculate average sharpness
+            sharpness_scores = [t['sharpness_score'] for t in transitions]
+            avg_sharpness = np.mean(sharpness_scores)
+            
+            # Calculate transition consistency
+            transition_strengths = [t['transition_strength'] for t in transitions]
+            consistency = 1.0 / (1.0 + np.std(transition_strengths)) if len(transition_strengths) > 1 else 1.0
+            
+            return {
+                'sharpness_score': float(avg_sharpness),
+                'transition_consistency': float(consistency),
+                'transition_count': len(transitions),
+                'avg_amplitude_change': float(np.mean([t['amplitude_change'] for t in transitions]))
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing transition characteristics: {e}")
+            return {'sharpness_score': 0.0, 'transition_consistency': 0.0}
+    
+    def _calculate_square_wave_periodicity(self, plateaus: List[Dict], data: np.ndarray) -> float:
+        """Calculate square wave periodicity score"""
+        try:
+            if len(plateaus) < 2:
+                return 0.0
+            
+            # Check if plateaus alternate between two main levels
+            plateau_lengths = [p['length'] for p in plateaus]
+            
+            # Good square wave should have consistent plateau lengths
+            length_consistency = 1.0 / (1.0 + np.std(plateau_lengths) / np.mean(plateau_lengths))
+            
+            # Check for alternating pattern
+            plateau_values = [p['value'] for p in plateaus]
+            unique_values = sorted(list(set(plateau_values)))
+            
+            if len(unique_values) == 2:
+                # Perfect square wave alternation
+                alternation_score = 0.9
+            elif len(unique_values) <= 3:
+                # Acceptable for square wave
+                alternation_score = 0.7
+            else:
+                # Too many levels for square wave
+                alternation_score = 0.3
+            
+            return float(length_consistency * 0.5 + alternation_score * 0.5)
+            
+        except Exception as e:
+            logger.error(f"Error calculating square wave periodicity: {e}")
+            return 0.0
+    
+    def _extract_amplitude_levels(self, plateaus: List[Dict], data: np.ndarray) -> List[float]:
+        """Extract main amplitude levels from plateaus"""
+        try:
+            if not plateaus:
+                return [float(np.min(data)), float(np.max(data))]
+            
+            # Get unique plateau values
+            plateau_values = [p['value'] for p in plateaus]
+            
+            # Cluster similar values together
+            unique_values = []
+            tolerance = np.std(data) * 0.2
+            
+            for value in plateau_values:
+                # Check if this value is close to any existing unique value
+                is_unique = True
+                for unique_val in unique_values:
+                    if abs(value - unique_val) <= tolerance:
+                        is_unique = False
+                        break
+                
+                if is_unique:
+                    unique_values.append(value)
+            
+            # Sort the levels
+            unique_values.sort()
+            
+            # Ensure we have at least 2 levels for square wave
+            if len(unique_values) < 2:
+                unique_values = [float(np.min(data)), float(np.max(data))]
+            
+            return unique_values
+            
+        except Exception as e:
+            logger.error(f"Error extracting amplitude levels: {e}")
+            return [float(np.min(data)), float(np.max(data))]
+    
+    def _calculate_duty_cycle(self, plateaus: List[Dict]) -> float:
+        """Calculate duty cycle from plateaus"""
+        try:
+            if len(plateaus) < 2:
+                return 0.5
+            
+            # Assume first level is "high" and calculate its percentage
+            levels = self._extract_amplitude_levels(plateaus, [])
+            if len(levels) < 2:
+                return 0.5
+            
+            high_level = levels[-1]  # Highest level
+            high_duration = 0
+            total_duration = 0
+            
+            for plateau in plateaus:
+                total_duration += plateau['length']
+                if abs(plateau['value'] - high_level) < abs(plateau['value'] - levels[0]):
+                    high_duration += plateau['length']
+            
+            if total_duration > 0:
+                return float(high_duration / total_duration)
+            else:
+                return 0.5
+                
+        except Exception as e:
+            logger.error(f"Error calculating duty cycle: {e}")
+            return 0.5
+    
+    def _create_square_wave_template(self, plateaus: List[Dict], transitions: List[Dict], data: np.ndarray) -> np.ndarray:
+        """Create a template for the detected square wave pattern"""
+        try:
+            if not plateaus:
+                return np.array([])
+            
+            # Get amplitude levels
+            levels = self._extract_amplitude_levels(plateaus, data)
+            if len(levels) < 2:
+                return np.array([])
+            
+            # Estimate period from plateau analysis
+            avg_plateau_length = int(np.mean([p['length'] for p in plateaus]))
+            period = avg_plateau_length * 2  # Assuming 2 levels
+            
+            # Create template square wave
+            template = []
+            duty_cycle = self._calculate_duty_cycle(plateaus)
+            high_duration = int(period * duty_cycle)
+            low_duration = period - high_duration
+            
+            # High level
+            template.extend([levels[-1]] * high_duration)
+            # Low level
+            template.extend([levels[0]] * low_duration)
+            
+            return np.array(template)
+            
+        except Exception as e:
+            logger.error(f"Error creating square wave template: {e}")
+            return np.array([])
+
+    def _find_linear_segments(self, data: np.ndarray, peaks: np.ndarray, valleys: np.ndarray) -> List[Dict]:
+        """Find linear segments between peaks and valleys"""
+        try:
+            segments = []
+            
+            # Combine and sort peaks and valleys
+            extrema = np.concatenate([peaks, valleys])
+            extrema = np.sort(extrema)
+            
+            # Find linear segments between consecutive extrema
+            for i in range(len(extrema) - 1):
+                start_idx = extrema[i]
+                end_idx = extrema[i + 1]
+                
+                if end_idx - start_idx >= 3:  # Need at least 3 points for linear fit
+                    segment_data = data[start_idx:end_idx + 1]
+                    x = np.arange(len(segment_data))
+                    
+                    # Fit linear regression
+                    slope, intercept = np.polyfit(x, segment_data, 1)
+                    predicted = slope * x + intercept
+                    
+                    # Calculate R-squared for linearity
+                    ss_res = np.sum((segment_data - predicted) ** 2)
+                    ss_tot = np.sum((segment_data - np.mean(segment_data)) ** 2)
+                    
+                    if ss_tot > 0:
+                        r_squared = 1 - (ss_res / ss_tot)
+                    else:
+                        r_squared = 1.0
+                    
+                    segments.append({
+                        'start_idx': int(start_idx),
+                        'end_idx': int(end_idx),
+                        'slope': float(slope),
+                        'intercept': float(intercept),
+                        'linearity_score': float(max(0.0, r_squared)),
+                        'length': int(end_idx - start_idx)
+                    })
+            
+            return segments
+            
+        except Exception as e:
+            logger.error(f"Error finding linear segments: {e}")
+            return []
