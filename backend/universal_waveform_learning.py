@@ -1289,11 +1289,659 @@ class UniversalWaveformLearningSystem:
             logger.error(f"Error in comprehensive geometric analysis: {e}")
             return {'status': 'error', 'error': str(e)}
     
-    def _apply_all_learning_strategies(self, data: np.ndarray, 
-                                     detected_patterns: Dict, 
-                                     geometric_analysis: Dict) -> Dict[str, Any]:
-        """Apply all learning strategies"""
-        return {'learned_patterns': []}
+    def _apply_waveform_shape_corrections(self, predictions: np.ndarray, data: np.ndarray, pattern_state: Dict[str, Any]) -> np.ndarray:
+        """Apply waveform shape corrections to maintain pattern characteristics"""
+        try:
+            if len(predictions) == 0:
+                return predictions
+            
+            dominant_pattern = pattern_state.get('dominant_pattern')
+            if not dominant_pattern:
+                return predictions
+            
+            pattern_info = dominant_pattern[1]
+            pattern_type = pattern_info.get('pattern_type', 'unknown')
+            
+            logger.info(f"Applying waveform shape corrections for pattern type: {pattern_type}")
+            
+            # Apply pattern-specific shape corrections
+            if pattern_type == 'square_wave':
+                return self._apply_square_wave_shape_corrections(predictions, data, pattern_info)
+            elif pattern_type == 'triangular_wave':
+                return self._apply_triangular_wave_shape_corrections(predictions, data, pattern_info)
+            elif pattern_type == 'sawtooth_wave':
+                return self._apply_sawtooth_wave_shape_corrections(predictions, data, pattern_info)
+            elif pattern_type == 'step_function':
+                return self._apply_step_function_shape_corrections(predictions, data, pattern_info)
+            elif pattern_type == 'sinusoidal_pattern':
+                return self._apply_sinusoidal_shape_corrections(predictions, data, pattern_info)
+            else:
+                return self._apply_general_shape_corrections(predictions, data, pattern_info)
+                
+        except Exception as e:
+            logger.error(f"Error applying waveform shape corrections: {e}")
+            return predictions
+    
+    def _apply_square_wave_shape_corrections(self, predictions: np.ndarray, data: np.ndarray, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Apply shape corrections specific to square waves"""
+        try:
+            amplitude_levels = pattern_info.get('amplitude_levels', [])
+            if not amplitude_levels or len(amplitude_levels) < 2:
+                return predictions
+            
+            corrected_predictions = []
+            
+            for pred in predictions:
+                # Snap to nearest amplitude level
+                distances = [abs(pred - level) for level in amplitude_levels]
+                closest_level_idx = np.argmin(distances)
+                corrected_predictions.append(amplitude_levels[closest_level_idx])
+            
+            return np.array(corrected_predictions)
+            
+        except Exception as e:
+            logger.error(f"Error in square wave shape corrections: {e}")
+            return predictions
+    
+    def _apply_triangular_wave_shape_corrections(self, predictions: np.ndarray, data: np.ndarray, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Apply shape corrections specific to triangular waves"""
+        try:
+            # Enforce linear segments with sharp transitions at extrema
+            if len(predictions) < 3:
+                return predictions
+            
+            corrected = predictions.copy()
+            
+            # Find local extrema in predictions
+            peaks, _ = find_peaks(corrected, prominence=np.std(corrected) * 0.3)
+            valleys, _ = find_peaks(-corrected, prominence=np.std(corrected) * 0.3)
+            
+            all_extrema = np.sort(np.concatenate([peaks, valleys]))
+            
+            # Enforce linear segments between extrema
+            for i in range(len(all_extrema) - 1):
+                start_idx = all_extrema[i]
+                end_idx = all_extrema[i + 1]
+                
+                if end_idx - start_idx >= 2:
+                    # Create linear interpolation between extrema
+                    start_val = corrected[start_idx]
+                    end_val = corrected[end_idx]
+                    
+                    for j in range(start_idx + 1, end_idx):
+                        progress = (j - start_idx) / (end_idx - start_idx)
+                        corrected[j] = start_val + (end_val - start_val) * progress
+            
+            return corrected
+            
+        except Exception as e:
+            logger.error(f"Error in triangular wave shape corrections: {e}")
+            return predictions
+    
+    def _apply_sawtooth_wave_shape_corrections(self, predictions: np.ndarray, data: np.ndarray, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Apply shape corrections specific to sawtooth waves"""
+        try:
+            # Similar to triangular but with sharp drops
+            if len(predictions) < 3:
+                return predictions
+            
+            corrected = predictions.copy()
+            
+            # Detect sharp drops (sawtooth characteristic)
+            gradient = np.gradient(corrected)
+            sharp_drops = np.where(gradient < -np.std(gradient) * 2)[0]
+            
+            # Ensure linear rise between sharp drops
+            last_drop = 0
+            for drop_idx in sharp_drops:
+                if drop_idx > last_drop + 1:
+                    # Linear interpolation for rising part
+                    start_val = corrected[last_drop]
+                    end_val = corrected[drop_idx]
+                    
+                    for j in range(last_drop + 1, drop_idx):
+                        progress = (j - last_drop) / (drop_idx - last_drop)
+                        corrected[j] = start_val + (end_val - start_val) * progress
+                
+                last_drop = drop_idx
+            
+            return corrected
+            
+        except Exception as e:
+            logger.error(f"Error in sawtooth wave shape corrections: {e}")
+            return predictions
+    
+    def _apply_step_function_shape_corrections(self, predictions: np.ndarray, data: np.ndarray, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Apply shape corrections specific to step functions"""
+        try:
+            # Similar to square wave but less periodic
+            plateaus = pattern_info.get('plateaus', [])
+            transitions = pattern_info.get('transitions', [])
+            
+            if not plateaus:
+                return predictions
+            
+            # Extract step levels
+            step_levels = [p['value'] for p in plateaus]
+            unique_levels = sorted(list(set(step_levels)))
+            
+            corrected_predictions = []
+            
+            for pred in predictions:
+                # Snap to nearest step level
+                distances = [abs(pred - level) for level in unique_levels]
+                closest_level_idx = np.argmin(distances)
+                corrected_predictions.append(unique_levels[closest_level_idx])
+            
+            return np.array(corrected_predictions)
+            
+        except Exception as e:
+            logger.error(f"Error in step function shape corrections: {e}")
+            return predictions
+    
+    def _apply_sinusoidal_shape_corrections(self, predictions: np.ndarray, data: np.ndarray, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Apply shape corrections specific to sinusoidal patterns"""
+        try:
+            # Smooth out sharp edges to maintain sinusoidal smoothness
+            if len(predictions) < 3:
+                return predictions
+            
+            # Apply smoothing to maintain sinusoidal characteristics
+            corrected = predictions.copy()
+            
+            # Use savgol filter for smoothing while preserving shape
+            if len(corrected) >= 5:
+                window_length = min(5, len(corrected) if len(corrected) % 2 == 1 else len(corrected) - 1)
+                if window_length >= 3:
+                    corrected = savgol_filter(corrected, window_length, 2)
+            
+            return corrected
+            
+        except Exception as e:
+            logger.error(f"Error in sinusoidal shape corrections: {e}")
+            return predictions
+    
+    def _apply_general_shape_corrections(self, predictions: np.ndarray, data: np.ndarray, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Apply general shape corrections"""
+        try:
+            # General smoothing and outlier correction
+            corrected = predictions.copy()
+            
+            # Remove extreme outliers
+            if len(data) > 0:
+                data_std = np.std(data)
+                data_mean = np.mean(data)
+                
+                for i in range(len(corrected)):
+                    if abs(corrected[i] - data_mean) > data_std * 3:
+                        # Replace outlier with moving average
+                        if i > 0 and i < len(corrected) - 1:
+                            corrected[i] = (corrected[i-1] + corrected[i+1]) / 2
+                        elif i > 0:
+                            corrected[i] = corrected[i-1]
+                        else:
+                            corrected[i] = data_mean
+            
+            return corrected
+            
+        except Exception as e:
+            logger.error(f"Error in general shape corrections: {e}")
+            return predictions
+
+    def _apply_geometric_consistency_corrections(self, predictions: np.ndarray, data: np.ndarray, pattern_state: Dict[str, Any]) -> np.ndarray:
+        """Apply geometric consistency corrections"""
+        try:
+            if len(predictions) < 2:
+                return predictions
+            
+            corrected = predictions.copy()
+            
+            # Ensure consistency with historical geometric properties
+            if len(data) >= 2:
+                # Match amplitude range
+                data_range = np.max(data) - np.min(data)
+                pred_range = np.max(corrected) - np.min(corrected)
+                
+                if pred_range > 0 and data_range > 0:
+                    # Scale predictions to match historical amplitude
+                    scale_factor = data_range / pred_range
+                    pred_mean = np.mean(corrected)
+                    data_mean = np.mean(data)
+                    
+                    corrected = (corrected - pred_mean) * scale_factor + data_mean
+                
+                # Ensure smooth transitions from historical data
+                if len(data) > 0:
+                    transition_weight = 0.3
+                    corrected[0] = corrected[0] * (1 - transition_weight) + data[-1] * transition_weight
+            
+            return corrected
+            
+        except Exception as e:
+            logger.error(f"Error in geometric consistency corrections: {e}")
+            return predictions
+
+    def _apply_amplitude_frequency_preservation(self, predictions: np.ndarray, data: np.ndarray, pattern_state: Dict[str, Any]) -> np.ndarray:
+        """Apply amplitude and frequency preservation corrections"""
+        try:
+            if len(predictions) < 3 or len(data) < 3:
+                return predictions
+            
+            corrected = predictions.copy()
+            
+            # Preserve amplitude characteristics
+            data_amplitude = (np.max(data) - np.min(data)) / 2
+            data_center = (np.max(data) + np.min(data)) / 2
+            
+            pred_amplitude = (np.max(corrected) - np.min(corrected)) / 2
+            pred_center = (np.max(corrected) + np.min(corrected)) / 2
+            
+            if pred_amplitude > 0:
+                # Scale to match historical amplitude
+                amplitude_scale = data_amplitude / pred_amplitude
+                corrected = (corrected - pred_center) * amplitude_scale + data_center
+            
+            # Frequency preservation (basic approach)
+            dominant_pattern = pattern_state.get('dominant_pattern')
+            if dominant_pattern and len(corrected) >= 6:
+                pattern_info = dominant_pattern[1]
+                if 'periodicity_score' in pattern_info and pattern_info['periodicity_score'] > 0.5:
+                    # Try to maintain periodic structure
+                    # This is a simplified approach - could be enhanced
+                    pass
+            
+            return corrected
+            
+        except Exception as e:
+            logger.error(f"Error in amplitude/frequency preservation: {e}")
+            return predictions
+
+    def _apply_continuity_smoothness_corrections(self, predictions: np.ndarray, data: np.ndarray, 
+                                               previous_predictions: Optional[List], pattern_state: Dict[str, Any]) -> np.ndarray:
+        """Apply continuity and smoothness corrections"""
+        try:
+            if len(predictions) == 0:
+                return predictions
+            
+            corrected = predictions.copy()
+            
+            # Ensure smooth transition from historical data
+            if len(data) > 0:
+                # Smooth connection to last historical point
+                if len(corrected) > 0:
+                    # Apply exponential smoothing for first few predictions
+                    smoothing_length = min(3, len(corrected))
+                    alpha = 0.3  # Smoothing factor
+                    
+                    for i in range(smoothing_length):
+                        weight = alpha * (1 - alpha) ** i
+                        corrected[i] = corrected[i] * (1 - weight) + data[-1] * weight
+            
+            # Apply pattern-specific smoothness
+            dominant_pattern = pattern_state.get('dominant_pattern')
+            if dominant_pattern:
+                pattern_type = dominant_pattern[1].get('pattern_type', 'unknown')
+                
+                # Different smoothness for different patterns
+                if pattern_type == 'sinusoidal_pattern':
+                    # High smoothness for sinusoidal
+                    if len(corrected) >= 5:
+                        window_length = min(5, len(corrected) if len(corrected) % 2 == 1 else len(corrected) - 1)
+                        corrected = savgol_filter(corrected, window_length, 2)
+                elif pattern_type in ['square_wave', 'step_function']:
+                    # Maintain sharp edges for square waves
+                    pass  # No additional smoothing
+                elif pattern_type == 'triangular_wave':
+                    # Light smoothing for triangular
+                    if len(corrected) >= 3:
+                        window_length = min(3, len(corrected) if len(corrected) % 2 == 1 else len(corrected) - 1)
+                        corrected = savgol_filter(corrected, window_length, 1)
+            
+            return corrected
+            
+        except Exception as e:
+            logger.error(f"Error in continuity/smoothness corrections: {e}")
+            return predictions
+
+    def _calculate_pattern_aware_confidence_intervals(self, predictions: np.ndarray, data: np.ndarray, pattern_state: Dict[str, Any]) -> List[Dict]:
+        """Calculate pattern-aware confidence intervals"""
+        try:
+            if len(predictions) == 0:
+                return []
+            
+            confidence_intervals = []
+            
+            # Base confidence on pattern detection quality
+            dominant_pattern = pattern_state.get('dominant_pattern')
+            base_confidence = 0.8 if dominant_pattern else 0.5
+            
+            if dominant_pattern:
+                pattern_confidence = dominant_pattern[1].get('confidence', 0.5)
+                base_confidence *= pattern_confidence
+            
+            # Calculate adaptive confidence based on data variability
+            if len(data) > 0:
+                data_std = np.std(data)
+                
+                for i, pred in enumerate(predictions):
+                    # Confidence decreases with prediction horizon
+                    horizon_factor = 1.0 - (i * 0.02)  # 2% decrease per step
+                    confidence = base_confidence * max(0.3, horizon_factor)
+                    
+                    # Confidence interval based on data variability
+                    interval_width = data_std * (2 - confidence)  # Wider intervals for lower confidence
+                    
+                    confidence_intervals.append({
+                        'lower': float(pred - interval_width),
+                        'upper': float(pred + interval_width),
+                        'confidence': float(confidence)
+                    })
+            else:
+                # Default intervals if no historical data
+                for i, pred in enumerate(predictions):
+                    confidence_intervals.append({
+                        'lower': float(pred * 0.9),
+                        'upper': float(pred * 1.1),
+                        'confidence': 0.5
+                    })
+            
+            return confidence_intervals
+            
+        except Exception as e:
+            logger.error(f"Error calculating pattern-aware confidence intervals: {e}")
+            return []
+
+    def _assess_waveform_prediction_quality(self, predictions: np.ndarray, data: np.ndarray, pattern_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess quality of waveform predictions"""
+        try:
+            quality_assessment = {}
+            
+            if len(predictions) == 0:
+                return {'overall_quality': 0.0}
+            
+            # Shape fidelity assessment
+            quality_assessment['shape_fidelity'] = self._assess_shape_fidelity(predictions, data, pattern_state)
+            
+            # Amplitude accuracy
+            quality_assessment['amplitude_accuracy'] = self._assess_amplitude_accuracy(predictions, data)
+            
+            # Frequency accuracy  
+            quality_assessment['frequency_accuracy'] = self._assess_frequency_accuracy(predictions, data)
+            
+            # Geometric consistency
+            quality_assessment['geometric_consistency'] = self._assess_geometric_consistency(predictions, data)
+            
+            # Transition quality
+            quality_assessment['transition_quality'] = self._assess_transition_quality(predictions, data, pattern_state)
+            
+            # Overall quality (weighted average)
+            weights = {
+                'shape_fidelity': 0.3,
+                'amplitude_accuracy': 0.25,
+                'frequency_accuracy': 0.2,
+                'geometric_consistency': 0.15,
+                'transition_quality': 0.1
+            }
+            
+            overall_quality = sum(quality_assessment[key] * weights[key] for key in weights.keys())
+            quality_assessment['overall_quality'] = float(overall_quality)
+            
+            return quality_assessment
+            
+        except Exception as e:
+            logger.error(f"Error assessing waveform prediction quality: {e}")
+            return {'overall_quality': 0.3}
+
+    def _assess_shape_fidelity(self, predictions: np.ndarray, data: np.ndarray, pattern_state: Dict[str, Any]) -> float:
+        """Assess how well predictions maintain the shape of the pattern"""
+        try:
+            if len(predictions) < 2 or len(data) < 2:
+                return 0.5
+            
+            dominant_pattern = pattern_state.get('dominant_pattern')
+            if not dominant_pattern:
+                return 0.5
+            
+            pattern_type = dominant_pattern[1].get('pattern_type', 'unknown')
+            pattern_confidence = dominant_pattern[1].get('confidence', 0.5)
+            
+            # Shape fidelity based on pattern type
+            if pattern_type == 'square_wave':
+                return self._assess_square_wave_fidelity(predictions, data)
+            elif pattern_type == 'triangular_wave':
+                return self._assess_triangular_wave_fidelity(predictions, data)
+            elif pattern_type == 'sinusoidal_pattern':
+                return self._assess_sinusoidal_fidelity(predictions, data)
+            else:
+                # General shape fidelity
+                return float(pattern_confidence * 0.8)
+                
+        except Exception as e:
+            logger.error(f"Error assessing shape fidelity: {e}")
+            return 0.5
+    
+    def _assess_square_wave_fidelity(self, predictions: np.ndarray, data: np.ndarray) -> float:
+        """Assess fidelity for square wave patterns"""
+        try:
+            # Check for discrete levels in predictions
+            unique_pred_levels = len(np.unique(np.round(predictions, 1)))
+            
+            # Good square wave should have ~2 levels
+            if unique_pred_levels <= 3:
+                level_score = 0.9
+            elif unique_pred_levels <= 5:
+                level_score = 0.7
+            else:
+                level_score = 0.4
+            
+            # Check for sharp transitions
+            gradient = np.abs(np.gradient(predictions))
+            sharp_transitions = np.sum(gradient > np.std(gradient))
+            
+            if len(predictions) > 0:
+                transition_score = min(1.0, sharp_transitions / (len(predictions) * 0.2))
+            else:
+                transition_score = 0.5
+            
+            return float(level_score * 0.6 + transition_score * 0.4)
+            
+        except Exception as e:
+            logger.error(f"Error assessing square wave fidelity: {e}")
+            return 0.5
+    
+    def _assess_triangular_wave_fidelity(self, predictions: np.ndarray, data: np.ndarray) -> float:
+        """Assess fidelity for triangular wave patterns"""
+        try:
+            # Check for linear segments
+            linearity_scores = []
+            
+            # Find peaks and valleys
+            peaks, _ = find_peaks(predictions, prominence=np.std(predictions) * 0.3)
+            valleys, _ = find_peaks(-predictions, prominence=np.std(predictions) * 0.3)
+            
+            all_extrema = np.sort(np.concatenate([peaks, valleys]))
+            
+            # Check linearity of segments between extrema
+            for i in range(len(all_extrema) - 1):
+                start_idx = all_extrema[i]
+                end_idx = all_extrema[i + 1]
+                
+                if end_idx - start_idx >= 3:
+                    segment = predictions[start_idx:end_idx + 1]
+                    x = np.arange(len(segment))
+                    
+                    # Calculate R-squared for linearity
+                    slope, intercept = np.polyfit(x, segment, 1)
+                    predicted_line = slope * x + intercept
+                    
+                    ss_res = np.sum((segment - predicted_line) ** 2)
+                    ss_tot = np.sum((segment - np.mean(segment)) ** 2)
+                    
+                    if ss_tot > 0:
+                        r_squared = 1 - (ss_res / ss_tot)
+                        linearity_scores.append(max(0.0, r_squared))
+            
+            if linearity_scores:
+                return float(np.mean(linearity_scores))
+            else:
+                return 0.5
+                
+        except Exception as e:
+            logger.error(f"Error assessing triangular wave fidelity: {e}")
+            return 0.5
+    
+    def _assess_sinusoidal_fidelity(self, predictions: np.ndarray, data: np.ndarray) -> float:
+        """Assess fidelity for sinusoidal patterns"""
+        try:
+            # Check smoothness (sinusoidal should be smooth)
+            if len(predictions) < 3:
+                return 0.5
+            
+            second_derivative = np.abs(np.diff(predictions, n=2))
+            smoothness = 1.0 / (1.0 + np.mean(second_derivative))
+            
+            return float(smoothness)
+            
+        except Exception as e:
+            logger.error(f"Error assessing sinusoidal fidelity: {e}")
+            return 0.5
+
+    def _assess_amplitude_accuracy(self, predictions: np.ndarray, data: np.ndarray) -> float:
+        """Assess amplitude accuracy of predictions"""
+        try:
+            if len(predictions) == 0 or len(data) == 0:
+                return 0.5
+            
+            pred_amplitude = (np.max(predictions) - np.min(predictions)) / 2
+            data_amplitude = (np.max(data) - np.min(data)) / 2
+            
+            if data_amplitude > 0:
+                amplitude_ratio = min(pred_amplitude, data_amplitude) / max(pred_amplitude, data_amplitude)
+                return float(amplitude_ratio)
+            else:
+                return 1.0 if pred_amplitude == 0 else 0.0
+                
+        except Exception as e:
+            logger.error(f"Error assessing amplitude accuracy: {e}")
+            return 0.5
+
+    def _assess_frequency_accuracy(self, predictions: np.ndarray, data: np.ndarray) -> float:
+        """Assess frequency accuracy of predictions"""
+        try:
+            if len(predictions) < 4 or len(data) < 4:
+                return 0.5
+            
+            # Simple frequency estimation using zero crossings
+            def count_zero_crossings(signal):
+                mean_val = np.mean(signal)
+                centered = signal - mean_val
+                return np.sum(np.diff(np.signbit(centered)))
+            
+            pred_crossings = count_zero_crossings(predictions)
+            data_crossings = count_zero_crossings(data[-len(predictions):] if len(data) >= len(predictions) else data)
+            
+            if max(pred_crossings, data_crossings) > 0:
+                frequency_ratio = min(pred_crossings, data_crossings) / max(pred_crossings, data_crossings)
+                return float(frequency_ratio)
+            else:
+                return 1.0
+                
+        except Exception as e:
+            logger.error(f"Error assessing frequency accuracy: {e}")
+            return 0.5
+
+    def _assess_geometric_consistency(self, predictions: np.ndarray, data: np.ndarray) -> float:
+        """Assess geometric consistency of predictions"""
+        try:
+            if len(predictions) < 2:
+                return 0.5
+            
+            consistency_metrics = []
+            
+            # Trend consistency
+            if len(predictions) > 1 and len(data) > 1:
+                pred_trend = np.polyfit(range(len(predictions)), predictions, 1)[0]
+                data_trend = np.polyfit(range(min(len(data), len(predictions))), data[-len(predictions):], 1)[0]
+                
+                if abs(data_trend) > 1e-8:
+                    trend_consistency = 1.0 - abs(pred_trend - data_trend) / (abs(data_trend) + 1e-8)
+                else:
+                    trend_consistency = 1.0 if abs(pred_trend) < 1e-8 else 0.0
+                
+                consistency_metrics.append(max(0.0, trend_consistency))
+            
+            # Variability consistency
+            if len(data) > 0:
+                pred_std = np.std(predictions)
+                data_std = np.std(data)
+                
+                if max(pred_std, data_std) > 1e-8:
+                    var_consistency = min(pred_std, data_std) / max(pred_std, data_std)
+                else:
+                    var_consistency = 1.0
+                
+                consistency_metrics.append(var_consistency)
+            
+            if consistency_metrics:
+                return float(np.mean(consistency_metrics))
+            else:
+                return 0.5
+                
+        except Exception as e:
+            logger.error(f"Error assessing geometric consistency: {e}")
+            return 0.5
+
+    def _assess_transition_quality(self, predictions: np.ndarray, data: np.ndarray, pattern_state: Dict[str, Any]) -> float:
+        """Assess quality of transitions in predictions"""
+        try:
+            if len(predictions) < 3:
+                return 0.5
+            
+            # Check smoothness of transitions
+            gradient = np.gradient(predictions)
+            gradient_changes = np.abs(np.diff(gradient))
+            
+            # Lower gradient changes indicate smoother transitions
+            smoothness_score = 1.0 / (1.0 + np.mean(gradient_changes))
+            
+            return float(smoothness_score)
+            
+        except Exception as e:
+            logger.error(f"Error assessing transition quality: {e}")
+            return 0.5
+
+    def _update_learning_from_predictions(self, predictions: np.ndarray, data: np.ndarray, 
+                                        pattern_state: Dict[str, Any], prediction_quality: Dict[str, Any]) -> None:
+        """Update learning from prediction results"""
+        try:
+            # Store prediction performance for future improvement
+            dominant_pattern = pattern_state.get('dominant_pattern')
+            if dominant_pattern:
+                pattern_type = dominant_pattern[1].get('pattern_type', 'unknown')
+                overall_quality = prediction_quality.get('overall_quality', 0.5)
+                
+                # Update pattern performance tracking
+                if pattern_type not in self.pattern_performance:
+                    self.pattern_performance[pattern_type] = []
+                
+                self.pattern_performance[pattern_type].append(overall_quality)
+                
+                # Keep only recent performance data
+                if len(self.pattern_performance[pattern_type]) > 100:
+                    self.pattern_performance[pattern_type] = self.pattern_performance[pattern_type][-50:]
+            
+            # Update general adaptation history
+            adaptation_event = {
+                'timestamp': datetime.now(),
+                'prediction_length': len(predictions),
+                'data_length': len(data),
+                'quality_metrics': prediction_quality
+            }
+            
+            self.adaptation_history.append(adaptation_event)
+            
+        except Exception as e:
+            logger.error(f"Error updating learning from predictions: {e}")
     
     def _assess_synthesis_capabilities(self, learned_patterns: Dict) -> Dict[str, Any]:
         """Assess synthesis capabilities"""
