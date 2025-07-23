@@ -1,3 +1,358 @@
-# Here are your Instructions
-# graph2
-# graph2
+# Advanced pH Monitoring and Prediction System
+
+A comprehensive real-time pH monitoring and prediction system with advanced machine learning capabilities, universal waveform pattern learning, and noise reduction algorithms.
+
+## 🌟 Features
+
+### Core Functionality
+- **Real-time pH Monitoring**: Three-panel dashboard for comprehensive pH monitoring
+- **Advanced ML Predictions**: Multiple models including LSTM, Prophet, ARIMA, DLinear, N-BEATS
+- **Universal Waveform Learning**: Learns and reproduces any pattern complexity (square wave, triangular, sinusoidal, etc.)
+- **Noise Reduction**: Advanced algorithms with Savitzky-Golay, Gaussian, Butterworth filters
+- **Pattern Following**: Enhanced algorithms that maintain historical patterns and eliminate downward bias
+- **File Upload**: CSV/Excel support with automatic data analysis and column detection
+- **Continuous Prediction**: Real-time extrapolation with smooth transitions
+- **Interactive Controls**: pH target slider, time window controls, enhanced visual smoothing
+
+### Advanced Features  
+- **Enhanced Pattern Analysis**: Multi-scale pattern detection and learning
+- **Adaptive Smoothing**: Pattern-aware smoothing (none for square waves, low for triangular, medium for sinusoidal)
+- **Quality Validation**: Comprehensive data quality scoring and recommendations
+- **Model Comparison**: Automated model performance comparison and selection
+- **Hyperparameter Optimization**: Automated optimization using Optuna
+- **Confidence Intervals**: Statistical confidence bounds for all predictions
+
+## 🏗️ System Architecture
+
+### Backend (FastAPI)
+- **API Server**: FastAPI with automatic OpenAPI documentation
+- **Database**: MongoDB for data persistence  
+- **ML Models**: PyTorch, Prophet, Scikit-learn, LightGBM, XGBoost
+- **Processing**: Advanced noise reduction and pattern analysis engines
+- **WebSocket**: Real-time data streaming (note: may have infrastructure limitations)
+
+### Frontend (React)
+- **UI Framework**: React 19 with modern hooks
+- **Styling**: Tailwind CSS for responsive design
+- **Visualization**: Plotly.js for interactive charts and graphs
+- **File Upload**: React Dropzone for drag-and-drop file uploads
+- **Real-time Updates**: WebSocket integration for live data
+
+### Database (MongoDB)
+- **Local Instance**: MongoDB running on default port 27017
+- **Data Storage**: Time series data, model states, user uploads
+- **Indexing**: Optimized for time-based queries
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.11+ 
+- Node.js 20+
+- Yarn package manager
+- MongoDB
+- Git
+
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd <project-directory>
+```
+
+### 2. Backend Setup
+
+#### Install Python Dependencies
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+#### Set Environment Variables
+The backend `.env` file is already configured:
+```bash
+# backend/.env (already configured)
+MONGO_URL="mongodb://localhost:27017"
+DB_NAME="test_database"
+```
+
+#### Start Backend (Development)
+```bash
+# Option 1: Direct uvicorn (for development)
+cd /app/backend
+uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+
+# Option 2: Using supervisor (recommended)
+sudo supervisorctl restart backend
+```
+
+### 3. Frontend Setup
+
+#### Install Node Dependencies
+```bash
+cd frontend
+yarn install
+```
+
+#### Environment Configuration
+The frontend `.env` file is already configured with the production backend URL:
+```bash
+# frontend/.env (already configured)
+REACT_APP_BACKEND_URL=https://ee04ac22-cb45-4b61-832c-93de71320985.preview.emergentagent.com
+WDS_SOCKET_PORT=443
+```
+
+#### Start Frontend (Development)
+```bash
+# Option 1: Direct yarn (for development)
+cd /app/frontend  
+yarn start
+
+# Option 2: Using supervisor (recommended)
+sudo supervisorctl restart frontend
+```
+
+### 4. Database Setup
+
+#### Start MongoDB
+```bash
+# Option 1: Direct mongod
+mongod --bind_ip_all
+
+# Option 2: Using supervisor (recommended)
+sudo supervisorctl restart mongodb
+```
+
+### 5. Complete System Startup
+
+#### Start All Services
+```bash
+# Start all services using supervisor
+sudo supervisorctl restart all
+
+# Check service status
+sudo supervisorctl status
+```
+
+#### Verify Services
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8001 
+- **API Documentation**: http://localhost:8001/docs
+- **MongoDB**: mongodb://localhost:27017
+
+## 📊 Usage Guide
+
+### 1. Data Upload
+- Navigate to the application frontend
+- Use the file upload area to upload CSV or Excel files
+- Supported formats: CSV with timestamp and pH columns
+- The system automatically detects columns and analyzes data quality
+
+### 2. Model Training  
+- Configure parameters (timestamp column, pH column, model type)
+- Choose from available models:
+  - **LSTM**: Deep learning for complex patterns
+  - **Prophet**: Time series with seasonality
+  - **ARIMA**: Traditional statistical forecasting
+  - **DLinear**: Linear decomposition model
+  - **N-BEATS**: Neural basis expansion
+
+### 3. Prediction Generation
+- **Single Predictions**: Generate point forecasts
+- **Continuous Predictions**: Real-time extrapolation
+- **Advanced Predictions**: Ensemble methods with confidence intervals
+- **Universal Waveform**: Pattern-aware predictions that preserve input characteristics
+
+### 4. Interactive Dashboard
+- **Left Panel**: Historical pH data visualization
+- **Center Panel**: Real-time pH sensor readings with controls
+- **Right Panel**: LSTM predictions with noise reduction
+
+### 5. Pattern Learning
+- Upload different waveform types (square, triangular, sinusoidal)
+- System automatically detects pattern characteristics  
+- Predictions maintain input pattern shapes
+- Enhanced visual smoothing adapts to pattern type
+
+## 🔧 Configuration
+
+### Backend Configuration
+```python
+# Key configuration files:
+- server.py: Main FastAPI application
+- requirements.txt: Python dependencies
+- .env: Environment variables
+```
+
+### Frontend Configuration  
+```javascript
+// Key configuration files:
+- package.json: Node.js dependencies
+- tailwind.config.js: Styling configuration
+- .env: Environment variables
+```
+
+### Supervisor Configuration
+```ini
+# /etc/supervisor/conf.d/supervisord.conf
+[program:backend]
+command=/root/.venv/bin/uvicorn server:app --host 0.0.0.0 --port 8001 --workers 1 --reload
+directory=/app/backend
+
+[program:frontend]  
+command=yarn start
+directory=/app/frontend
+
+[program:mongodb]
+command=/usr/bin/mongod --bind_ip_all
+```
+
+## 🧪 Testing
+
+### Backend Testing
+```bash
+cd /app
+python backend_test.py
+python comprehensive_ph_test.py  
+python universal_waveform_test.py
+```
+
+### Frontend Testing
+```bash
+cd frontend
+yarn test
+```
+
+### Integration Testing
+```bash
+# Test complete workflow
+python test_ph_dataset.py
+python focused_prediction_test.py
+```
+
+## 🔍 API Endpoints
+
+### Data Management
+- `POST /api/upload-data`: Upload CSV/Excel files
+- `GET /api/data-quality-report`: Get data quality analysis
+
+### Model Training
+- `POST /api/train-model`: Train ML models
+- `GET /api/supported-models`: List available models
+- `GET /api/model-performance`: Get model metrics
+
+### Predictions
+- `POST /api/generate-prediction`: Basic predictions
+- `POST /api/generate-advanced-prediction`: Ensemble predictions  
+- `POST /api/generate-universal-waveform-prediction`: Pattern-aware predictions
+- `POST /api/generate-enhanced-realtime-prediction`: Noise-reduced predictions
+
+### Real-time Features
+- `POST /api/start-continuous-prediction`: Start real-time predictions
+- `POST /api/stop-continuous-prediction`: Stop real-time predictions
+- `GET /api/ph-simulation`: Get simulated pH readings
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### Backend Won't Start
+```bash
+# Check logs
+tail -f /var/log/supervisor/backend.err.log
+
+# Common fixes
+cd /app/backend
+pip install -r requirements.txt
+sudo supervisorctl restart backend
+```
+
+#### Frontend Won't Start  
+```bash
+# Check logs
+tail -f /var/log/supervisor/frontend.err.log
+
+# Common fixes
+cd /app/frontend
+yarn install
+sudo supervisorctl restart frontend
+```
+
+#### MongoDB Connection Issues
+```bash
+# Check MongoDB status
+sudo supervisorctl status mongodb
+
+# Restart MongoDB
+sudo supervisorctl restart mongodb
+
+# Check logs
+tail -f /var/log/mongodb.err.log
+```
+
+#### WebSocket Connection Issues
+- WebSocket real-time features may have infrastructure limitations
+- Use polling endpoints as fallback for real-time data
+
+### Performance Optimization
+- For large datasets, use data preprocessing and quality validation
+- Enable noise reduction for smoother real-time predictions  
+- Use appropriate model types for your data characteristics
+- Monitor memory usage with advanced ML models
+
+## 📁 Project Structure
+
+```
+/app/
+├── backend/                 # FastAPI backend
+│   ├── server.py           # Main API server
+│   ├── requirements.txt    # Python dependencies
+│   ├── advanced_models.py  # ML model implementations
+│   ├── data_preprocessing.py # Data processing pipeline
+│   ├── advanced_noise_reduction.py # Noise reduction algorithms
+│   ├── universal_waveform_learning.py # Pattern learning system
+│   └── .env               # Environment variables
+├── frontend/               # React frontend  
+│   ├── src/
+│   │   ├── App.js         # Main React application
+│   │   └── components/    # React components
+│   ├── package.json       # Node.js dependencies
+│   ├── tailwind.config.js # Styling configuration
+│   └── .env              # Environment variables
+├── tests/                 # Test files
+├── README.md             # This file
+└── test_result.md        # Testing documentation
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Submit a pull request
+
+## 📝 License
+
+This project is licensed under the MIT License.
+
+## 📞 Support
+
+For issues and questions:
+1. Check the troubleshooting section above
+2. Review the test_result.md file for known issues
+3. Check API documentation at http://localhost:8001/docs
+4. Contact the development team
+
+## 🔄 Recent Updates
+
+- ✅ Fixed universal waveform pattern learning (no more sine wave fallback)
+- ✅ Implemented comprehensive noise reduction system  
+- ✅ Resolved pH prediction downward trend bias
+- ✅ Enhanced pattern-following algorithms
+- ✅ Added adaptive visual smoothing
+- ✅ Improved continuous prediction extrapolation
+- ⚠️ WebSocket real-time streaming has infrastructure limitations
+- ⚠️ Prophet model may have stan_backend compatibility issues
+
+---
+
+**Made with ❤️ using FastAPI, React, and advanced ML techniques**
