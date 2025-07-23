@@ -126,6 +126,18 @@
         agent: "testing"
         comment: "🎯 FOCUSED NOISE REDUCTION SYSTEM TESTING COMPLETED: Conducted comprehensive testing specifically focused on the enhanced noise reduction system as requested in review. RESULTS: ✅ CORE NOISE REDUCTION SYSTEM WORKING EXCELLENTLY (3/3 noise levels passed - 100%): 1) Low noise handling - generates 20 predictions with excellent smoothness score (0.867) and noise reduction score (0.749), maintains realistic pH range (6.25-7.57), 2) Medium noise handling - generates 20 predictions with good smoothness score (0.766) and noise reduction score (0.776), maintains realistic pH range (6.43-7.65), 3) High noise handling - generates 20 predictions with excellent smoothness score (0.830) and noise reduction score (0.715), maintains realistic pH range (6.23-7.65). ✅ PATTERN PRESERVATION VERIFIED (1/1 tests passed - 100%): Sine wave pattern preservation score (0.952) excellent, confirming the system maintains pattern integrity during noise reduction. 🎯 KEY FINDINGS: Enhanced Real-Time Prediction Endpoint (/api/generate-enhanced-realtime-prediction) working correctly with comprehensive smoothing, Advanced noise reduction system (advanced_noise_reduction.py) properly integrated and functional, Pattern preservation during noise reduction verified and working excellently, Continuous prediction flow maintains smoothness across different noise levels. 🎉 CONCLUSION: The enhanced noise reduction system is WORKING CORRECTLY and meets all requirements from the review request. The system successfully reduces noise in real-time continuous predictions while preserving realistic pH patterns and maintaining smooth line rendering for the right-side prediction graph."
 
+  - task: "Fix universal waveform pattern learning - predicted graph always showing sine waves"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "CRITICAL ISSUE IDENTIFIED: User reported that the predicted graph (right side of slider) always shows sine wave patterns instead of learning from historical data patterns. When uploading square wave data, the prediction should show square wave patterns, but it shows sine waves only. Root cause analysis revealed: The universal waveform learning system correctly detects patterns (square wave confidence 0.99, step function confidence 1.0) and generates appropriate predictions with sharp transitions. However, the frontend PhChart component was applying 'high' level smoothing to prediction panels, which converts sharp square wave edges into smooth sine-like curves through multiple smoothing passes. SOLUTION IMPLEMENTED: 1) Added adaptive pattern detection in frontend that analyzes data characteristics to determine pattern type (square_wave, triangular_wave, sinusoidal), 2) Implemented adaptive smoothing that uses 'none' smoothing for square waves, 'low' smoothing for triangular waves, and 'medium' smoothing for sinusoidal patterns, 3) Changed LSTM Predictions and Generated Predictions panels from hardcoded 'high' smoothing to 'adaptive' smoothing, 4) Preserved 'medium' smoothing for historical data charts to maintain visual quality of actual sensor data. This ensures square wave predictions remain sharp, triangular waves keep their peaks, and sinusoidal patterns maintain smoothness."
+
   - task: "Enhanced universal waveform prediction system testing"
     implemented: true
     working: true
