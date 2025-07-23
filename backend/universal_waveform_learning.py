@@ -1899,6 +1899,233 @@ class UniversalWaveformLearningSystem:
             logger.error(f"Error creating triangular wave template: {e}")
             return data.copy()
 
+    # ==========================================
+    # ADDITIONAL MISSING HELPER METHODS
+    # ==========================================
+    
+    def _find_sharp_sawtooth_transitions(self, data: np.ndarray) -> List[Dict]:
+        """Find sharp sawtooth transitions"""
+        try:
+            transitions = []
+            threshold = np.std(data) * 1.5  # Higher threshold for sawtooth
+            
+            for i in range(1, len(data) - 1):
+                # Look for sharp drops (sawtooth characteristic)
+                if data[i-1] > data[i] and data[i] < data[i+1]:
+                    drop = data[i-1] - data[i]  
+                    rise = data[i+1] - data[i]
+                    if drop > threshold and rise > threshold * 0.1:  # Sharp drop followed by gradual rise
+                        transitions.append({
+                            'index': i,
+                            'drop_magnitude': drop,
+                            'rise_magnitude': rise,
+                            'type': 'sawtooth_drop'
+                        })
+            
+            return transitions
+        except Exception as e:
+            logger.error(f"Error finding sawtooth transitions: {e}")
+            return []
+    
+    def _find_pulse_events(self, data: np.ndarray) -> List[Dict]:
+        """Find pulse events in data"""
+        try:
+            pulses = []
+            threshold = np.mean(data) + np.std(data)
+            
+            in_pulse = False
+            pulse_start = None
+            
+            for i, value in enumerate(data):
+                if value > threshold and not in_pulse:
+                    pulse_start = i
+                    in_pulse = True
+                elif value <= threshold and in_pulse:
+                    pulses.append({
+                        'start': pulse_start,
+                        'end': i,
+                        'width': i - pulse_start,
+                        'peak_value': np.max(data[pulse_start:i+1])
+                    })
+                    in_pulse = False
+            
+            return pulses
+        except Exception as e:
+            logger.error(f"Error finding pulse events: {e}")
+            return []
+    
+    def _create_exponential_template(self, data: np.ndarray, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Create exponential template"""
+        try:
+            if len(data) < 3:
+                return data.copy()
+            
+            # Fit exponential and create template
+            x = np.arange(len(data))
+            
+            if np.all(data > 0):
+                log_data = np.log(data)
+                coeffs = np.polyfit(x, log_data, 1)
+                template = np.exp(coeffs[1] + coeffs[0] * x)
+            else:
+                # Linear fallback
+                coeffs = np.polyfit(x, data, 1)
+                template = np.polyval(coeffs, x)
+            
+            return template
+        except Exception as e:
+            logger.error(f"Error creating exponential template: {e}")
+            return data.copy()
+    
+    def _calculate_hurst_exponent_advanced(self, data: np.ndarray) -> float:
+        """Calculate Hurst exponent for fractal analysis"""
+        try:
+            # Simplified Hurst exponent calculation
+            if len(data) < 10:
+                return 0.5
+            
+            # R/S analysis (simplified)
+            def rs_stat(data_segment):
+                mean_val = np.mean(data_segment)
+                deviations = data_segment - mean_val
+                cumulative_deviations = np.cumsum(deviations)
+                
+                R = np.max(cumulative_deviations) - np.min(cumulative_deviations)
+                S = np.std(data_segment)
+                
+                return R / S if S > 0 else 1.0
+            
+            # Calculate R/S for different window sizes
+            window_sizes = [4, 8, 16, min(32, len(data)//2)]
+            rs_values = []
+            
+            for window_size in window_sizes:
+                if window_size < len(data):
+                    rs_vals = []
+                    for i in range(0, len(data) - window_size + 1, window_size):
+                        segment = data[i:i + window_size]
+                        rs_vals.append(rs_stat(segment))
+                    
+                    if rs_vals:
+                        rs_values.append(np.mean(rs_vals))
+            
+            if len(rs_values) >= 2:
+                # Fit line to log-log plot
+                log_sizes = np.log(window_sizes[:len(rs_values)])
+                log_rs = np.log(rs_values)
+                hurst = np.polyfit(log_sizes, log_rs, 1)[0]
+                return np.clip(hurst, 0.0, 1.0)
+            else:
+                return 0.5
+        except Exception as e:
+            logger.error(f"Error calculating Hurst exponent: {e}")
+            return 0.5
+    
+    def _calculate_lyapunov_exponent_advanced(self, data: np.ndarray) -> float:
+        """Calculate Lyapunov exponent for chaos analysis"""
+        try:
+            # Simplified Lyapunov exponent
+            if len(data) < 10:
+                return 0.0
+            
+            # Calculate local divergence rates
+            divergences = []
+            for i in range(1, len(data) - 1):
+                # Simple approximation using finite differences
+                if abs(data[i-1] - data[i]) > 1e-10:
+                    divergence = abs((data[i+1] - data[i]) / (data[i] - data[i-1]))
+                    if divergence > 0:
+                        divergences.append(np.log(divergence))
+            
+            if divergences:
+                return np.mean(divergences)
+            else:
+                return 0.0
+        except Exception as e:
+            logger.error(f"Error calculating Lyapunov exponent: {e}")
+            return 0.0
+    
+    def _decompose_into_components(self, data: np.ndarray) -> Dict[str, Any]:
+        """Decompose data into components"""
+        try:
+            components = {}
+            
+            # Trend component (linear fit)
+            x = np.arange(len(data))
+            trend_coeffs = np.polyfit(x, data, 1)
+            trend = np.polyval(trend_coeffs, x)
+            components['trend'] = trend
+            
+            # Detrended data
+            detrended = data - trend
+            components['detrended'] = detrended
+            
+            # Residual
+            components['residual'] = detrended
+            
+            return components
+        except Exception as e:
+            logger.error(f"Error decomposing components: {e}")
+            return {'trend': data.copy(), 'detrended': np.zeros_like(data), 'residual': np.zeros_like(data)}
+    
+    def _calculate_local_variations(self, data: np.ndarray) -> float:
+        """Calculate local variations in data"""
+        try:
+            if len(data) < 3:
+                return 0.0
+            
+            # Calculate variation using moving windows
+            window_size = max(3, len(data) // 10)
+            variations = []
+            
+            for i in range(len(data) - window_size + 1):
+                window = data[i:i + window_size]
+                variation = np.std(window)
+                variations.append(variation)
+            
+            return np.std(variations) / (np.mean(variations) + 1e-10)
+        except Exception as e:
+            logger.error(f"Error calculating local variations: {e}")
+            return 0.0
+    
+    def _create_adaptive_template(self, data: np.ndarray, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Create adaptive template for custom patterns"""
+        try:
+            # Use pattern recognition to create template
+            if len(data) < 5:
+                return data.copy()
+            
+            # Find repeating patterns
+            template_length = min(10, len(data) // 3)
+            best_template = data[:template_length].copy()
+            best_score = 0.0
+            
+            # Try different template lengths
+            for length in range(3, min(template_length + 1, len(data) // 2)):
+                template = data[:length]
+                
+                # Score template by how well it repeats
+                score = 0.0
+                count = 0
+                
+                for start in range(0, len(data) - length, length):
+                    segment = data[start:start + length]
+                    correlation = np.corrcoef(template, segment)[0, 1]
+                    if not np.isnan(correlation):
+                        score += correlation
+                        count += 1
+                
+                if count > 0:
+                    avg_score = score / count
+                    if avg_score > best_score:
+                        best_score = avg_score
+                        best_template = template.copy()
+            
+            return best_template
+        except Exception as e:
+            logger.error(f"Error creating adaptive template: {e}")
+            return data.copy()
+
     def _create_minimal_learning_result(self, data: np.ndarray) -> Dict[str, Any]:
         """Create minimal result for insufficient data"""
         return {
