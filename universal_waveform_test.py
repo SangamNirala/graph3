@@ -150,17 +150,17 @@ class UniversalWaveformTester:
     def test_universal_waveform_prediction(self, pattern_name, data_id):
         """Test universal waveform prediction endpoint for specific pattern"""
         try:
-            # Test the universal waveform prediction endpoint
-            prediction_data = {
-                "data_id": data_id,
-                "prediction_steps": 20,
-                "pattern_analysis": True,
-                "preserve_patterns": True
-            }
+            # First upload the data to set current_data in backend
+            # The endpoint uses global current_data, so we need to ensure it's set
             
-            response = self.session.post(
+            # Test the universal waveform prediction endpoint (GET request)
+            response = self.session.get(
                 f"{API_BASE_URL}/generate-universal-waveform-prediction",
-                json=prediction_data
+                params={
+                    "steps": 20,
+                    "time_window": 50,
+                    "learning_mode": "comprehensive"
+                }
             )
             
             if response.status_code == 200:
