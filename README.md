@@ -517,6 +517,7 @@ For developers who want to get started immediately:
 git clone <repository-url>
 
 # 2. Start MongoDB via Docker
+sudo service docker start
 docker run -d --name mongodb -p 27017:27017 mongo:latest
 
 # 3. Backend setup
