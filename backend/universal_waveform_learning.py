@@ -1238,6 +1238,86 @@ class UniversalWaveformLearningSystem:
     # Additional synthesis methods would continue here...
     # (I'll include the key methods needed for the system to work)
     
+    # ==========================================
+    # SYNTHESIS HELPER METHODS
+    # ==========================================
+    
+    def _estimate_square_wave_period(self, plateaus: List[Dict]) -> int:
+        """Estimate period of square wave from plateaus"""
+        try:
+            if len(plateaus) < 2:
+                return 10  # Default period
+            
+            # Calculate average length of two consecutive plateaus (one cycle)
+            cycle_lengths = []
+            for i in range(0, len(plateaus) - 1, 2):  # Take every other pair
+                if i + 1 < len(plateaus):
+                    cycle_length = plateaus[i]['length'] + plateaus[i+1]['length']
+                    cycle_lengths.append(cycle_length)
+            
+            if cycle_lengths:
+                return int(np.mean(cycle_lengths))
+            else:
+                return sum(p['length'] for p in plateaus[:2]) if len(plateaus) >= 2 else 10
+        except Exception as e:
+            logger.error(f"Error estimating square wave period: {e}")
+            return 10
+    
+    def _get_last_square_wave_level(self, data: np.ndarray, amplitude_levels: List[float]) -> float:
+        """Get the last level in square wave"""
+        try:
+            if not amplitude_levels:
+                return data[-1]
+            
+            last_value = data[-1]
+            # Find closest amplitude level
+            closest_level = min(amplitude_levels, key=lambda x: abs(x - last_value))
+            return closest_level
+        except Exception as e:
+            logger.error(f"Error getting last square wave level: {e}")
+            return data[-1]
+    
+    def _estimate_triangular_wave_period(self, peaks: np.ndarray, valleys: np.ndarray) -> int:
+        """Estimate period of triangular wave"""
+        try:
+            all_extrema = np.sort(np.concatenate([peaks, valleys]))
+            
+            if len(all_extrema) < 4:
+                return 10  # Default period
+            
+            # A full period is from peak to peak (or valley to valley)
+            # which includes 4 extrema: peak -> valley -> peak -> valley
+            spacings = []
+            for i in range(0, len(all_extrema) - 3, 2):
+                period = all_extrema[i + 3] - all_extrema[i]
+                spacings.append(period)
+            
+            if spacings:
+                return int(np.mean(spacings))
+            else:
+                return 10
+        except Exception as e:
+            logger.error(f"Error estimating triangular wave period: {e}")
+            return 10
+    
+    def _estimate_triangular_amplitude(self, data: np.ndarray, peaks: np.ndarray, valleys: np.ndarray) -> float:
+        """Estimate amplitude of triangular wave"""
+        try:
+            if len(peaks) > 0 and len(valleys) > 0:
+                peak_values = data[peaks]
+                valley_values = data[valleys]
+                amplitude = (np.mean(peak_values) - np.mean(valley_values)) / 2
+                return abs(amplitude)
+            elif len(peaks) > 0:
+                return np.mean(data[peaks]) - np.mean(data)
+            elif len(valleys) > 0:
+                return np.mean(data) - np.mean(data[valleys])
+            else:
+                return np.std(data)
+        except Exception as e:
+            logger.error(f"Error estimating triangular amplitude: {e}")
+            return np.std(data)
+
     def _fallback_pattern_synthesis(self, data: np.ndarray, steps: int) -> np.ndarray:
         """Fallback synthesis method when specialized methods fail"""
         try:
