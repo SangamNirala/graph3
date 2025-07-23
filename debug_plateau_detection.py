@@ -23,7 +23,11 @@ def test_plateau_detection():
     plateaus = system._find_plateaus(square_wave)
     print(f"Found {len(plateaus)} plateaus:")
     for i, plateau in enumerate(plateaus):
-        print(f"  Plateau {i+1}: start={plateau['start']}, length={plateau['length']}, value={plateau['value']}")
+        print(f"  Plateau {i+1}: {plateau}")
+        if 'start' in plateau:
+            print(f"    start={plateau['start']}, length={plateau['length']}, value={plateau['value']}")
+        else:
+            print(f"    Keys: {list(plateau.keys())}")
     
     # Test transitions
     transitions = system._find_sharp_transitions(square_wave)
