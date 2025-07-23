@@ -508,6 +508,25 @@ For support and questions:
 - ✅ **Docker MongoDB Integration**: Simplified database setup with containerization
 - ⚠️ **WebSocket Limitations**: Real-time streaming may have infrastructure constraints in Codespaces
 
+## ⚡ Quick Setup Commands
+
+For developers who want to get started immediately:
+
+```bash
+# 1. Clone repository
+git clone <repository-url>
+
+# 2. Start MongoDB via Docker
+docker run -d --name mongodb -p 27017:27017 mongo:latest
+
+# 3. Backend setup
+cd backend && pip install -r requirements.txt
+uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+
+# 4. Frontend setup  
+cd frontend && yarn install && yarn start
+```
+
 ---
 
 Built with ❤️ using React, FastAPI, MongoDB, Docker, and state-of-the-art machine learning technologies.
