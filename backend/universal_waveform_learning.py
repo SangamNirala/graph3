@@ -4150,3 +4150,172 @@ class UniversalWaveformLearningSystem:
         except Exception as e:
             logger.error(f"Error calculating R-squared: {e}")
             return 0.0
+
+    def _analyze_pulse_characteristics(self, pulses: List[Dict], data: np.ndarray) -> Dict[str, Any]:
+        """Analyze pulse characteristics"""
+        try:
+            if not pulses:
+                return {'pulse_score': 0.0}
+            
+            pulse_widths = [p['width'] for p in pulses]
+            pulse_heights = [p['peak_value'] for p in pulses]
+            
+            # Consistency scoring
+            width_consistency = 1.0 / (1.0 + np.std(pulse_widths) / (np.mean(pulse_widths) + 1e-10))
+            height_consistency = 1.0 / (1.0 + np.std(pulse_heights) / (np.mean(pulse_heights) + 1e-10))
+            
+            return {
+                'pulse_score': (width_consistency + height_consistency) / 2,
+                'pulse_count': len(pulses),
+                'avg_width': np.mean(pulse_widths),
+                'avg_height': np.mean(pulse_heights)
+            }
+        except Exception as e:
+            logger.error(f"Error analyzing pulse characteristics: {e}")
+            return {'pulse_score': 0.0}
+    
+    def _test_self_similarity(self, data: np.ndarray) -> float:
+        """Test self-similarity for fractal patterns"""
+        try:
+            if len(data) < 8:
+                return 0.0
+            
+            # Simple box-counting approach
+            scales = [2, 4, 8]
+            box_counts = []
+            
+            for scale in scales:
+                if scale < len(data):
+                    # Divide data into boxes of given scale
+                    num_boxes = len(data) // scale
+                    boxes_with_data = 0
+                    
+                    for i in range(num_boxes):
+                        box_data = data[i*scale:(i+1)*scale]
+                        if np.std(box_data) > np.std(data) * 0.1:  # Box has variation
+                            boxes_with_data += 1
+                    
+                    box_counts.append(boxes_with_data)
+            
+            if len(box_counts) >= 2:
+                # Calculate fractal dimension approximation
+                log_scales = np.log(scales[:len(box_counts)])
+                log_counts = np.log([c + 1 for c in box_counts])  # +1 to avoid log(0)
+                
+                correlation = np.corrcoef(log_scales, log_counts)[0, 1]
+                return abs(correlation) if not np.isnan(correlation) else 0.0
+            
+            return 0.0
+        except Exception as e:
+            logger.error(f"Error testing self-similarity: {e}")
+            return 0.0
+    
+    def _analyze_phase_space(self, data: np.ndarray) -> Dict[str, Any]:
+        """Analyze phase space for chaotic patterns"""
+        try:
+            if len(data) < 10:
+                return {'chaos_score': 0.0}
+            
+            # Create phase space reconstruction with delay embedding
+            delay = 1
+            embedding_dim = 3
+            
+            if len(data) < embedding_dim + delay:
+                return {'chaos_score': 0.0}
+            
+            # Create embedded vectors
+            embedded = []
+            for i in range(len(data) - (embedding_dim - 1) * delay):
+                vector = [data[i + j * delay] for j in range(embedding_dim)]
+                embedded.append(vector)
+            
+            if len(embedded) < 5:
+                return {'chaos_score': 0.0}
+            
+            # Calculate approximate correlation dimension
+            embedded = np.array(embedded)
+            distances = []
+            
+            for i in range(len(embedded)):
+                for j in range(i + 1, min(i + 10, len(embedded))):  # Limit comparisons
+                    dist = np.linalg.norm(embedded[i] - embedded[j])
+                    distances.append(dist)
+            
+            if distances:
+                chaos_score = np.std(distances) / (np.mean(distances) + 1e-10)
+                return {'chaos_score': min(1.0, chaos_score)}
+            
+            return {'chaos_score': 0.0}
+        except Exception as e:
+            logger.error(f"Error analyzing phase space: {e}")
+            return {'chaos_score': 0.0}
+    
+    def _detect_component_pattern(self, data: np.ndarray, component_type: str) -> Dict[str, Any]:
+        """Detect specific component patterns"""
+        try:
+            if component_type == 'trend':
+                # Linear trend detection
+                x = np.arange(len(data))
+                coeffs = np.polyfit(x, data, 1)
+                r_squared = self._calculate_r2(data, np.polyval(coeffs, x))
+                return {
+                    'confidence': r_squared,
+                    'type': 'trend',
+                    'slope': coeffs[0],
+                    'intercept': coeffs[1]
+                }
+            elif component_type == 'seasonal':
+                # Simple seasonality detection
+                if len(data) >= 10:
+                    period = 10  # Assume period of 10
+                    seasonal_component = []
+                    for i in range(period):
+                        values = data[i::period]
+                        seasonal_component.append(np.mean(values))
+                    
+                    # Repeat seasonal component
+                    seasonal_pattern = np.tile(seasonal_component, len(data) // period + 1)[:len(data)]
+                    r_squared = self._calculate_r2(data, seasonal_pattern)
+                    
+                    return {
+                        'confidence': r_squared,
+                        'type': 'seasonal',
+                        'period': period,
+                        'pattern': seasonal_component
+                    }
+            
+            return {'confidence': 0.0, 'type': component_type}
+        except Exception as e:
+            logger.error(f"Error detecting component pattern: {e}")
+            return {'confidence': 0.0, 'type': component_type}
+    
+    def _calculate_pattern_consistency(self, data: np.ndarray) -> float:
+        """Calculate pattern consistency across the data"""
+        try:
+            if len(data) < 6:
+                return 0.0
+            
+            # Divide data into segments and compare
+            segment_size = len(data) // 3
+            if segment_size < 2:
+                return 0.0
+            
+            segments = [
+                data[:segment_size],
+                data[segment_size:2*segment_size],
+                data[2*segment_size:3*segment_size]
+            ]
+            
+            # Calculate correlations between segments
+            correlations = []
+            for i in range(len(segments)):
+                for j in range(i + 1, len(segments)):
+                    if len(segments[i]) == len(segments[j]):
+                        corr = np.corrcoef(segments[i], segments[j])[0, 1]
+                        if not np.isnan(corr):
+                            correlations.append(abs(corr))
+            
+            return np.mean(correlations) if correlations else 0.0
+        except Exception as e:
+            logger.error(f"Error calculating pattern consistency: {e}")
+            return 0.0
