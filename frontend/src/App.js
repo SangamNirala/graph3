@@ -1588,7 +1588,7 @@ function App() {
                   title="Generated Predictions"
                   color="#10B981"
                   showAnimation={false}
-                  smoothLevel="high"
+                  smoothLevel="adaptive"
                 />
               ) : (
                 <div className="border border-gray-300 rounded h-64 flex items-center justify-center text-gray-500">
