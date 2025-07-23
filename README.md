@@ -329,11 +329,47 @@ docker --version
 docker ps -a
 ```
 
-### Performance Optimization
-- For large datasets, use data preprocessing and quality validation
-- Enable noise reduction for smoother real-time predictions  
-- Use appropriate model types for your data characteristics
-- Monitor memory usage with advanced ML models
+## 🔄 Development Workflow
+
+### Starting the Application
+```bash
+# Step 1: Start MongoDB (if not already running)
+docker ps  # Check if mongodb container exists
+# If not running:
+docker run -d --name mongodb -p 27017:27017 mongo:latest
+
+# Step 2: Start Backend (Terminal 1)
+cd /app/backend
+uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+
+# Step 3: Start Frontend (Terminal 2)  
+cd /app/frontend
+yarn start
+```
+
+### Stopping the Application
+```bash
+# Stop frontend and backend with Ctrl+C in their terminals
+
+# Stop MongoDB container
+docker stop mongodb
+
+# Remove MongoDB container (optional)
+docker rm mongodb
+```
+
+### Restarting Services
+```bash
+# Restart MongoDB
+docker restart mongodb
+
+# Backend and Frontend restart automatically with --reload flag
+# Or stop with Ctrl+C and restart manually
+```
+
+### WebSocket Limitations
+- WebSocket real-time features may have infrastructure limitations in Codespaces
+- Use polling endpoints as fallback for real-time data
 
 ## 📁 Project Structure
 
