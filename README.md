@@ -49,7 +49,7 @@ A comprehensive real-time pH monitoring and prediction system with advanced mach
 - Python 3.11+ 
 - Node.js 20+
 - Yarn package manager
-- MongoDB
+- Docker (for MongoDB)
 - Git
 
 ### 1. Clone the Repository
@@ -58,85 +58,96 @@ git clone <repository-url>
 cd <project-directory>
 ```
 
-### 2. Backend Setup
+### 2. Database Setup (MongoDB with Docker)
 
-#### Install Python Dependencies
+#### Install Docker (if not available)
 ```bash
-cd backend
-pip install -r requirements.txt
+sudo apt update
+sudo apt install -y docker.io
 ```
 
-#### Set Environment Variables
-The backend `.env` file is already configured:
+#### Start MongoDB Container
 ```bash
-# backend/.env (already configured)
+# Start MongoDB in Docker container
+docker run -d --name mongodb -p 27017:27017 mongo:latest
+
+# Verify MongoDB is running
+docker ps
+```
+
+You should see output like:
+```
+CONTAINER ID   IMAGE          COMMAND                  CREATED       STATUS       PORTS                                             NAMES
+6e0a0ee5ec42   mongo:latest   "docker-entrypoint.s…"   1 minute ago  Up 1 minute  0.0.0.0:27017->27017/tcp, [::]:27017->27017/tcp  mongodb
+```
+
+### 3. Backend Setup
+
+#### Set Environment Variables
+The backend `.env` file should contain:
+```bash
+# backend/.env
 MONGO_URL="mongodb://localhost:27017"
 DB_NAME="test_database"
 ```
 
-#### Start Backend (Development)
+#### Install Python Dependencies
 ```bash
-# Option 1: Direct uvicorn (for development)
+cd /app/backend
+pip install -r requirements.txt
+```
+
+#### Start Backend
+```bash
 cd /app/backend
 uvicorn server:app --host 0.0.0.0 --port 8001 --reload
-
-# Option 2: Using supervisor (recommended)
-sudo supervisorctl restart backend
 ```
 
-### 3. Frontend Setup
-
-#### Install Node Dependencies
-```bash
-cd frontend
-yarn install
-```
+### 4. Frontend Setup
 
 #### Environment Configuration
-The frontend `.env` file is already configured with the production backend URL:
+The frontend `.env` file is already configured:
 ```bash
 # frontend/.env (already configured)
 REACT_APP_BACKEND_URL=https://ee04ac22-cb45-4b61-832c-93de71320985.preview.emergentagent.com
 WDS_SOCKET_PORT=443
 ```
 
-#### Start Frontend (Development)
+#### Install Node Dependencies and Start
 ```bash
-# Option 1: Direct yarn (for development)
-cd /app/frontend  
+cd /app/frontend
+yarn install
 yarn start
-
-# Option 2: Using supervisor (recommended)
-sudo supervisorctl restart frontend
 ```
 
-### 4. Database Setup
+### 5. Complete System Startup (3 Terminals Required)
 
-#### Start MongoDB
+#### Terminal 1: MongoDB (already running via Docker)
 ```bash
-# Option 1: Direct mongod
-mongod --bind_ip_all
+# Verify MongoDB is running
+docker ps
 
-# Option 2: Using supervisor (recommended)
-sudo supervisorctl restart mongodb
+# If not running, start it:
+docker run -d --name mongodb -p 27017:27017 mongo:latest
 ```
 
-### 5. Complete System Startup
-
-#### Start All Services
+#### Terminal 2: Backend
 ```bash
-# Start all services using supervisor
-sudo supervisorctl restart all
+cd /app/backend
+uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+```
 
-# Check service status
-sudo supervisorctl status
+#### Terminal 3: Frontend
+```bash
+cd /app/frontend
+yarn start
 ```
 
 #### Verify Services
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8001 
 - **API Documentation**: http://localhost:8001/docs
-- **MongoDB**: mongodb://localhost:27017
+- **MongoDB**: mongodb://localhost:27017 (running in Docker)
 
 ## 📊 Usage Guide
 
