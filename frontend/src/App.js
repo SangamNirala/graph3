@@ -1580,7 +1580,7 @@ function App() {
                   title="LSTM Predictions"
                   color="#10B981"
                   showAnimation={isPredicting}
-                  smoothLevel="high"
+                  smoothLevel="adaptive"
                 />
               ) : predictionData && predictionData.predictions && predictionData.predictions.length > 0 ? (
                 <PhChart 
