@@ -1318,6 +1318,228 @@ class UniversalWaveformLearningSystem:
             logger.error(f"Error estimating triangular amplitude: {e}")
             return np.std(data)
 
+    def _synthesize_sawtooth_wave(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Synthesize sawtooth wave predictions"""
+        try:
+            # Simple sawtooth synthesis - linear rise then sharp drop
+            period = pattern_info.get('period', 10)
+            amplitude = pattern_info.get('amplitude', np.std(data))
+            offset = pattern_info.get('offset', np.mean(data))
+            
+            predictions = []
+            current_position = len(data)
+            
+            for step in range(steps):
+                position = (current_position + step) % period
+                # Sawtooth: linear rise then sharp drop
+                value = offset + amplitude * (2 * position / period - 1)
+                predictions.append(value)
+            
+            return np.array(predictions)
+        except Exception as e:
+            logger.error(f"Error synthesizing sawtooth wave: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _synthesize_step_function(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Synthesize step function predictions"""
+        try:
+            levels = pattern_info.get('levels', [np.min(data), np.max(data)])
+            step_size = pattern_info.get('step_size', 5)
+            
+            predictions = []
+            current_level_idx = 0
+            
+            for step in range(steps):
+                if step % step_size == 0 and len(levels) > 1:
+                    current_level_idx = (current_level_idx + 1) % len(levels)
+                
+                predictions.append(levels[current_level_idx])
+            
+            return np.array(predictions)
+        except Exception as e:
+            logger.error(f"Error synthesizing step function: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _synthesize_pulse_pattern(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Synthesize pulse pattern predictions"""
+        try:
+            pulse_width = pattern_info.get('pulse_width', 3)
+            pulse_interval = pattern_info.get('pulse_interval', 10)
+            baseline = pattern_info.get('baseline', np.min(data))
+            pulse_height = pattern_info.get('pulse_height', np.max(data))
+            
+            predictions = []
+            
+            for step in range(steps):
+                position = step % pulse_interval
+                if position < pulse_width:
+                    predictions.append(pulse_height)
+                else:
+                    predictions.append(baseline)
+            
+            return np.array(predictions)
+        except Exception as e:
+            logger.error(f"Error synthesizing pulse pattern: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _synthesize_exponential_pattern(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Synthesize exponential pattern predictions"""
+        try:
+            # Simple exponential continuation
+            if len(data) < 2:
+                return self._fallback_pattern_synthesis(data, steps)
+            
+            # Estimate exponential parameters from recent data
+            recent_data = data[-min(10, len(data)):]
+            x = np.arange(len(recent_data))
+            
+            # Try to fit exponential
+            try:
+                # Use log transform if all values are positive
+                if np.all(recent_data > 0):
+                    log_data = np.log(recent_data)
+                    coeffs = np.polyfit(x, log_data, 1)
+                    
+                    predictions = []
+                    last_idx = len(data) - 1
+                    for step in range(1, steps + 1):
+                        exp_value = np.exp(coeffs[1] + coeffs[0] * (last_idx + step))
+                        predictions.append(exp_value)
+                    
+                    return np.array(predictions)
+                else:
+                    return self._fallback_pattern_synthesis(data, steps)
+            except:
+                return self._fallback_pattern_synthesis(data, steps)
+        except Exception as e:
+            logger.error(f"Error synthesizing exponential pattern: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _synthesize_sinusoidal_pattern(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Synthesize sinusoidal pattern predictions"""
+        try:
+            amplitude = pattern_info.get('amplitude', np.std(data))
+            frequency = pattern_info.get('frequency', 0.1)
+            phase = pattern_info.get('phase', 0)
+            offset = pattern_info.get('offset', np.mean(data))
+            
+            predictions = []
+            current_position = len(data)
+            
+            for step in range(1, steps + 1):
+                position = current_position + step
+                value = offset + amplitude * np.sin(2 * np.pi * frequency * position + phase)
+                predictions.append(value)
+            
+            return np.array(predictions)
+        except Exception as e:
+            logger.error(f"Error synthesizing sinusoidal pattern: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _synthesize_polynomial_pattern(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Synthesize polynomial pattern predictions"""
+        try:
+            coefficients = pattern_info.get('coefficients', [])
+            degree = pattern_info.get('degree', 2)
+            
+            if not coefficients:
+                # Fit polynomial to recent data
+                recent_data = data[-min(20, len(data)):]
+                x = np.arange(len(recent_data))
+                coefficients = np.polyfit(x, recent_data, min(degree, len(recent_data) - 1))
+            
+            predictions = []
+            current_position = len(data)
+            
+            for step in range(1, steps + 1):
+                position = current_position + step
+                value = np.polyval(coefficients, position)
+                predictions.append(value)
+            
+            return np.array(predictions)
+        except Exception as e:
+            logger.error(f"Error synthesizing polynomial pattern: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _synthesize_spline_pattern(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Synthesize spline pattern predictions"""
+        try:
+            from scipy.interpolate import UnivariateSpline
+            
+            # Use recent data to fit spline
+            recent_data = data[-min(30, len(data)):]
+            x = np.arange(len(recent_data))
+            
+            # Fit spline
+            spline = UnivariateSpline(x, recent_data, k=3, s=len(recent_data)*0.1)
+            
+            # Extrapolate
+            predictions = []
+            for step in range(1, steps + 1):
+                # Simple linear extrapolation of spline trend
+                trend = spline.derivative()(x[-1])  # Get derivative at end
+                value = recent_data[-1] + trend * step
+                predictions.append(value)
+            
+            return np.array(predictions)
+        except Exception as e:
+            logger.error(f"Error synthesizing spline pattern: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _synthesize_composite_pattern(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Synthesize composite pattern predictions"""
+        try:
+            # For composite patterns, use combination of simple methods
+            components = pattern_info.get('components', [])
+            
+            if not components:
+                return self._fallback_pattern_synthesis(data, steps)
+            
+            # Combine predictions from different components
+            combined_predictions = np.zeros(steps)
+            total_weight = 0
+            
+            for component in components:
+                component_type = component.get('type', 'linear')
+                weight = component.get('weight', 1.0)
+                
+                if component_type == 'sinusoidal':
+                    component_pred = self._synthesize_sinusoidal_pattern(data, steps, component)
+                elif component_type == 'linear':
+                    component_pred = self._fallback_pattern_synthesis(data, steps)
+                else:
+                    component_pred = self._fallback_pattern_synthesis(data, steps)
+                
+                combined_predictions += weight * component_pred
+                total_weight += weight
+            
+            if total_weight > 0:
+                combined_predictions /= total_weight
+            
+            return combined_predictions
+        except Exception as e:
+            logger.error(f"Error synthesizing composite pattern: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+    
+    def _synthesize_custom_shape(self, data: np.ndarray, steps: int, pattern_info: Dict[str, Any]) -> np.ndarray:
+        """Synthesize custom shape pattern predictions"""
+        try:
+            template = pattern_info.get('template', data)
+            
+            if len(template) == 0:
+                return self._fallback_pattern_synthesis(data, steps)
+            
+            # Repeat pattern from template
+            predictions = []
+            for step in range(steps):
+                template_idx = step % len(template)
+                predictions.append(template[template_idx])
+            
+            return np.array(predictions)
+        except Exception as e:
+            logger.error(f"Error synthesizing custom shape: {e}")
+            return self._fallback_pattern_synthesis(data, steps)
+
     def _fallback_pattern_synthesis(self, data: np.ndarray, steps: int) -> np.ndarray:
         """Fallback synthesis method when specialized methods fail"""
         try:
