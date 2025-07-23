@@ -183,6 +183,32 @@ class PredictionData(BaseModel):
     confidence_intervals: Optional[List[Dict[str, float]]] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
+def make_json_serializable(obj):
+    """Convert any object to be JSON serializable"""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, (np.bool_, bool)):
+        return bool(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {k: make_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [make_json_serializable(item) for item in obj]
+    elif hasattr(obj, '__dict__'):
+        return {k: make_json_serializable(v) for k, v in obj.__dict__.items()}
+    else:
+        # For other non-serializable objects, convert to string
+        try:
+            json.dumps(obj)  # Test if it's already serializable
+            return obj
+        except (TypeError, ValueError):
+            return str(obj)
+
 # Global variables to store current model and data
 current_model = None
 current_data = None
