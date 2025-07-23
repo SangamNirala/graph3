@@ -79,6 +79,9 @@ sudo apt install -y docker.io
 
 **Start MongoDB Container:**
 ```bash
+
+sudo service docker start
+
 # Start MongoDB in Docker container
 docker run -d --name mongodb -p 27017:27017 mongo:latest
 
