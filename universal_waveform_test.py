@@ -441,10 +441,10 @@ class UniversalWaveformTester:
             return False
         
         try:
-            # Test 1: Basic endpoint call
-            response = self.session.post(
+            # Test 1: Basic endpoint call (GET request)
+            response = self.session.get(
                 f"{API_BASE_URL}/generate-universal-waveform-prediction",
-                json={"data_id": data_id, "prediction_steps": 15}
+                params={"steps": 15, "time_window": 50, "learning_mode": "comprehensive"}
             )
             
             if response.status_code != 200:
