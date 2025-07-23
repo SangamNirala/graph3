@@ -185,12 +185,12 @@ yarn start
 
 ## 🔧 Configuration
 
-### Backend Configuration
+### Backend Configuration  
 ```python
 # Key configuration files:
 - server.py: Main FastAPI application
 - requirements.txt: Python dependencies
-- .env: Environment variables
+- .env: Environment variables (MONGO_URL, DB_NAME)
 ```
 
 ### Frontend Configuration  
@@ -198,22 +198,21 @@ yarn start
 // Key configuration files:
 - package.json: Node.js dependencies
 - tailwind.config.js: Styling configuration
-- .env: Environment variables
+- .env: Environment variables (REACT_APP_BACKEND_URL)
 ```
 
-### Supervisor Configuration
-```ini
-# /etc/supervisor/conf.d/supervisord.conf
-[program:backend]
-command=/root/.venv/bin/uvicorn server:app --host 0.0.0.0 --port 8001 --workers 1 --reload
-directory=/app/backend
+### Docker MongoDB Configuration
+```bash
+# MongoDB running in Docker container
+# Container name: mongodb
+# Port mapping: 0.0.0.0:27017->27017/tcp
+# Image: mongo:latest
 
-[program:frontend]  
-command=yarn start
-directory=/app/frontend
-
-[program:mongodb]
-command=/usr/bin/mongod --bind_ip_all
+# Management commands:
+docker ps                    # Check if container is running
+docker stop mongodb          # Stop MongoDB container
+docker start mongodb         # Start MongoDB container
+docker restart mongodb       # Restart MongoDB container
 ```
 
 ## 🧪 Testing
