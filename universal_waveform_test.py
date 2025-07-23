@@ -489,7 +489,6 @@ class UniversalWaveformTester:
             
             print("✅ API endpoint functionality validation PASSED")
             print(f"   Predictions: {len(predictions)} generated")
-            print(f"   Patterns detected: {len(detected_patterns.get('all_patterns', []))}")
             print(f"   Quality metrics: {list(quality_metrics.keys())}")
             
             self.test_results['api_endpoint'] = True
