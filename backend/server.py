@@ -4115,8 +4115,12 @@ async def generate_universal_waveform_prediction(steps: int = 30, time_window: i
             
             target_col = numeric_cols[-1]  # Use last numeric column
             data_values = current_data[target_col].values
+            logger.info(f"DEBUG: DataFrame shape: {current_data.shape}, target_col: {target_col}")
+            logger.info(f"DEBUG: First 10 data values: {data_values[:10]}")
+            logger.info(f"DEBUG: Data type: {type(data_values)}, dtype: {data_values.dtype}")
         else:
             data_values = current_data
+            logger.info(f"DEBUG: Direct data, shape: {np.array(data_values).shape}, first 10: {np.array(data_values)[:10]}")
         
         # Apply time window
         if time_window > 0 and len(data_values) > time_window:
