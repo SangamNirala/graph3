@@ -33,7 +33,11 @@ def test_plateau_detection():
     transitions = system._find_sharp_transitions(square_wave)
     print(f"Found {len(transitions)} transitions:")
     for i, trans in enumerate(transitions):
-        print(f"  Transition {i+1}: index={trans['index']}, magnitude={trans['magnitude']}, direction={trans['direction']}")
+        print(f"  Transition {i+1}: {trans}")
+        if 'index' in trans:
+            print(f"    index={trans['index']}, magnitude={trans['magnitude']}, direction={trans['direction']}")
+        else:
+            print(f"    Keys: {list(trans.keys())}")
     
     # Test full square wave detection
     result = system._detect_square_wave_pattern(square_wave)
