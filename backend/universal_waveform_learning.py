@@ -369,7 +369,7 @@ class UniversalWaveformLearningSystem:
                 'symmetry_score': float(symmetry_score),
                 'periodicity_score': float(periodicity_score),
                 'alternation_score': float(alternation_score),
-                'template': self._create_triangular_wave_template(peaks, valleys, data)
+                'template': self._create_triangular_wave_template(peaks, valleys, linear_segments, data)
             }
             
         except Exception as e:
