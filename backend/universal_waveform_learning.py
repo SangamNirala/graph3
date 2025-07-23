@@ -1570,8 +1570,12 @@ class UniversalWaveformLearningSystem:
     def _find_plateaus(self, data: np.ndarray, tolerance: float = None) -> List[Dict]:
         """Find flat segments (plateaus) in the data"""
         try:
+            logger.info(f"DEBUG: _find_plateaus called with data shape: {data.shape}, first 10 values: {data[:10]}")
+            
             if tolerance is None:
                 tolerance = np.std(data) * 0.1
+            
+            logger.info(f"DEBUG: Using tolerance: {tolerance}, data std: {np.std(data)}")
             
             plateaus = []
             current_plateau = None
@@ -1593,6 +1597,7 @@ class UniversalWaveformLearningSystem:
                 current_plateau['end'] = current_plateau['start'] + current_plateau['length'] - 1
                 plateaus.append(current_plateau)
             
+            logger.info(f"DEBUG: Found {len(plateaus)} plateaus: {plateaus}")
             return plateaus
         except Exception as e:
             logger.error(f"Error finding plateaus: {e}")
