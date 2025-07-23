@@ -4202,7 +4202,7 @@ async def generate_universal_waveform_prediction(steps: int = 30, time_window: i
             "confidence_intervals": prediction_result.get('confidence_intervals', [])[:steps],
             "prediction_method": "enhanced_universal_waveform",
             "waveform_analysis": {
-                "detected_patterns": prediction_result.get('waveform_characteristics', {}).get('detected_patterns', {}),
+                "detected_patterns": prediction_result.get('learning_results', {}).get('all_patterns', {}),
                 "pattern_complexity": prediction_result.get('waveform_characteristics', {}).get('pattern_complexity', 0.5),
                 "adaptability_score": prediction_result.get('waveform_characteristics', {}).get('adaptability_score', 0.5),
                 "shape_preservation": prediction_result.get('waveform_characteristics', {}).get('shape_preservation', 0.5),
