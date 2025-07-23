@@ -266,41 +266,68 @@ python focused_prediction_test.py
 
 #### Backend Won't Start
 ```bash
-# Check logs
-tail -f /var/log/supervisor/backend.err.log
-
-# Common fixes
+# Check backend logs in Terminal 2
+# Common fixes:
 cd /app/backend
 pip install -r requirements.txt
-sudo supervisorctl restart backend
+
+# Check if all dependencies are installed
+python -c "import pymongo; print('MongoDB driver OK')"
 ```
 
 #### Frontend Won't Start  
 ```bash
-# Check logs
-tail -f /var/log/supervisor/frontend.err.log
-
-# Common fixes
+# Check frontend logs in Terminal 3
+# Common fixes:
 cd /app/frontend
 yarn install
-sudo supervisorctl restart frontend
+
+# Clear cache if needed
+yarn cache clean
 ```
 
 #### MongoDB Connection Issues
 ```bash
-# Check MongoDB status
-sudo supervisorctl status mongodb
+# Check if MongoDB container is running
+docker ps
 
-# Restart MongoDB
-sudo supervisorctl restart mongodb
+# If not running, start MongoDB
+docker run -d --name mongodb -p 27017:27017 mongo:latest
 
-# Check logs
-tail -f /var/log/mongodb.err.log
+# If container exists but stopped
+docker start mongodb
+
+# Check MongoDB logs
+docker logs mongodb
+
+# Test MongoDB connection
+docker exec -it mongodb mongosh --eval "db.runCommand({ping: 1})"
 ```
 
-#### WebSocket Connection Issues
-- WebSocket real-time features may have infrastructure limitations
-- Use polling endpoints as fallback for real-time data
+#### Port Already in Use Errors
+```bash
+# Check what's using the ports
+sudo lsof -i :27017  # MongoDB
+sudo lsof -i :8001   # Backend
+sudo lsof -i :3000   # Frontend
+
+# Kill processes if needed
+sudo kill -9 <PID>
+```
+
+#### Docker Issues
+```bash
+# If Docker command fails
+sudo service docker start
+
+# If container name conflicts
+docker rm mongodb
+docker run -d --name mongodb -p 27017:27017 mongo:latest
+
+# Check Docker status
+docker --version
+docker ps -a
+```
 
 ### Performance Optimization
 - For large datasets, use data preprocessing and quality validation
