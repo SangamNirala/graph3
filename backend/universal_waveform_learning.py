@@ -4130,3 +4130,23 @@ class UniversalWaveformLearningSystem:
         except Exception as e:
             logger.error(f"Error in enhanced fallback synthesis: {e}")
             return self._fallback_pattern_synthesis(data, steps)
+
+    def _calculate_r2(self, actual: np.ndarray, predicted: np.ndarray) -> float:
+        """Calculate R-squared coefficient of determination"""
+        try:
+            if len(actual) != len(predicted) or len(actual) == 0:
+                return 0.0
+            
+            # Calculate R-squared
+            ss_res = np.sum((actual - predicted) ** 2)
+            ss_tot = np.sum((actual - np.mean(actual)) ** 2)
+            
+            if ss_tot == 0:
+                return 1.0 if ss_res == 0 else 0.0
+            
+            r_squared = 1 - (ss_res / ss_tot)
+            return max(0.0, r_squared)  # Ensure non-negative
+            
+        except Exception as e:
+            logger.error(f"Error calculating R-squared: {e}")
+            return 0.0
