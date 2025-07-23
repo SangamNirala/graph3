@@ -1073,7 +1073,7 @@ class UniversalWaveformLearningSystem:
         """Detect custom shapes using adaptive template matching"""
         try:
             # Create adaptive template from the data itself
-            template = self._create_adaptive_template(data)
+            template = self._create_adaptive_template(data, {})
             
             if template is None or len(template) < 3:
                 return {'confidence': 0.0, 'strength': 0.0}
