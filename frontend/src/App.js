@@ -597,19 +597,83 @@ function App() {
   }, [timeWindow]);
 
   // Enhanced smooth chart component for pH monitoring dashboard with advanced noise reduction
-  const PhChart = ({ data, title, color = '#3B82F6', showAnimation = false, currentValue = null, smoothLevel = 'high' }) => {
+  const PhChart = ({ data, title, color = '#3B82F6', showAnimation = false, currentValue = null, smoothLevel = 'adaptive' }) => {
     const canvasRef = React.useRef(null);
     const [animationFrame, setAnimationFrame] = React.useState(0);
     const [visualBuffer, setVisualBuffer] = React.useState([]);
     
+    // Detect pattern type from data to determine appropriate smoothing
+    const detectPatternType = (values) => {
+      if (!values || values.length < 10) return 'sinusoidal';
+      
+      // Calculate differences between consecutive points
+      const diffs = [];
+      for (let i = 1; i < values.length; i++) {
+        diffs.push(Math.abs(values[i] - values[i-1]));
+      }
+      
+      // Count sharp transitions (large differences)
+      const avgDiff = diffs.reduce((sum, d) => sum + d, 0) / diffs.length;
+      const sharpTransitions = diffs.filter(d => d > avgDiff * 2).length;
+      const sharpTransitionRatio = sharpTransitions / diffs.length;
+      
+      // Count plateaus (sequences of similar values)
+      let plateauCount = 0;
+      let currentPlateauLength = 1;
+      const tolerance = (Math.max(...values) - Math.min(...values)) * 0.05;
+      
+      for (let i = 1; i < values.length; i++) {
+        if (Math.abs(values[i] - values[i-1]) <= tolerance) {
+          currentPlateauLength++;
+        } else {
+          if (currentPlateauLength >= 3) plateauCount++;
+          currentPlateauLength = 1;
+        }
+      }
+      if (currentPlateauLength >= 3) plateauCount++;
+      
+      // Determine pattern type based on characteristics
+      if (sharpTransitionRatio > 0.3 && plateauCount > 2) {
+        return 'square_wave'; // Square wave or step function
+      } else if (sharpTransitionRatio > 0.2) {
+        return 'triangular_wave'; // Sharp edges, triangular or sawtooth
+      } else {
+        return 'sinusoidal'; // Smooth curves
+      }
+    };
+    
+    // Adaptive smoothing based on pattern type
+    const getAdaptiveSmoothingLevel = (values, requestedLevel) => {
+      if (requestedLevel !== 'adaptive') return requestedLevel;
+      
+      const patternType = detectPatternType(values);
+      
+      switch (patternType) {
+        case 'square_wave':
+          return 'none'; // No smoothing to preserve sharp edges
+        case 'triangular_wave':
+          return 'low'; // Minimal smoothing to preserve sharp peaks
+        case 'sinusoidal':
+        default:
+          return 'medium'; // Normal smoothing for curved patterns
+      }
+    };
+    
     // Frontend visual smoothing function using interpolation
-    const applyVisualSmoothing = (values, level = 'high') => {
+    const applyVisualSmoothing = (values, level = 'medium') => {
       if (!values || values.length < 3) return values;
+      
+      // Get adaptive smoothing level
+      const adaptiveLevel = getAdaptiveSmoothingLevel(values, level);
+      
+      if (adaptiveLevel === 'none') {
+        return values; // No smoothing for patterns that need sharp edges
+      }
       
       const smoothed = [...values];
       
       // Apply different smoothing levels
-      switch (level) {
+      switch (adaptiveLevel) {
         case 'high':
           // Apply multiple passes of smoothing for maximum smoothness
           for (let pass = 0; pass < 2; pass++) {
@@ -630,6 +694,8 @@ function App() {
             smoothed[i] = (smoothed[i-1] * 0.1 + smoothed[i] * 0.8 + smoothed[i+1] * 0.1);
           }
           break;
+        default:
+          return values;
       }
       
       return smoothed;
