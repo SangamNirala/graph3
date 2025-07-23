@@ -4229,6 +4229,9 @@ async def generate_universal_waveform_prediction(steps: int = 30, time_window: i
             }
         }
         
+        # Make response JSON serializable
+        response = make_json_serializable(response)
+        
         logger.info(f"Universal waveform prediction completed: {len(predictions)} predictions generated with quality score {response['quality_metrics']['overall_quality']:.3f}")
         return response
         
