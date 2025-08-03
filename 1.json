@@ -1,0 +1,261 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "audio_url",
+            "type": "string"
+          },
+          {
+            "name": "image",
+            "type": "file",
+            "fileType": "image"
+          }
+        ],
+        "options": {
+          "formName": "Voice + Image to PDF",
+          "description": "Upload image and paste audio file link"
+        }
+      },
+      "id": "FormsTrigger",
+      "name": "Form Trigger",
+      "type": "n8n-nodes-base.forms",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json[\"audio_url\"] }}",
+        "responseFormat": "file",
+        "options": {}
+      },
+      "id": "DownloadAudio",
+      "name": "Download Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "url": "https://api.assemblyai.com/v2/upload",
+        "method": "POST",
+        "responseFormat": "json",
+        "headerParameters": [
+          {
+            "name": "authorization",
+            "value": "YOUR_ASSEMBLYAI_API_KEY"
+          }
+        ],
+        "sendBinaryData": true,
+        "binaryPropertyName": "data"
+      },
+      "id": "UploadToAssemblyAI",
+      "name": "Upload to AssemblyAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "url": "https://api.assemblyai.com/v2/transcript",
+        "method": "POST",
+        "responseFormat": "json",
+        "headerParameters": [
+          {
+            "name": "authorization",
+            "value": "YOUR_ASSEMBLYAI_API_KEY"
+          },
+          {
+            "name": "content-type",
+            "value": "application/json"
+          }
+        ],
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={ \"audio_url\": $json.upload_url }"
+      },
+      "id": "StartTranscription",
+      "name": "Start Transcription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "interval": 20,
+        "unit": "seconds"
+      },
+      "id": "Wait",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "url": "=https://api.assemblyai.com/v2/transcript/{{$node.\"Start Transcription\".json[\"id\"]}}",
+        "method": "GET",
+        "responseFormat": "json",
+        "headerParameters": [
+          {
+            "name": "authorization",
+            "value": "YOUR_ASSEMBLYAI_API_KEY"
+          }
+        ]
+      },
+      "id": "GetTranscript",
+      "name": "Get Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const buffer = $binary.image.data;
+const base64Image = Buffer.from(buffer, 'base64').toString();
+return [{ json: { imageBase64: base64Image } }];"
+      },
+      "id": "ImageToBase64",
+      "name": "Image to Base64",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1100, 100]
+    },
+    {
+      "parameters": {
+        "functionCode": "const text = $node[\"Get Transcript\"].json.text;
+const imageBase64 = $node[\"Image to Base64\"].json.imageBase64;
+const html = `<html><body><h2>Transcription</h2><p>${text}</p><h2>Image</h2><img src=\"data:image/png;base64,${imageBase64}\" style=\"max-width: 100%;\"/></body></html>`;
+return [{ json: { html } }];"
+      },
+      "id": "CreateHTML",
+      "name": "Create HTML",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.html2pdf.app/v1/generate",
+        "method": "POST",
+        "responseFormat": "file",
+        "jsonParameters": true,
+        "bodyParametersJson": "={ \"html\": $json.html, \"apiKey\": \"YOUR_HTML2PDF_API_KEY\" }"
+      },
+      "id": "GeneratePDF",
+      "name": "Generate PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "binaryPropertyName": "data",
+        "fileName": "output.pdf",
+        "parents": ["root"]
+      },
+      "id": "UploadToDrive",
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 1,
+      "position": [1700, 300]
+    }
+  ],
+  "connections": {
+    "Form Trigger": {
+      "main": [[
+        {
+          "node": "Download Audio",
+          "type": "main",
+          "index": 0
+        },
+        {
+          "node": "Image to Base64",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    },
+    "Download Audio": {
+      "main": [[
+        {
+          "node": "Upload to AssemblyAI",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    },
+    "Upload to AssemblyAI": {
+      "main": [[
+        {
+          "node": "Start Transcription",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    },
+    "Start Transcription": {
+      "main": [[
+        {
+          "node": "Wait",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    },
+    "Wait": {
+      "main": [[
+        {
+          "node": "Get Transcript",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    },
+    "Get Transcript": {
+      "main": [[
+        {
+          "node": "Create HTML",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    },
+    "Image to Base64": {
+      "main": [[
+        {
+          "node": "Create HTML",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    },
+    "Create HTML": {
+      "main": [[
+        {
+          "node": "Generate PDF",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    },
+    "Generate PDF": {
+      "main": [[
+        {
+          "node": "Upload to Google Drive",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    }
+  }
+}
